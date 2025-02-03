@@ -18,15 +18,15 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="PostsScreen" component={UsersPostsScreen} />
-        <Stack.Screen name="MarketScreen" component={MarketScreen} />
-        <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
-        <Stack.Screen name="MessageScreen" component={MessageScreen} />
-        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-        <Stack.Screen name="Tabs" component={TabsScreen} />
+        <Stack.Screen name="Login" component={LoginScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="Register" component={RegisterScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="Home" component={HomeScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="PostsScreen" component={UsersPostsScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="MarketScreen" component={MarketScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="NotificationScreen" component={NotificationScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="MessageScreen" component={MessageScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen}  options={{ headerShown: false }}/>
+        <Stack.Screen name="Tabs" component={TabsScreen}  options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
