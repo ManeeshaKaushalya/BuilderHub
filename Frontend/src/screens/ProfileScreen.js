@@ -1,11 +1,8 @@
-import React from 'react';
+import React from 'react'
 import { View, Text, StyleSheet } from 'react-native';
-import TabBarComponent from './TabBarComponent';
+import TabBarComponent from './TabBarComponent'
 
-
-
-
-const HomeScreen = () => {
+function ProfileScreen() {
   return (
     <View style={styles.container}>
       <Text>Profile Screen Content</Text>
@@ -20,4 +17,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
 });
-export default HomeScreen;
+
+
+export default ProfileScreen
