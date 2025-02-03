@@ -3,8 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView,
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import LocationScreen from './LocationScreen';
+import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 
 const RegisterScreen = ({ navigation }) => {
+  const { isDarkMode } = useTheme(); // Get dark mode state
   const [profileImage, setProfileImage] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

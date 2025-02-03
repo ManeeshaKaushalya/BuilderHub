@@ -7,21 +7,24 @@ import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
 import ProfileScreen from './ProfileScreen';
+import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 
 const Tab = createBottomTabNavigator();
 
 const TabsScreen = () => {
+  const { isDarkMode } = useTheme(); // Get dark mode state
+
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: '#007BFF',
-        tabBarInactiveTintColor: 'gray',
+        tabBarInactiveTintColor: isDarkMode ? '#BBBBBB' : 'gray',
         tabBarStyle: {
           height: 60,
           padding: 5,
-          backgroundColor: '#ffffff',
+          backgroundColor: isDarkMode ? '#121212' : '#ffffff', // Dark or Light mode
           borderTopWidth: 1,
-          borderTopColor: '#f0f0f0',
+          borderTopColor: isDarkMode ? '#333' : '#f0f0f0',
         },
         headerShown: false,
       }}

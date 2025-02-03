@@ -3,8 +3,10 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform 
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 
 const LoginScreen = ({ navigation }) => {
+    const { isDarkMode } = useTheme(); // Get dark mode state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 

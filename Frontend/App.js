@@ -10,12 +10,14 @@ import NotificationScreen from './src/screens/NotificationScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MessageScreen from './src/screens/MessageScreen';
 import TabsScreen from './src/screens/TabsScreen';
+import { ThemeProvider } from './src/hooks/ThemeContext';
 
 
 const Stack = createStackNavigator();
 
 export default function App() {
   return (
+    <ThemeProvider>
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
         <Stack.Screen name="Login" component={LoginScreen}  options={{ headerShown: false }}/>
@@ -29,5 +31,6 @@ export default function App() {
         <Stack.Screen name="Tabs" component={TabsScreen}  options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
+    </ThemeProvider>
   );
 }
