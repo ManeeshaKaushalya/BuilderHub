@@ -1,22 +1,18 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native';
-import TabBarComponent from './TabBarComponent'
+
 
 function ProfileScreen() {
   return (
     <View style={styles.container}>
-      <Text>Profile Screen Content</Text>
-      <TabBarComponent/>
+      <Text style={styles.text}>Welcome to Profile Screen</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  text: { fontSize: 18, fontWeight: 'bold' },
 });
-
 
 export default ProfileScreen

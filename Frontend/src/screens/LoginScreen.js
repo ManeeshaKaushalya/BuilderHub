@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform 
+} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 const LoginScreen = ({ navigation }) => {
@@ -7,22 +9,21 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
-    // Add Firebase login logic here
-    console.log('Login with:', email, password);
-    navigation.navigate('Home'); // Navigate to Home after login
+    // TODO: Add Firebase login logic here
+    console.log('Logging in with:', email, password);
+    navigation.replace('Tabs'); // Navigate to Tabs (which includes Home)
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.container}
     >
       <View style={styles.innerContainer}>
-        <Image
-          source={require('../../assets/logo.png')} // Add your app logo here
-          style={styles.logo}
-        />
-       
+        <Image source={require('../../assets/logo.png')} style={styles.logo} />
+        
+        <Text style={styles.title}>Login</Text>
+
         <View style={styles.inputContainer}>
           <Icon name="envelope" size={20} color="#666" style={styles.icon} />
           <TextInput
@@ -34,6 +35,7 @@ const LoginScreen = ({ navigation }) => {
             autoCapitalize="none"
           />
         </View>
+
         <View style={styles.inputContainer}>
           <Icon name="lock" size={20} color="#666" style={styles.icon} />
           <TextInput
@@ -44,9 +46,11 @@ const LoginScreen = ({ navigation }) => {
             secureTextEntry
           />
         </View>
+
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
+
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
           <Text style={styles.link}>Don't have an account? <Text style={styles.linkBold}>Register here</Text></Text>
         </TouchableOpacity>
@@ -56,66 +60,17 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 140,
-    height: 100,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    height: 40,
-    color: '#333',
-  },
-  loginButton: {
-    width: '100%',
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 15,
-    color: '#666',
-  },
-  linkBold: {
-    fontWeight: 'bold',
-    color: '#007BFF',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  innerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  logo: { width: 140, height: 100, marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 15, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, paddingHorizontal: 10 },
+  icon: { marginRight: 10 },
+  input: { flex: 1, height: 40, color: '#333' },
+  loginButton: { width: '100%', backgroundColor: '#007BFF', padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
+  loginButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  link: { marginTop: 15, color: '#666' },
+  linkBold: { fontWeight: 'bold', color: '#007BFF' },
 });
 
 export default LoginScreen;
