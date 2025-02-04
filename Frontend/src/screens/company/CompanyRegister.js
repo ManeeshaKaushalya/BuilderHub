@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView,
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../hooks/ThemeContext';
+import LocationScreen from '../LocationScreen';
 
 const CompanyRegister = ({ navigation }) => {
   const { isDarkMode } = useTheme();
@@ -193,6 +194,7 @@ const CompanyRegister = ({ navigation }) => {
           onChangeText={setCompanyDescription} 
         />
       </View>
+      <LocationScreen />
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>Register</Text>

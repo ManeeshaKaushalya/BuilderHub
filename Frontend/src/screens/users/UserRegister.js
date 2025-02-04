@@ -6,7 +6,7 @@ import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
 
-const UserRegister = ({ navigation }) => {
+const UserRegister = ({ navigation,route }) => {
   const { isDarkMode } = useTheme();
   
   // Add missing state declarations
@@ -18,6 +18,7 @@ const UserRegister = ({ navigation }) => {
   const [profession, setProfession] = useState('');
   const [experience, setExperience] = useState('');
   const [skills, setSkills] = useState('');
+  const [location, setLocation] = useState(route?.params?.location || '');
 
   useEffect(() => {
     requestPermissions();
@@ -237,7 +238,12 @@ const UserRegister = ({ navigation }) => {
         </>
       )}
 
-      <LocationScreen />
+       {/* Location Picker */}
+       <LocationScreen location={location} />
+      
+      <TouchableOpacity onPress={() => navigation.navigate('MapScreen')}>
+        <Text>Select Location</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>Register</Text>
