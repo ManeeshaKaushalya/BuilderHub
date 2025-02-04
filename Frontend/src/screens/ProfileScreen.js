@@ -1,12 +1,5 @@
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Alert, 
-  Switch 
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 
 function ProfileScreen({ navigation }) {
