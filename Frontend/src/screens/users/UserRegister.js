@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  Alert 
-} from 'react-native';
+import { View,Text,TextInput,TouchableOpacity,StyleSheet,Image,ScrollView,Alert} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
@@ -262,70 +253,79 @@ const UserRegister = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  imageUploadContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  uploadText: {
-    marginBottom: 20,
-  },
-  inputContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  icon: {
-    padding: 10,
-  },
-  input: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 5,
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 15,
-    fontWeight: '500',
-  },
-  linkBold: {
-    fontWeight: 'bold',
-  },
-});
+    container: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 20,
+    },
+    imageUploadContainer: {
+      width: 120, // Adjust width
+      height: 120, // Adjust height
+      borderRadius: 60, // To keep the image circular
+      backgroundColor: '#f0f0f0',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 20, // Add more margin if needed for spacing
+      borderWidth: 1, // Optional: Add border to make it look defined
+      borderColor: '#ddd', // Optional: Add a border color
+    },
+    profileImage: {
+      width: 100, // Slightly reduce the size of the image
+      height: 100, // Keep it a circle
+      borderRadius: 50, // Circular image
+    },
+    uploadText: {
+      marginBottom: 20,
+      textAlign: 'center',
+      fontSize: 16, // Optional: Adjust font size for the upload text
+      color: '#555',
+    },
+    inputContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 5,
+      marginBottom: 10,
+      height: 50,
+    },
+    icon: {
+      padding: 10,
+    },
+    input: {
+      flex: 1,
+      padding: 10,
+      borderRadius: 5,
+      height: 50,
+      fontSize: 16,
+    },
+    button: {
+      backgroundColor: '#007BFF',
+      padding: 15,
+      borderRadius: 5,
+      alignItems: 'center',
+      width: '100%',
+      marginTop: 10,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    link: {
+      marginTop: 15,
+      fontWeight: '500',
+    },
+    linkBold: {
+      fontWeight: 'bold',
+    },
+  });
+  
 
 export default UserRegister;

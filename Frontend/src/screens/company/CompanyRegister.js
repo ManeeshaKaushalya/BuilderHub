@@ -1,226 +1,281 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet,
-  Alert 
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../hooks/ThemeContext';
-import LocationScreen from '../LocationScreen';
 
 const CompanyRegister = ({ navigation }) => {
   const { isDarkMode } = useTheme();
+  
+  // Add missing state declarations
   const [companyName, setCompanyName] = useState('');
-  const [businessEmail, setBusinessEmail] = useState('');
-  const [businessLicense, setBusinessLicense] = useState('');
-  const [errors, setErrors] = useState({
-    companyName: '',
-    businessEmail: '',
-    businessLicense: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [companyDescription, setCompanyDescription] = useState('');
+  const [profileImage, setProfileImage] = useState(null);
 
-  const validateEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  useEffect(() => {
+    requestPermissions();
+  }, []);
 
-  const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      companyName: '',
-      businessEmail: '',
-      businessLicense: ''
-    };
-
-    if (!companyName.trim()) {
-      newErrors.companyName = 'Company name is required';
-      isValid = false;
-    }
-
-    if (!businessEmail.trim()) {
-      newErrors.businessEmail = 'Business email is required';
-      isValid = false;
-    } else if (!validateEmail(businessEmail)) {
-      newErrors.businessEmail = 'Please enter a valid email address';
-      isValid = false;
-    }
-
-    if (!businessLicense.trim()) {
-      newErrors.businessLicense = 'Business license number is required';
-      isValid = false;
-    } else if (businessLicense.length < 5) {
-      newErrors.businessLicense = 'License number must be at least 5 characters';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  const handleCompanyRegister = () => {
-    if (validateForm()) {
-      try {
-        // Here you would typically make an API call to register the company
-        console.log('Company Registered:', { 
-          companyName, 
-          businessEmail, 
-          businessLicense 
-        });
-        
+  const requestPermissions = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
         Alert.alert(
-          'Success',
-          'Company registered successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login')
-            }
-          ]
-        );
-      } catch (error) {
-        Alert.alert(
-          'Error',
-          'Failed to register company. Please try again.',
+          'Permission Required',
+          'We need camera roll permissions to upload images.',
           [{ text: 'OK' }]
         );
       }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      Alert.alert('Error', 'Failed to request permissions');
     }
+  };
+
+  const handleImageUpload = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', 'Failed to upload image');
+    }
+  };
+
+  const handleRegister = () => {
+    // Add basic validation
+    if (!companyName || !email || !password) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    console.log('Register with:', { 
+      companyName, 
+      email, 
+      password, 
+      companyDescription, 
+      profileImage 
+    });
+
+    Alert.alert('Success', 'Registration successful!');
+    navigation.navigate('Login');
   };
 
   // Dynamic styles based on theme
   const dynamicStyles = StyleSheet.create({
     container: {
       ...styles.container,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff'
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff',
     },
-    sectionTitle: {
-      ...styles.sectionTitle,
-      color: isDarkMode ? '#fff' : '#000'
+    title: {
+      ...styles.title,
+      color: isDarkMode ? '#fff' : '#000',
+    },
+    inputContainer: {
+      ...styles.inputContainer,
+      backgroundColor: isDarkMode ? '#333' : '#f9f9f9',
+      borderColor: isDarkMode ? '#444' : '#ccc',
     },
     input: {
       ...styles.input,
-      backgroundColor: isDarkMode ? '#333' : '#f9f9f9',
-      borderColor: isDarkMode ? '#444' : '#ccc',
-      color: isDarkMode ? '#fff' : '#000'
+      color: isDarkMode ? '#fff' : '#000',
     },
-    inputContainer: {
-      width: '100%',
-      marginBottom: 15
+    uploadText: {
+      ...styles.uploadText,
+      color: isDarkMode ? '#ddd' : '#666',
     },
-    errorText: {
-      color: '#ff4444',
-      fontSize: 12,
-      marginTop: 2,
-      marginLeft: 2
-    }
+    link: {
+      ...styles.link,
+      color: isDarkMode ? '#66b0ff' : '#007BFF',
+    },
   });
 
-  const renderInput = (placeholder, value, setValue, errorKey, iconName, keyboardType = 'default', autoCapitalize = 'sentences') => (
-    <View style={dynamicStyles.inputContainer}>
-      <View style={styles.inputWrapper}>
+  return (
+    <ScrollView 
+      contentContainerStyle={dynamicStyles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={dynamicStyles.title}>Create Your Company Account</Text>
+
+      <TouchableOpacity 
+        style={styles.imageUploadContainer} 
+        onPress={handleImageUpload}
+      >
+        {profileImage ? (
+          <Image 
+            source={{ uri: profileImage }} 
+            style={styles.profileImage} 
+          />
+        ) : (
+          <Icon 
+            name="camera" 
+            size={50} 
+            color={isDarkMode ? '#444' : '#ccc'} 
+          />
+        )}
+      </TouchableOpacity>
+      <Text style={dynamicStyles.uploadText}>Upload Company Logo</Text>
+
+      <View style={dynamicStyles.inputContainer}>
         <Icon 
-          name={iconName} 
+          name="building" 
           size={20} 
           style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
         />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder={placeholder}
+        <TextInput 
+          style={dynamicStyles.input} 
+          placeholder="Company Name" 
           placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={value}
-          onChangeText={(text) => {
-            setValue(text);
-            if (errors[errorKey]) {
-              setErrors(prev => ({ ...prev, [errorKey]: '' }));
-            }
-          }}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
+          value={companyName} 
+          onChangeText={setCompanyName} 
         />
       </View>
-      {errors[errorKey] ? <Text style={dynamicStyles.errorText}>{errors[errorKey]}</Text> : null}
-    </View>
-  );
 
-  return (
-    <View style={dynamicStyles.container}>
-      <Text style={dynamicStyles.sectionTitle}>Company Registration</Text>
+      <View style={dynamicStyles.inputContainer}>
+        <Icon 
+          name="envelope" 
+          size={20} 
+          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+        />
+        <TextInput 
+          style={dynamicStyles.input} 
+          placeholder="Email" 
+          placeholderTextColor={isDarkMode ? '#888' : '#666'}
+          value={email} 
+          onChangeText={setEmail} 
+          keyboardType="email-address" 
+          autoCapitalize="none" 
+        />
+      </View>
 
-      {renderInput('Company Name', companyName, setCompanyName, 'companyName', 'building')}
-      {renderInput(
-        'Business Email', 
-        businessEmail, 
-        setBusinessEmail, 
-        'businessEmail', 
-        'envelope', 
-        'email-address', 
-        'none'
-      )}
-      {renderInput(
-        'Business License Number', 
-        businessLicense, 
-        setBusinessLicense, 
-        'businessLicense', 
-        'id-card'
-      )}
+      <View style={dynamicStyles.inputContainer}>
+        <Icon 
+          name="lock" 
+          size={20} 
+          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+        />
+        <TextInput 
+          style={dynamicStyles.input} 
+          placeholder="Password" 
+          placeholderTextColor={isDarkMode ? '#888' : '#666'}
+          value={password} 
+          onChangeText={setPassword} 
+          secureTextEntry 
+        />
+      </View>
 
-      <LocationScreen />
+      <View style={dynamicStyles.inputContainer}>
+        <Icon 
+          name="info-circle" 
+          size={20} 
+          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+        />
+        <TextInput 
+          style={dynamicStyles.input} 
+          placeholder="Company Description" 
+          placeholderTextColor={isDarkMode ? '#888' : '#666'}
+          value={companyDescription} 
+          onChangeText={setCompanyDescription} 
+        />
+      </View>
 
-      <TouchableOpacity 
-        style={[
-          styles.button,
-          { opacity: !companyName || !businessEmail || !businessLicense ? 0.7 : 1 }
-        ]} 
-        onPress={handleCompanyRegister}
-        disabled={!companyName || !businessEmail || !businessLicense}
-      >
-        <Text style={styles.buttonText}>Register Company</Text>
+      <TouchableOpacity style={styles.button} onPress={handleRegister}>
+        <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={dynamicStyles.link}>
+          Already have an account? <Text style={styles.linkBold}>Login here</Text>
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    padding: 16,
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: 'center'
   },
-  inputWrapper: {
+  imageUploadContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  uploadText: {
+    marginBottom: 20,
+  },
+  inputContainer: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 5,
-    overflow: 'hidden'
+    marginBottom: 10,
+    height: 50,
   },
   icon: {
     padding: 10,
-    width: 40,
-    textAlign: 'center'
   },
   input: {
     flex: 1,
-    padding: 12,
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    height: 50,
+    fontSize: 16,
   },
   button: {
     backgroundColor: '#007BFF',
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
-    marginTop: 20,
+    width: '100%',
+    marginTop: 10,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
+  link: {
+    marginTop: 15,
+    fontWeight: '500',
+  },
+  linkBold: {
+    fontWeight: 'bold',
+  },
 });
 
 export default CompanyRegister;
