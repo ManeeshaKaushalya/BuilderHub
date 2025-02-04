@@ -1,192 +1,107 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import { 
+  View, 
+  Text, 
+  Alert,
+  StyleSheet, 
+  ScrollView 
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import LocationScreen from './LocationScreen';
-import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import CompanyRegister from './company/CompanyRegister';
+import ShopRegister from './shops/ShopRegister';
+import UserRegister from './users/UserRegister';
 
 const RegisterScreen = ({ navigation }) => {
-  const { isDarkMode } = useTheme(); // Get dark mode state
-  const [profileImage, setProfileImage] = useState(null);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [profession, setProfession] = useState('');
-  const [experience, setExperience] = useState('');
-  const [skills, setSkills] = useState('');
+  const [accountType, setAccountType] = useState('Person');
 
   useEffect(() => {
-    (async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need camera roll permissions to upload images.');
-      }
-    })();
+    requestPermissions();
   }, []);
 
-  const handleImageUpload = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+  const requestPermissions = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'We need camera roll permissions to upload images.',
+          [{ text: 'OK', onPress: () => {} }]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      Alert.alert(
+        'Error',
+        'Failed to request camera roll permissions.',
+        [{ text: 'OK', onPress: () => {} }]
+      );
     }
   };
 
-  const handleRegister = () => {
-    console.log('Register with:', { name, email, password, profession, experience, skills, profileImage });
-    Alert.alert('Success', 'Registration successful!');
-    navigation.navigate('Login');
+  const renderRegisterComponent = () => {
+    switch (accountType) {
+      case 'Person':
+        return <UserRegister navigation={navigation} />;
+      case 'Company':
+        return <CompanyRegister navigation={navigation} />;
+      case 'MaterialShop':
+        return <ShopRegister navigation={navigation} />;
+      default:
+        return null;
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Create Your Account</Text>
-      <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
-        {profileImage ? <Image source={{ uri: profileImage }} style={styles.profileImage} /> : <Icon name="camera" size={50} color="#ccc" />}
-      </TouchableOpacity>
-      <Text style={styles.uploadText}>Upload Profile Picture</Text>
-      <View style={styles.inputContainer}>
-        <Icon name="user" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Full Name" 
-          value={name} 
-          onChangeText={setName} 
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Icon name="envelope" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Email" 
-          value={email} 
-          onChangeText={setEmail} 
-          keyboardType="email-address" 
-          autoCapitalize="none" 
-        />
+      
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={accountType}
+          onValueChange={setAccountType}
+          style={styles.picker}
+          mode="dropdown"
+        >
+          <Picker.Item label="Person" value="Person" />
+          <Picker.Item label="Company" value="Company" />
+          <Picker.Item label="Material Selling Shop" value="MaterialShop" />
+        </Picker>
       </View>
 
-      <View style={styles.inputContainer}>
-        <Icon name="lock" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Password" 
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry 
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Icon name="briefcase" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Profession" 
-          value={profession} 
-          onChangeText={setProfession} 
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Icon name="clock-o" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Years of Experience" 
-          value={experience} 
-          onChangeText={setExperience} 
-          keyboardType="numeric" 
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Icon name="tags" size={20} style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Skills (comma separated)" 
-          value={skills} 
-          onChangeText={setSkills} 
-        />
-      </View>
-    <LocationScreen/>
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.link}>Already have an account? <Text style={styles.linkBold}>Login here</Text></Text>
-      </TouchableOpacity>
+      {renderRegisterComponent()}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1, 
-    justifyContent: 'center', 
+    flexGrow: 1,
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff' 
+    backgroundColor: '#fff',
   },
-  inputContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  icon: {
-    padding: 10,
-    color: '#666',
-  },
-  title: { 
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20 
+    marginBottom: 20,
+    color: '#333',
   },
-  imageUploadContainer: { 
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10 
-  },
-  profileImage: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50 
-  },
-  uploadText: { 
-    color: '#666', 
-    marginBottom: 20 
-  },
-  input: {
-    flex: 1,
-    padding: 10,
+  pickerContainer: {
+    width: '100%',
+    borderWidth: 1,
     borderRadius: 5,
+    marginBottom: 20,
+    borderColor: '#ccc',
+    backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
   },
-  button: { 
-    backgroundColor: '#007BFF', 
-    padding: 15, 
-    borderRadius: 5, 
-    alignItems: 'center', 
-    width: '100%' 
-  },
-  buttonText: { 
-    color: '#fff', 
-    fontSize: 16, 
-    fontWeight: 'bold' 
-  },
-  link: { 
-    marginTop: 15, 
-    color: '#007BFF', 
-    fontWeight: 'bold'
+  picker: {
+    height: 50,
+    width: '100%',
   },
 });
 
