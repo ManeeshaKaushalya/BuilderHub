@@ -5,6 +5,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { auth, firestore } from '../../../firebase/firebaseConfig';
+import { createUserWithEmailAndPassword } from '@firebase/auth';
+import { doc, setDoc } from '@firebase/firestore';
 
 
 const UserRegister = ({ navigation,route }) => {
@@ -41,6 +45,8 @@ const UserRegister = ({ navigation,route }) => {
     }
   };
 
+ 
+
   const handleImageUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -49,15 +55,36 @@ const UserRegister = ({ navigation,route }) => {
         aspect: [1, 1],
         quality: 1,
       });
-
+  
       if (!result.canceled) {
-        setProfileImage(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        setProfileImage(uri);
+  
+        // Upload image to Firebase Storage
+        const storage = getStorage();
+        const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
+        const response = await fetch(uri);
+        const blob = await response.blob();
+  
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+        uploadTask.on(
+          'state_changed',
+          snapshot => {},
+          error => {
+            console.error('Image upload failed:', error);
+          },
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            setProfileImage(downloadURL);
+          }
+        );
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       Alert.alert('Error', 'Failed to upload image');
     }
   };
+  
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -70,48 +97,34 @@ const UserRegister = ({ navigation,route }) => {
       return;
     }
   
-    // Prepare form data
-    const formData = new FormData();
-    formData.append('accountType', accountType);
-    formData.append('name', name);
-    formData.append('email', email);
-    formData.append('password', password);
-    formData.append('profession', profession);
-    formData.append('experience', experience);
-    formData.append('skills', skills);
-    formData.append('location', location);
-  
-    // Add profile image to form data if available
-    if (profileImage) {
-      const uriParts = profileImage.split('.');
-      const fileType = uriParts[uriParts.length - 1];
-      const imageFile = {
-        uri: profileImage,
-        name: `profile.${fileType}`,
-        type: `image/${fileType}`,
-      };
-      formData.append('profileImage', imageFile);
-    }
-  
     try {
-      // Send data to backend
-      const response = await axios.post('http://your-backend-url/register', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Register user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
   
-      if (response.data.success) {
-        Alert.alert('Success', 'Registration successful!');
-        navigation.navigate('Login');
-      } else {
-        Alert.alert('Error', 'Registration failed');
-      }
+      // Prepare user data
+      const userData = {
+        name,
+        email,
+        accountType,
+        profession,
+        experience,
+        skills,
+        location,
+        profileImage: profileImage || '', // You can upload the image to Firebase Storage and store the URL here
+      };
+  
+      // Save user data to Firestore
+      await setDoc(doc(firestore, 'users', user.uid), userData);
+  
+      Alert.alert('Success', 'Registration successful!');
+      navigation.navigate('Login');
     } catch (error) {
       console.error('Registration error', error);
       Alert.alert('Error', 'Failed to register');
     }
   };
+  
   // Dynamic styles based on theme
   const dynamicStyles = StyleSheet.create({
     container: {
