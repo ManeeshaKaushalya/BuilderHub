@@ -6,6 +6,7 @@ import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
 
+
 const UserRegister = ({ navigation,route }) => {
   const { isDarkMode } = useTheme();
   
@@ -58,33 +59,59 @@ const UserRegister = ({ navigation,route }) => {
     }
   };
 
-  const handleRegister = () => {
-    // Add basic validation
+  const handleRegister = async () => {
     if (!name || !email || !password) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
-
+  
     if (!email.includes('@')) {
       Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
-
-    console.log('Register with:', { 
-      accountType, 
-      name, 
-      email, 
-      password, 
-      profession, 
-      experience, 
-      skills, 
-      profileImage 
-    });
-    
-    Alert.alert('Success', 'Registration successful!');
-    navigation.navigate('Login');
+  
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('accountType', accountType);
+    formData.append('name', name);
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('profession', profession);
+    formData.append('experience', experience);
+    formData.append('skills', skills);
+    formData.append('location', location);
+  
+    // Add profile image to form data if available
+    if (profileImage) {
+      const uriParts = profileImage.split('.');
+      const fileType = uriParts[uriParts.length - 1];
+      const imageFile = {
+        uri: profileImage,
+        name: `profile.${fileType}`,
+        type: `image/${fileType}`,
+      };
+      formData.append('profileImage', imageFile);
+    }
+  
+    try {
+      // Send data to backend
+      const response = await axios.post('http://your-backend-url/register', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
+      if (response.data.success) {
+        Alert.alert('Success', 'Registration successful!');
+        navigation.navigate('Login');
+      } else {
+        Alert.alert('Error', 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error', error);
+      Alert.alert('Error', 'Failed to register');
+    }
   };
-
   // Dynamic styles based on theme
   const dynamicStyles = StyleSheet.create({
     container: {
