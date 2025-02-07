@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View,Text,TextInput,TouchableOpacity,StyleSheet,Image,ScrollView,Alert} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
+import { useRoute } from '@react-navigation/native'; // Add this import
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
@@ -11,7 +12,8 @@ import { createUserWithEmailAndPassword } from '@firebase/auth';
 import { doc, setDoc } from '@firebase/firestore';
 
 
-const UserRegister = ({ navigation,route }) => {
+const UserRegister = ({ navigation}) => {
+  const route = useRoute(); // Add this line
   const { isDarkMode } = useTheme();
   
   // Add missing state declarations
@@ -24,11 +26,38 @@ const UserRegister = ({ navigation,route }) => {
   const [experience, setExperience] = useState('');
   const [skills, setSkills] = useState('');
   const [location, setLocation] = useState(route?.params?.location || '');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+
+
+   // Handle location updates from MapScreen
+   useEffect(() => {
+    if (route.params?.location) {
+      setLocation(route.params.location);
+    }
+  }, [route.params?.location]);
 
   useEffect(() => {
     requestPermissions();
   }, []);
 
+  // Add useEffect to handle auto-navigation
+  useEffect(() => {
+    let navigationTimer;
+    if (showSuccessModal) {
+      navigationTimer = setTimeout(() => {
+        setShowSuccessModal(false);
+        navigation.navigate('Login');
+      }, 2000); // Show success message for 2 seconds
+    }
+    return () => {
+      if (navigationTimer) {
+        clearTimeout(navigationTimer);
+      }
+    };
+  }, [showSuccessModal, navigation]);
+
+  
   const requestPermissions = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -86,6 +115,28 @@ const UserRegister = ({ navigation,route }) => {
   };
   
 
+  // Success Modal Component
+  const SuccessModal = () => (
+    <Modal
+      transparent={true}
+      visible={showSuccessModal}
+      animationType="fade"
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+          <Icon name="check-circle" size={50} color="#4CAF50" />
+          <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
+            Registration Successful!
+          </Text>
+          <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
+            Your account has been created successfully.
+          </Text>
+          {/* Removed the button since we're auto-navigating */}
+        </View>
+      </View>
+    </Modal>
+  );
+
   const handleRegister = async () => {
     if (!name || !email || !password) {
       Alert.alert('Error', 'Please fill in all required fields');
@@ -98,6 +149,8 @@ const UserRegister = ({ navigation,route }) => {
     }
   
     try {
+      setIsLoading(true);
+
       // Register user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -111,18 +164,27 @@ const UserRegister = ({ navigation,route }) => {
         experience,
         skills,
         location,
-        profileImage: profileImage || '', // You can upload the image to Firebase Storage and store the URL here
+        profileImage: profileImage || '',
+        createdAt: new Date().toISOString(),
       };
   
       // Save user data to Firestore
       await setDoc(doc(firestore, 'users', user.uid), userData);
-  
-      Alert.alert('Success', 'Registration successful!');
-      navigation.navigate('Login');
+      
+      setIsLoading(false);
+      setShowSuccessModal(true);
+      // Navigation is now handled by useEffect
     } catch (error) {
+      setIsLoading(false);
       console.error('Registration error', error);
       Alert.alert('Error', 'Failed to register');
     }
+  };
+  const handleLocationSelect = () => {
+    navigation.navigate('MapScreen', { 
+      registrationType: 'user',
+      previousLocation: location 
+    });
   };
   
   // Dynamic styles based on theme
@@ -155,6 +217,17 @@ const UserRegister = ({ navigation,route }) => {
   });
 
   return (
+    <>
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#007BFF" />
+          <Text style={{ color: '#fff', marginTop: 10 }}>
+            Creating your account...
+          </Text>
+        </View>
+      )}
+      
+      <SuccessModal />
     <ScrollView 
       contentContainerStyle={dynamicStyles.container}
       keyboardShouldPersistTaps="handled"
@@ -279,11 +352,27 @@ const UserRegister = ({ navigation,route }) => {
       )}
 
        {/* Location Picker */}
-       <LocationScreen location={location} />
-      
-      <TouchableOpacity onPress={() => navigation.navigate('MapScreen')}>
-        <Text>Select Location</Text>
-      </TouchableOpacity>
+       
+       <View style={dynamicStyles.inputContainer}>
+          <Icon 
+            name="map-marker" 
+            size={20} 
+            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+          />
+          <TextInput 
+            style={[dynamicStyles.input, { flex: 1 }]}
+            placeholder="Location"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={location}
+            editable={false}
+          />
+          <TouchableOpacity 
+            onPress={handleLocationSelect}
+            style={styles.locationButton}
+          >
+            <Text style={styles.locationButtonText}>Select Location</Text>
+          </TouchableOpacity>
+        </View>
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>Register</Text>
@@ -295,6 +384,7 @@ const UserRegister = ({ navigation,route }) => {
         </Text>
       </TouchableOpacity>
     </ScrollView>
+    </>
   );
 };
 
@@ -369,6 +459,79 @@ const styles = StyleSheet.create({
       fontWeight: '500',
     },
     linkBold: {
+      fontWeight: 'bold',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: '#fff',
+      borderRadius: 20,
+      padding: 30,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+      width: '80%',
+    },
+    modalContentDark: {
+      backgroundColor: '#333',
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginTop: 15,
+      marginBottom: 10,
+      color: '#000',
+    },
+    modalTitleDark: {
+      color: '#fff',
+    },
+    modalText: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 20,
+      color: '#666',
+    },
+    modalTextDark: {
+      color: '#ccc',
+    },
+    modalButton: {
+      backgroundColor: '#007BFF',
+      paddingHorizontal: 30,
+      paddingVertical: 12,
+      borderRadius: 25,
+      elevation: 2,
+    },
+    modalButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 999,
+    },
+    locationButton: {
+      backgroundColor: '#007BFF',
+      padding: 8,
+      borderRadius: 5,
+      marginLeft: 10,
+    },
+    locationButtonText: {
+      color: '#fff',
+      fontSize: 12,
       fontWeight: 'bold',
     },
   });

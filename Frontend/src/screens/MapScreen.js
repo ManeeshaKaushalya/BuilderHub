@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet,Button,Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
-// Your Google API Key (store in .env for security)
 const GOOGLE_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE';
 
-const MapScreen = ({ navigation }) => {
-  const [selectedLocation, setSelectedLocation] = useState(null); // Selected location
-  const [currentLocation, setCurrentLocation] = useState(null); // Current location of the user
+const MapScreen = ({ navigation, route }) => {
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const registrationType = route.params?.registrationType || 'user';
 
-  // Fetch current location when the component mounts
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -28,7 +27,6 @@ const MapScreen = ({ navigation }) => {
     })();
   }, []);
 
-  // Function to handle selection from Google Places Autocomplete search
   const handleLocationSelect = (data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({
@@ -43,57 +41,66 @@ const MapScreen = ({ navigation }) => {
 
   const handleConfirmLocation = () => {
     if (selectedLocation) {
-      const locationName = `Lat: ${selectedLocation.latitude}, Lng: ${selectedLocation.longitude}`;
-      navigation.navigate('UserRegister', { location: locationName });
+      const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+      
+      // Navigate back to the appropriate registration screen based on registrationType
+      switch (registrationType) {
+        case 'shop':
+          navigation.navigate('ShopRegister', { location: locationString });
+          break;
+        case 'company':
+          navigation.navigate('CompanyRegister', { location: locationString });
+          break;
+        case 'user':
+          navigation.navigate('UserRegister', { location: locationString });
+          break;
+        default:
+          console.warn('Unknown registration type:', registrationType);
+          navigation.goBack();
+      }
     } else {
       alert('Please select a location');
     }
   };
-  
 
   if (!currentLocation) {
-    // If the location is not yet fetched, show a loading indicator
     return <Text>Loading...</Text>;
   }
 
   return (
     <View style={styles.container}>
-      {/* Google Places Autocomplete */}
-      <GooglePlacesAutocomplete
-        placeholder="Search for a location"
-        fetchDetails={true}
-        onPress={handleLocationSelect} // Update location when user selects from the list
-        query={{
-          key: GOOGLE_API_KEY,
-          language: 'en',
-          types: 'geocode', // restricts results to addresses only
-        }}
-        enablePoweredByContainer={false}
-        styles={{
-          textInput: styles.searchInput,
-          container: styles.searchContainer,
-        }}
-      />
+      <View style={styles.searchContainer}>
+        <GooglePlacesAutocomplete
+          placeholder="Search for a location"
+          onPress={handleLocationSelect}
+          query={{
+            key: GOOGLE_API_KEY,
+            language: 'en',
+          }}
+          styles={{
+            textInput: styles.searchInput,
+          }}
+        />
+      </View>
 
-      {/* Map View */}
       <MapView
         style={styles.map}
-        region={{
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
+        initialRegion={{
+          ...currentLocation,
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         }}
-        onPress={handleSelectLocation} // Allow map press to set location
-        showsUserLocation={true} // Show the user's location on the map
-        followUserLocation={true} // Follow user's location while moving
+        onPress={handleSelectLocation}
       >
-        {/* Marker for selected location */}
-        {selectedLocation && <Marker coordinate={selectedLocation} />}
+        {selectedLocation && (
+          <Marker coordinate={selectedLocation} />
+        )}
       </MapView>
 
-      {/* Confirm Button */}
-      <TouchableOpacity style={styles.button} onPress={handleConfirmLocation}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleConfirmLocation}
+      >
         <Text style={styles.buttonText}>Confirm Location</Text>
       </TouchableOpacity>
     </View>

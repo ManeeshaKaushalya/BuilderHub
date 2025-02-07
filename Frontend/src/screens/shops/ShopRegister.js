@@ -1,23 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  ScrollView, 
+  Alert 
+} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../hooks/ThemeContext';
-import LocationScreen from '../LocationScreen';
 
 const ShopRegister = ({ navigation }) => {
+  const route = useRoute();
   const { isDarkMode } = useTheme();
   
-  // State declarations
-  const [shopName, setShopName] = useState('');
-  const [shopEmail, setShopEmail] = useState('');
-  const [shopPassword, setShopPassword] = useState('');
-  const [shopImage, setShopImage] = useState(null);
-  const [shopDescription, setShopDescription] = useState('');
+  const [formData, setFormData] = useState({
+    shopName: '',
+    shopEmail: '',
+    shopPassword: '',
+    shopImage: null,
+    shopDescription: '',
+    location: ''
+  });
+  
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     requestPermissions();
   }, []);
+
+  useEffect(() => {
+    if (route?.params?.location) {
+      setFormData(prev => ({
+        ...prev,
+        location: route.params.location
+      }));
+    }
+  }, [route?.params?.location]);
 
   const requestPermissions = async () => {
     try {
@@ -35,6 +58,13 @@ const ShopRegister = ({ navigation }) => {
     }
   };
 
+  const handleFormChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const handleShopImageUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -45,7 +75,7 @@ const ShopRegister = ({ navigation }) => {
       });
 
       if (!result.canceled) {
-        setShopImage(result.assets[0].uri);
+        handleFormChange('shopImage', result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -53,29 +83,93 @@ const ShopRegister = ({ navigation }) => {
     }
   };
 
-  const handleShopRegister = () => {
-    // Add basic validation
-    if (!shopName || !shopEmail || !shopPassword) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!formData.shopName.trim()) errors.push('Shop name is required');
+    if (!formData.shopEmail.trim()) errors.push('Email is required');
+    if (!formData.shopPassword.trim()) errors.push('Password is required');
+    if (!formData.location.trim()) errors.push('Location is required');
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.shopEmail)) {
+      errors.push('Please enter a valid email address');
+    }
+    
+    if (formData.shopPassword.length < 8) {
+      errors.push('Password must be at least 8 characters long');
     }
 
-    if (!shopEmail.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
-    console.log('Register Shop with:', { 
-      shopName, 
-      shopEmail, 
-      shopPassword, 
-      shopDescription, 
-      shopImage 
-    });
-
-    Alert.alert('Success', 'Shop Registration Successful!');
-    navigation.navigate('ShopLogin');
+    return errors;
   };
+
+  const handleShopRegister = async () => {
+    const errors = validateForm();
+    
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Add your API call here
+      console.log('Register Shop with:', formData);
+      
+      Alert.alert(
+        'Success',
+        'Shop Registration Successful!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('ShopLogin')
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to register shop. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLocationSelect = () => {
+    navigation.navigate('MapScreen', { 
+      registrationType: 'shop',
+      previousLocation: formData.location 
+    });
+  };
+
+  // Create input field component to reduce repetition
+  const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, editable = true }) => (
+    <View style={[dynamicStyles.inputContainer, !editable && styles.disabledInput]}>
+      <Icon 
+        name={icon} 
+        size={20} 
+        style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+      />
+      <TextInput 
+        style={dynamicStyles.input}
+        placeholder={placeholder}
+        placeholderTextColor={isDarkMode ? '#888' : '#666'}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        editable={editable}
+        autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'}
+      />
+      {!editable && (
+        <TouchableOpacity 
+          onPress={handleLocationSelect}
+          style={styles.locationButton}
+        >
+          <Text style={styles.locationButtonText}>Select</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   // Dynamic styles based on theme
   const dynamicStyles = StyleSheet.create({
@@ -107,16 +201,18 @@ const ShopRegister = ({ navigation }) => {
   });
 
   return (
-    <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView 
+      contentContainerStyle={dynamicStyles.container} 
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={dynamicStyles.title}>Create Your Shop Account</Text>
 
-      {/* Shop Image Upload */}
       <TouchableOpacity 
         style={styles.imageUploadContainer} 
         onPress={handleShopImageUpload}
       >
-        {shopImage ? (
-          <Image source={{ uri: shopImage }} style={styles.profileImage} />
+        {formData.shopImage ? (
+          <Image source={{ uri: formData.shopImage }} style={styles.profileImage} />
         ) : (
           <Icon 
             name="camera" 
@@ -127,76 +223,52 @@ const ShopRegister = ({ navigation }) => {
       </TouchableOpacity>
       <Text style={dynamicStyles.uploadText}>Upload Shop Image</Text>
 
-      {/* Shop Name */}
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="store" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Shop Name" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={shopName} 
-          onChangeText={setShopName} 
-        />
-      </View>
+      <InputField 
+        icon="store"
+        placeholder="Shop Name"
+        value={formData.shopName}
+        onChangeText={(value) => handleFormChange('shopName', value)}
+      />
 
-      {/* Shop Email */}
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="envelope" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Email" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={shopEmail} 
-          onChangeText={setShopEmail} 
-          keyboardType="email-address" 
-          autoCapitalize="none" 
-        />
-      </View>
+      <InputField 
+        icon="envelope"
+        placeholder="Email"
+        value={formData.shopEmail}
+        onChangeText={(value) => handleFormChange('shopEmail', value)}
+        keyboardType="email-address"
+      />
 
-      {/* Shop Password */}
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="lock" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Password" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={shopPassword} 
-          onChangeText={setShopPassword} 
-          secureTextEntry 
-        />
-      </View>
+      <InputField 
+        icon="lock"
+        placeholder="Password"
+        value={formData.shopPassword}
+        onChangeText={(value) => handleFormChange('shopPassword', value)}
+        secureTextEntry
+      />
 
-      {/* Shop Description */}
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="info-circle" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Shop Description" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={shopDescription} 
-          onChangeText={setShopDescription} 
-        />
-      </View>
-      <LocationScreen />
+      <InputField 
+        icon="info-circle"
+        placeholder="Shop Description"
+        value={formData.shopDescription}
+        onChangeText={(value) => handleFormChange('shopDescription', value)}
+      />
 
-      <TouchableOpacity style={styles.button} onPress={handleShopRegister}>
-        <Text style={styles.buttonText}>Register Shop</Text>
+      <InputField 
+        icon="map-marker"
+        placeholder="Location"
+        value={formData.location}
+        onChangeText={(value) => handleFormChange('location', value)}
+        editable={false}
+      />
+
+      <TouchableOpacity 
+        style={[styles.button, isLoading && styles.disabledButton]} 
+        onPress={handleShopRegister}
+        disabled={isLoading}
+      >
+        <Text style={styles.buttonText}>
+          {isLoading ? 'Registering...' : 'Register Shop'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('ShopLogin')}>
@@ -269,6 +341,9 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
   },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#fff',
     fontSize: 16,
@@ -280,6 +355,20 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     fontWeight: 'bold',
+  },
+  locationButton: {
+    backgroundColor: '#007BFF',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  disabledInput: {
+    backgroundColor: '#f5f5f5',
   },
 });
 

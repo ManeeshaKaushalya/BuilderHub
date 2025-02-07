@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
-const LocationScreen = () => {
+const LocationScreen = ({ location, registrationType }) => {
   const navigation = useNavigation();
-  const route = useRoute(); // Access the route params
-  const selectedLocation = route?.params?.location || 'No location selected'; // Fallback if no location is passed
-
+  
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Selected Location:</Text>
-      <Text style={styles.locationText}>{selectedLocation}</Text>
+      <Text style={styles.locationText}>
+        {location || 'No location selected'}
+      </Text>
       
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={() => navigation.navigate('MapScreen')}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('MapScreen', { 
+          registrationType: registrationType,
+          previousLocation: location
+        })}
       >
         <Text style={styles.buttonText}>Select Location</Text>
       </TouchableOpacity>
