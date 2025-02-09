@@ -1,23 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
+import { useRoute } from '@react-navigation/native'; // Add this import
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from '../../hooks/ThemeContext';
+import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
+import { useTheme } from '../../hooks/ThemeContext';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { auth, firestore } from '../../../firebase/firebaseConfig';
+import { createUserWithEmailAndPassword } from '@firebase/auth';
+import { doc, setDoc } from '@firebase/firestore';
 
 const CompanyRegister = ({ navigation }) => {
+  const route = useRoute();
   const { isDarkMode } = useTheme();
-  
-  // Add missing state declarations
+
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
+  const [location, setLocation] = useState(route?.params?.location || '');
+  const [accountType, setAccountType] = useState('Company');
+    const [isLoading, setIsLoading] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false)
 
-  useEffect(() => {
-    requestPermissions();
-  }, []);
+    // Handle location updates from MapScreen
+     useEffect(() => {
+      if (route.params?.location) {
+        setLocation(route.params.location);
+      }
+    }, [route.params?.location]);
+  
+    useEffect(() => {
+      requestPermissions();
+    }, []);
+  
+    // Add useEffect to handle auto-navigation
+    useEffect(() => {
+      let navigationTimer;
+      if (showSuccessModal) {
+        navigationTimer = setTimeout(() => {
+          setShowSuccessModal(false);
+          navigation.navigate('Login');
+        }, 2000); // Show success message for 2 seconds
+      }
+      return () => {
+        if (navigationTimer) {
+          clearTimeout(navigationTimer);
+        }
+      };
+    }, [showSuccessModal, navigation]);
 
   const requestPermissions = async () => {
     try {
@@ -35,6 +68,8 @@ const CompanyRegister = ({ navigation }) => {
     }
   };
 
+ 
+
   const handleImageUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -43,162 +78,219 @@ const CompanyRegister = ({ navigation }) => {
         aspect: [1, 1],
         quality: 1,
       });
-
+  
       if (!result.canceled) {
-        setProfileImage(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        setProfileImage(uri);
+  
+        // Upload image to Firebase Storage
+        const storage = getStorage();
+        const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
+        const response = await fetch(uri);
+        const blob = await response.blob();
+  
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+        uploadTask.on(
+          'state_changed',
+          snapshot => {},
+          error => {
+            console.error('Image upload failed:', error);
+          },
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            setProfileImage(downloadURL);
+          }
+        );
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       Alert.alert('Error', 'Failed to upload image');
     }
   };
+    // Success Modal Component
+    const SuccessModal = () => (
+      <Modal
+        transparent={true}
+        visible={showSuccessModal}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            <Icon name="check-circle" size={50} color="#4CAF50" />
+            <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
+              Registration Successful!
+            </Text>
+            <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
+              Your account has been created successfully.
+            </Text>
+            {/* Removed the button since we're auto-navigating */}
+          </View>
+        </View>
+      </Modal>
+    );
 
-  const handleRegister = () => {
-    // Add basic validation
-    if (!companyName || !email || !password) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
+  const handleRegister = async () => {
+      if (!companyName || !email || !password) {
+        Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
+    
+      if (!email.includes('@')) {
+        Alert.alert('Error', 'Please enter a valid email address');
+        return;
+      }
 
-    if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
+     try {
+         setIsLoading(true);
+   
+         // Register user with Firebase Authentication
+         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+         const user = userCredential.user;
 
-    console.log('Register with:', { 
-      companyName, 
-      email, 
-      password, 
-      companyDescription, 
-      profileImage 
-    });
+      // Prepare company data
+      const companyData = {
+        companyName,
+        email,
+        accountType,
+        companyDescription,
+        location,
+        profileImage: profileImage || '',
+        createdAt: new Date().toISOString(),
+      };
 
-    Alert.alert('Success', 'Registration successful!');
-    navigation.navigate('Login');
-  };
+      // Save company data to the Firestore 'companies' collection
+      await setDoc(doc(firestore, 'users', user.uid), companyData);
 
-  // Dynamic styles based on theme
-  const dynamicStyles = StyleSheet.create({
+      setIsLoading(false);
+            setShowSuccessModal(true);
+            // Navigation is now handled by useEffect
+          } catch (error) {
+            setIsLoading(false);
+            console.error('Registration error', error);
+            Alert.alert('Error', 'Failed to register');
+          }
+        };
+
+        const handleLocationSelect = () => {
+          navigation.navigate('MapScreen', { 
+            registrationType: 'company',
+            previousLocation: location 
+          });
+        };
+ const dynamicStyles = StyleSheet.create({
     container: {
       ...styles.container,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff'
     },
     title: {
       ...styles.title,
-      color: isDarkMode ? '#fff' : '#000',
+      color: isDarkMode ? '#fff' : '#000'
     },
     inputContainer: {
       ...styles.inputContainer,
       backgroundColor: isDarkMode ? '#333' : '#f9f9f9',
-      borderColor: isDarkMode ? '#444' : '#ccc',
+      borderColor: isDarkMode ? '#444' : '#ccc'
     },
     input: {
       ...styles.input,
-      color: isDarkMode ? '#fff' : '#000',
+      color: isDarkMode ? '#fff' : '#000'
     },
     uploadText: {
       ...styles.uploadText,
-      color: isDarkMode ? '#ddd' : '#666',
+      color: isDarkMode ? '#ddd' : '#666'
     },
     link: {
       ...styles.link,
-      color: isDarkMode ? '#66b0ff' : '#007BFF',
-    },
+      color: isDarkMode ? '#66b0ff' : '#007BFF'
+    }
   });
 
+
+
   return (
-    <ScrollView 
-      contentContainerStyle={dynamicStyles.container}
-      keyboardShouldPersistTaps="handled"
-    >
+<>
+      {isLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#007BFF" />
+              <Text style={{ color: '#fff', marginTop: 10 }}>
+                Creating your account...
+              </Text>
+            </View>
+          )}
+           <SuccessModal />
+    <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
       <Text style={dynamicStyles.title}>Create Your Company Account</Text>
 
-      <TouchableOpacity 
-        style={styles.imageUploadContainer} 
-        onPress={handleImageUpload}
-      >
+      <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
         {profileImage ? (
-          <Image 
-            source={{ uri: profileImage }} 
-            style={styles.profileImage} 
-          />
+          <Image source={{ uri: profileImage }} style={styles.profileImage} />
         ) : (
-          <Icon 
-            name="camera" 
-            size={50} 
-            color={isDarkMode ? '#444' : '#ccc'} 
-          />
+          <Icon name="camera" size={50} color={isDarkMode ? '#444' : '#ccc'} />
         )}
       </TouchableOpacity>
       <Text style={dynamicStyles.uploadText}>Upload Company Logo</Text>
 
       <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="building" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Company Name" 
+        <Icon name="building" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TextInput
+          style={dynamicStyles.input}
+          placeholder="Company Name"
           placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={companyName} 
-          onChangeText={setCompanyName} 
+          value={companyName}
+          onChangeText={setCompanyName}
         />
       </View>
 
       <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="envelope" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Email" 
+        <Icon name="envelope" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TextInput
+          style={dynamicStyles.input}
+          placeholder="Email"
           placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={email} 
-          onChangeText={setEmail} 
-          keyboardType="email-address" 
-          autoCapitalize="none" 
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
       </View>
 
       <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="lock" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Password" 
+        <Icon name="lock" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TextInput
+          style={dynamicStyles.input}
+          placeholder="Password"
           placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry 
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
         />
       </View>
 
       <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="info-circle" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Company Description" 
+        <Icon name="info-circle" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TextInput
+          style={dynamicStyles.input}
+          placeholder="Company Description"
           placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={companyDescription} 
-          onChangeText={setCompanyDescription} 
+          value={companyDescription}
+          onChangeText={setCompanyDescription}
         />
       </View>
-      <LocationScreen />
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
+      <TouchableOpacity style={dynamicStyles.inputContainer} onPress={handleLocationSelect}>
+        <Icon name="map-marker" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TextInput
+          style={dynamicStyles.input}
+          placeholder="Select Location"
+          placeholderTextColor={isDarkMode ? '#888' : '#666'}
+          value={location}
+          editable={false}
+        />
       </TouchableOpacity>
+
+       <TouchableOpacity style={styles.button} onPress={handleRegister}>
+              <Text style={styles.buttonText}>Register</Text>
+            </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={dynamicStyles.link}>
@@ -206,8 +298,11 @@ const CompanyRegister = ({ navigation }) => {
         </Text>
       </TouchableOpacity>
     </ScrollView>
+    </>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -277,6 +372,81 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     fontWeight: 'bold',
+  },
+  button: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '80%',
+  },
+  modalContentDark: {
+    backgroundColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+    color: '#000',
+  },
+  modalTitleDark: {
+    color: '#fff',
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  modalTextDark: {
+    color: '#ccc',
+  },
+  modalButton: {
+    backgroundColor: '#007BFF',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    elevation: 2,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
   },
 });
 

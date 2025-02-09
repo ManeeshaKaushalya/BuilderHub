@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRoute } from '@react-navigation/native';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  Alert 
-} from 'react-native';
+import { View,Text,TextInput,TouchableOpacity,StyleSheet,Image,ScrollView,Alert} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../hooks/ThemeContext';
