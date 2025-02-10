@@ -22,6 +22,8 @@ import MapScreen from './src/screens/MapScreen';
 
 // Context Providers
 import { ThemeProvider } from './src/hooks/ThemeContext';
+import ForgetPassword from './src/screens/ForgetPassword';
+
 
 const Stack = createStackNavigator();
 
@@ -44,6 +46,7 @@ export default function App() {
             <Stack.Screen name="MessageScreen" component={MessageScreen} />
             <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
+            <Stack.Screen name="forgetpassword" component={ForgetPassword} />
           </Stack.Navigator>
         </NavigationContainer>
       </ThemeProvider>
