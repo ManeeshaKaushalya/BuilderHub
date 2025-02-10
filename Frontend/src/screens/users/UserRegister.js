@@ -7,9 +7,9 @@ import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { auth, firestore } from '../../../firebase/firebaseConfig';
 import { createUserWithEmailAndPassword } from '@firebase/auth';
-import { doc, setDoc } from '@firebase/firestore';
+import { doc, setDoc, getFirestore } from 'firebase/firestore';
+import { auth, firestore } from '../../../firebase/firebaseConfig';
 
 
 const UserRegister = ({ navigation}) => {
@@ -137,49 +137,91 @@ const UserRegister = ({ navigation}) => {
     </Modal>
   );
 
-  const handleRegister = async () => {
-    if (!name || !email || !password) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!name.trim()) errors.push('Name is required');
+    if (!email.trim()) errors.push('Email is required');
+    if (!password.trim()) errors.push('Password is required');
+    if (!location.trim()) errors.push('Location is required');
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      errors.push('Please enter a valid email address');
     }
-  
-    if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
+    
+    if (password.length < 6) {
+      errors.push('Password must be at least 6 characters long');
     }
-  
-    try {
-      setIsLoading(true);
 
-      // Register user with Firebase Authentication
+    return errors;
+  };
+
+  const handleRegister = async () => {
+    try {
+      // Validate form
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
+        Alert.alert('Validation Error', validationErrors.join('\n'));
+        return;
+      }
+
+      setIsLoading(true);
+      console.log('Starting registration process...');
+
+      // Create authentication user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('User authenticated successfully');
+
       const user = userCredential.user;
-  
+
       // Prepare user data
       const userData = {
+        uid: user.uid,
         name,
         email,
         accountType,
-        profession,
-        experience,
-        skills,
+        profession: profession || '',
+        experience: experience || '',
+        skills: skills || '',
         location,
         profileImage: profileImage || '',
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
-  
-      // Save user data to Firestore
-      await setDoc(doc(firestore, 'users', user.uid), userData);
+
+      console.log('Prepared user data:', userData);
+
+      // Create document reference
+      const userRef = doc(firestore, 'users', user.uid);
       
+      // Store user data in Firestore
+      await setDoc(userRef, userData);
+      console.log('User data stored successfully');
+
       setIsLoading(false);
       setShowSuccessModal(true);
-      // Navigation is now handled by useEffect
+
     } catch (error) {
       setIsLoading(false);
-      console.error('Registration error', error);
-      Alert.alert('Error', 'Failed to register');
+      console.error('Registration error:', error);
+      
+      // Provide specific error messages
+      let errorMessage = 'Failed to register';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please use a different email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters long.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('Registration Error', errorMessage);
     }
   };
+
   const handleLocationSelect = () => {
     navigation.navigate('MapScreen', { 
       registrationType: 'user',

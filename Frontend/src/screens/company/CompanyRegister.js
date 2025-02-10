@@ -7,9 +7,9 @@ import { Picker } from '@react-native-picker/picker';
 import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { auth, firestore } from '../../../firebase/firebaseConfig';
 import { createUserWithEmailAndPassword } from '@firebase/auth';
-import { doc, setDoc } from '@firebase/firestore';
+import { doc, setDoc, getFirestore } from 'firebase/firestore';
+import { auth, firestore } from '../../../firebase/firebaseConfig';
 
 const CompanyRegister = ({ navigation }) => {
   const route = useRoute();
@@ -129,7 +129,7 @@ const CompanyRegister = ({ navigation }) => {
       </Modal>
     );
 
-  const handleRegister = async () => {
+    const handleRegister = async () => {
       if (!companyName || !email || !password) {
         Alert.alert('Error', 'Please fill in all required fields');
         return;
@@ -139,37 +139,39 @@ const CompanyRegister = ({ navigation }) => {
         Alert.alert('Error', 'Please enter a valid email address');
         return;
       }
-
-     try {
-         setIsLoading(true);
-   
-         // Register user with Firebase Authentication
-         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-         const user = userCredential.user;
-
-      // Prepare company data
-      const companyData = {
-        companyName,
-        email,
-        accountType,
-        companyDescription,
-        location,
-        profileImage: profileImage || '',
-        createdAt: new Date().toISOString(),
-      };
-
-      // Save company data to the Firestore 'companies' collection
-      await setDoc(doc(firestore, 'users', user.uid), companyData);
-
-      setIsLoading(false);
-            setShowSuccessModal(true);
-            // Navigation is now handled by useEffect
-          } catch (error) {
-            setIsLoading(false);
-            console.error('Registration error', error);
-            Alert.alert('Error', 'Failed to register');
-          }
+    
+      try {
+        setIsLoading(true);
+    
+        // Register user with Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+    
+        // Prepare company data
+        const companyData = {
+          companyName,
+          email,
+          accountType,
+          companyDescription,
+          location,
+          profileImage: profileImage || '',
+          createdAt: new Date().toISOString(),
         };
+    
+        // Create document reference directly using the firestore instance
+        const userDocRef = doc(firestore, 'users', user.uid);
+        
+        // Save company data to Firestore
+        await setDoc(userDocRef, companyData);
+    
+        setIsLoading(false);
+        setShowSuccessModal(true);
+      } catch (error) {
+        setIsLoading(false);
+        console.error('Registration error:', error);
+        Alert.alert('Error', 'Failed to register: ' + error.message);
+      }
+    };
 
         const handleLocationSelect = () => {
           navigation.navigate('MapScreen', { 
