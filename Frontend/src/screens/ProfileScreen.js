@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch,Image } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import { useUser } from '../context/UserContext';  // Import user context
 
 function ProfileScreen({ navigation }) {
   const { isDarkMode, toggleDarkMode } = useTheme(); // Get dark mode state
+  const { user } = useUser(); // Get user data from context
 
   const handleLogout = () => {
     Alert.alert(
@@ -20,6 +22,21 @@ function ProfileScreen({ navigation }) {
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Profile Screen
+      </Text>
+
+      {/* Display Profile Image */}
+      {user?.profileImage && (
+        <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
+      )}
+
+      {/* Display User Name */}
+      <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
+        Welcome, {user?.name || "User"}!
+      </Text>
+
+      {/* Display Profession */}
+      <Text style={[styles.profession, isDarkMode ? styles.darkText : styles.lightText]}>
+        {user?.profession || "No profession added"}
       </Text>
 
       {/* Logout Button */}
@@ -63,6 +80,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
+  profileImage: { width: 100, height: 100, borderRadius: 50, marginBottom: 10 },
+  profession: { fontSize: 16, marginTop: 5, fontStyle: 'italic' },
 });
 
 export default ProfileScreen;
