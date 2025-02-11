@@ -4,6 +4,8 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { useUser } from '../context/UserContext';
 
 
 const LoginScreen = ({ navigation }) => {
@@ -11,28 +13,53 @@ const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const db = getFirestore();
+    const { loginUser } = useUser(); 
 
-    const handleLogin = async () => {
-      if (!email || !password) {
-        Alert.alert("Error", "Please enter email and password");
-        return;
-      }
-  
-      try {
-        setIsLoading(true);
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        console.log("User logged in:", userCredential.user);
-        Alert.alert("Success", "Logged in successfully!");
-  
-        // Navigate to home screen
-        navigation.replace('Tabs'); 
-      } catch (error) {
-        console.error("Login error:", error.message);
-        Alert.alert("Login Failed", error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+
+    
+
+
+
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert("Error", "Please enter email and password");
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    //console.log("User logged in:", userCredential.user);
+    Alert.alert("Success", "Logged in successfully!");
+
+    // Get user data
+    const user = userCredential.user;
+
+    // Fetch user data from Firestore
+    const docRef = doc(db, 'users', user.uid);
+
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      loginUser(userData);  // Save user data in context
+      // Log all user data to the console
+      console.log('User data:', userData);
+    } else {
+      console.log("No such user data!");
+    }
+
+    // Navigate to home screen
+    navigation.replace('Tabs'); 
+  } catch (error) {
+    console.error("Login error:", error.message);
+    Alert.alert("Login Failed", error.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <KeyboardAvoidingView 

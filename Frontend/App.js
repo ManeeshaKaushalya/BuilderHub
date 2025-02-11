@@ -23,6 +23,7 @@ import MapScreen from './src/screens/MapScreen';
 // Context Providers
 import { ThemeProvider } from './src/hooks/ThemeContext';
 import ForgetPassword from './src/screens/ForgetPassword';
+import { UserProvider } from './src/context/UserContext';
 
 
 const Stack = createStackNavigator();
@@ -32,6 +33,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <NavigationContainer fallback={<ActivityIndicator size="large" color="#007AFF" />}>
+        <UserProvider>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
@@ -48,6 +50,7 @@ export default function App() {
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="forgetpassword" component={ForgetPassword} />
           </Stack.Navigator>
+          </UserProvider>
         </NavigationContainer>
       </ThemeProvider>
     </SafeAreaProvider>
