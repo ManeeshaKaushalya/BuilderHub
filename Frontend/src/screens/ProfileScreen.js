@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch,Image } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 import { useUser } from '../context/UserContext';  // Import user context
+import Sidebar from './Sidebar';
 
 function ProfileScreen({ navigation }) {
   const { isDarkMode, toggleDarkMode } = useTheme(); // Get dark mode state
@@ -23,21 +24,8 @@ function ProfileScreen({ navigation }) {
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Profile Screen
       </Text>
+       <Sidebar/>
 
-      {/* Display Profile Image */}
-      {user?.profileImage && (
-        <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
-      )}
-
-      {/* Display User Name */}
-      <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
-        Welcome, {user?.name || "User"}!
-      </Text>
-
-      {/* Display Profession */}
-      <Text style={[styles.profession, isDarkMode ? styles.darkText : styles.lightText]}>
-        {user?.profession || "No profession added"}
-      </Text>
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.button} onPress={handleLogout}>

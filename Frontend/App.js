@@ -24,6 +24,9 @@ import MapScreen from './src/screens/MapScreen';
 import { ThemeProvider } from './src/hooks/ThemeContext';
 import ForgetPassword from './src/screens/ForgetPassword';
 import { UserProvider } from './src/context/UserContext';
+import Sidebar from './src/screens/Sidebar';
+import SidebarRow from './src/screens/SidebarRow';
+import DarkModeScreen from './src/screens/DarkModeScreen';
 
 
 const Stack = createStackNavigator();
@@ -49,6 +52,9 @@ export default function App() {
             <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="forgetpassword" component={ForgetPassword} />
+            <Stack.Screen name="sidebar" component={Sidebar} />
+            <Stack.Screen name="sidebarRow" component={SidebarRow} />
+            <Stack.Screen name="darkmodescreen" component={DarkModeScreen} />
           </Stack.Navigator>
           </UserProvider>
         </NavigationContainer>
