@@ -1,21 +1,36 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet,Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useUser } from '../context/UserContext'; // Import User Context
-import { useTheme } from '../hooks/ThemeContext'; // Import useTheme hook
+import { useUser } from '../context/UserContext';
+import { useTheme } from '../hooks/ThemeContext';
 import SidebarRow from './SidebarRow';
+import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
 
 const Sidebar = () => {
   const navigation = useNavigation();
-  const { user } = useUser(); // Get user data from context
-  const { isDarkMode } = useTheme(); // Get dark mode state
+  const { user } = useUser();
+  const { isDarkMode } = useTheme(); 
 
-
-  // Navigate to DarkModeScreen
-  const handleDarkModePress = () => {
-    navigation.navigate('darkmodescreen');
+  // Logout function
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to log out?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Logout',
+        onPress: async () => {
+          try {
+            await auth.signOut();
+            navigation.replace('Login'); // Navigate to Login screen
+          } catch (error) {
+            console.error('Logout Error:', error);
+          }
+        },
+      },
+    ]);
   };
-
 
   return (
     <View style={[styles.sidebar, isDarkMode ? styles.darkSidebar : styles.lightSidebar]}>
@@ -32,7 +47,7 @@ const Sidebar = () => {
       <SidebarRow
         imageLink="https://cdn-icons-png.flaticon.com/512/2854/2854088.png"
         title="Dark mode"
-        onPress={handleDarkModePress}  // Pass the navigation function to SidebarRow
+        onPress={() => navigation.navigate('darkmodescreen')} // Navigate to Dark Mode screen
       />
       <SidebarRow imageLink="https://e7.pngegg.com/pngimages/886/28/png-clipart-customer-computer-icons-request-for-proposal-find-my-friends-text-service-thumbnail.png" title="Find Friends" />
       <SidebarRow imageLink="https://static.xx.fbcdn.net/rsrc.php/v3/yj/r/Im_0d7HFH4n.png" title="Groups" />
@@ -42,6 +57,8 @@ const Sidebar = () => {
       <SidebarRow imageLink="https://static.xx.fbcdn.net/rsrc.php/v3/y-/r/Uy-TOlM5VXG.png" title="Memories" />
       <SidebarRow imageLink="https://static.xx.fbcdn.net/rsrc.php/v3/yA/r/KlDlsO3UxDM.png" title="Saved" />
       <SidebarRow dropdown title="See more" />
+       {/* Logout Button */}
+       <SidebarRow imageLink={null} title="Logout" onPress={handleLogout} />
 
       {/* Footer Section */}
       <View style={styles.policies}>

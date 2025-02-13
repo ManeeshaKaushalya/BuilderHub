@@ -1,16 +1,10 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext'; // Import useTheme hook
-import { useNavigation } from '@react-navigation/native'; // Import navigation hook
+import { useTheme } from '../hooks/ThemeContext'; 
+import { useNavigation } from '@react-navigation/native'; 
 
-const SidebarRow = ({ imageLink, title, isUser }) => {
-  const { isDarkMode } = useTheme(); // Get dark mode state
-  const navigation = useNavigation();
-
-  // Handle dark mode toggle when clicking the row
-  const handleDarkModeToggle = () => {
-    navigation.navigate('darkmodescreen'); // Navigate to DarkModeScreen
-  };
+const SidebarRow = ({ imageLink, title, isUser, onPress }) => {
+  const { isDarkMode } = useTheme(); 
 
   return (
     <TouchableOpacity 
@@ -19,12 +13,12 @@ const SidebarRow = ({ imageLink, title, isUser }) => {
         isUser && styles.userRow, 
         isDarkMode ? styles.darkRow : styles.lightRow
       ]}
-      onPress={handleDarkModeToggle}
+      onPress={onPress} // Use dynamic onPress instead of fixed navigation
     >
       {imageLink ? (
         <Image source={{ uri: imageLink }} style={isUser ? styles.avatar : styles.icon} />
       ) : (
-        <View style={styles.placeholderIcon} /> // Placeholder if no image
+        <View style={styles.placeholderIcon} /> 
       )}
       <Text 
         style={[
@@ -52,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   darkRow: {
-    backgroundColor: '#333', // Dark background for dark mode
+    backgroundColor: '#333',
   },
   icon: {
     width: 30,
@@ -62,7 +56,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 20, // Circular avatar
+    borderRadius: 20,
     marginRight: 10,
   },
   title: {
@@ -70,7 +64,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   userRow: {
-    backgroundColor: '#f0f2f5', // Light gray background for user profile row
+    backgroundColor: '#f0f2f5',
   },
   userName: {
     fontSize: 18,
