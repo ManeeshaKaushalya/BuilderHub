@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import ImageUpload from './ImageUpload';
 
 function UsersPostsScreen() {
   const { isDarkMode } = useTheme(); // Get dark mode state
@@ -18,10 +19,7 @@ function UsersPostsScreen() {
         onChangeText={setSearchQuery}
       />
 
-      {/* Title */}
-      <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
-        Welcome to Post Screen
-      </Text>
+<ImageUpload />
       
     </View>
   );

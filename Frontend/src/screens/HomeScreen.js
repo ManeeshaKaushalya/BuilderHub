@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 import Sidebar from './Sidebar';
+import ImageUpload from './ImageUpload';
 
 const HomeScreen = () => {
   const { isDarkMode } = useTheme(); // Get dark mode state
@@ -11,6 +12,8 @@ const HomeScreen = () => {
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Home Screen
       </Text>
+     
+      
      
     </View>
   );
