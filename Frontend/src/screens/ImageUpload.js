@@ -19,8 +19,6 @@ const ImageUpload = () => {
     const auth = getAuth();
     setUser(auth.currentUser);
   }, []);
-    
-
 
   const handleImageUpload = async () => {
     try {
@@ -30,7 +28,7 @@ const ImageUpload = () => {
         aspect: [1, 1],
         quality: 1,
       });
-  
+
       if (!result.canceled) {
         const uri = result.assets[0].uri;
         setImage(uri); // Store local URI for preview
@@ -40,21 +38,23 @@ const ImageUpload = () => {
       Alert.alert('Error', 'Failed to select image');
     }
   };
-  
+
   const handleUpload = async () => {
     if (!text && !image) {
       Alert.alert('Error', 'Please add a description or select an image.');
       return;
     }
   
-    setUploading(true);
+    console.log("Image to upload:", image); // Log the image
   
+    setUploading(true);
     try {
       let imageUrl = '';
   
       if (image) {
         if (!image.startsWith('https')) {
           // Only upload if image is not already a URL
+          const storage = getStorage();
           const response = await fetch(image);
           const blob = await response.blob();
           const imageRef = ref(storage, `posts/${user?.uid}/${Date.now()}.jpg`);
@@ -70,7 +70,7 @@ const ImageUpload = () => {
         timestamp: serverTimestamp(),
         caption: text,
         imageUrl,
-        username: user?.name || 'Anonymous',
+        username: user?.displayName || 'Anonymous',
         uid: user?.uid,
       });
   
@@ -101,31 +101,22 @@ const ImageUpload = () => {
         />
 
         {/* Image preview should be right below the text input */}
-      {image && <Image source={{ uri: image }} style={styles.imagePreview} />}
+        {image && <Image source={{ uri: image }} style={styles.imagePreview} />}
 
         <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleImageUpload}>
-  <Icon name="clipboard" size={20} color="green" />
-  <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
-    Blueprint
-  </Text>
-</TouchableOpacity>
-
-
-
+          <TouchableOpacity style={styles.actionButton} onPress={handleImageUpload}>
+            <Icon name="clipboard" size={20} color="green" />
+            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Blueprint</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
             <Icon name="video" size={20} color="red" />
-            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
-              Inspection
-            </Text>
+            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Inspection</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
             <Icon name="tasks" size={20} color="orange" />
-            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
-              Task
-            </Text>
+            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Task</Text>
           </TouchableOpacity>
         </View>
 
@@ -159,7 +150,7 @@ const styles = StyleSheet.create({
   },
   lightInput: { borderBottomColor: '#ddd', color: '#000' },
   darkInput: { borderBottomColor: '#444', color: '#fff' },
-  imagePreview: { width: '100%', height: 200, borderRadius: 10, marginTop: 10 },
+  imagePreview: { width: 200, height: 200, borderRadius: 10, marginTop: 10 }, // Updated size
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -179,14 +170,6 @@ const styles = StyleSheet.create({
   lightPostButton: { backgroundColor: '#1877f2' },
   darkPostButton: { backgroundColor: '#1877f2' },
   postButtonText: { color: '#fff', fontWeight: 'bold' },
-  imagePreview: {
-    width: 100, // Small size
-    height: 100, 
-    borderRadius: 10,
-    marginTop: 10,
-    alignSelf: 'flex-start', // Aligns image properly
-  },
-  
 });
 
 export default ImageUpload;
