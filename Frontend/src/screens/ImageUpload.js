@@ -57,16 +57,10 @@ const ImageUpload = () => {
           // Only upload if image is not already a URL
           const response = await fetch(image);
           const blob = await response.blob();
-  
-          if (!blob) {
-            throw new Error('Failed to create a blob from the image URI');
-          }
-  
           const imageRef = ref(storage, `posts/${user?.uid}/${Date.now()}.jpg`);
   
-          // Upload the blob to Firebase
           await uploadBytes(imageRef, blob);
-          imageUrl = await getDownloadURL(imageRef); // Get the image URL after upload
+          imageUrl = await getDownloadURL(imageRef);
         } else {
           imageUrl = image; // Already uploaded image URL
         }
@@ -76,7 +70,7 @@ const ImageUpload = () => {
         timestamp: serverTimestamp(),
         caption: text,
         imageUrl,
-        username: user?.displayName || 'Anonymous',
+        username: user?.name || 'Anonymous',
         uid: user?.uid,
       });
   
@@ -85,12 +79,11 @@ const ImageUpload = () => {
       setImage(null);
     } catch (error) {
       console.error('Upload Error:', error);
-      Alert.alert('Error', 'Failed to upload post. Please try again later.');
+      Alert.alert('Error', 'Failed to upload post.');
     } finally {
       setUploading(false);
     }
   };
-  
   
 
   return (
