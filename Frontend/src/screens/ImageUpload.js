@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, ScrollView, Alert, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTheme } from '../hooks/ThemeContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { firestore, storage } from '../../firebase/firebaseConfig'; // Adjust path if needed
+import { firestore, storage } from '../../firebase/firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 
 const ImageUpload = () => {
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [text, setText] = useState('');
   const { isDarkMode } = useTheme();
   const [uploading, setUploading] = useState(false);
@@ -27,56 +27,61 @@ const ImageUpload = () => {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
       });
 
       if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        setImage(uri); // Store local URI for preview
+        const newImages = result.assets.map(asset => asset.uri);
+        setImages(prevImages => [...prevImages, ...newImages].slice(0, 5));
       }
     } catch (error) {
       console.error('Image selection error:', error);
-      Alert.alert('Error', 'Failed to select image');
+      Alert.alert('Error', 'Failed to select images');
     }
   };
 
+  const removeImage = (indexToRemove) => {
+    setImages(prevImages => prevImages.filter((_, index) => index !== indexToRemove));
+  };
+
   const handleUpload = async () => {
-    if (!text && !image) {
-      Alert.alert('Error', 'Please add a description or select an image.');
+    if (!text && images.length === 0) {
+      Alert.alert('Error', 'Please add a description or select at least one image.');
       return;
     }
-  
-    console.log("Image to upload:", image); // Log the image
-  
+
     setUploading(true);
     try {
-      let imageUrl = '';
-  
-      if (image) {
+      const imageUrls = [];
+
+      // Upload each image
+      for (const image of images) {
         if (!image.startsWith('https')) {
-          // Only upload if image is not already a URL
           const storage = getStorage();
           const response = await fetch(image);
           const blob = await response.blob();
-          const imageRef = ref(storage, `posts/${user?.uid}/${Date.now()}.jpg`);
-  
+          const imageRef = ref(storage, `posts/${user?.uid}/${Date.now()}_${imageUrls.length}.jpg`);
+
           await uploadBytes(imageRef, blob);
-          imageUrl = await getDownloadURL(imageRef);
+          const imageUrl = await getDownloadURL(imageRef);
+          imageUrls.push(imageUrl);
         } else {
-          imageUrl = image; // Already uploaded image URL
+          imageUrls.push(image);
         }
       }
-  
+
       await addDoc(collection(firestore, 'posts'), {
         timestamp: serverTimestamp(),
         caption: text,
-        imageUrl,
+        imageUrls, // Store array of image URLs
         username: user?.displayName || 'Anonymous',
         uid: user?.uid,
       });
-  
+
       Alert.alert('Success', 'Post uploaded successfully!');
       setText('');
-      setImage(null);
+      setImages([]);
     } catch (error) {
       console.error('Upload Error:', error);
       Alert.alert('Error', 'Failed to upload post.');
@@ -84,7 +89,18 @@ const ImageUpload = () => {
       setUploading(false);
     }
   };
-  
+
+  const renderImagePreview = ({ item, index }) => (
+    <View style={styles.imagePreviewContainer}>
+      <Image source={{ uri: item }} style={styles.imagePreview} />
+      <TouchableOpacity
+        style={styles.removeImageButton}
+        onPress={() => removeImage(index)}
+      >
+        <Icon name="times-circle" size={24} color="red" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <ScrollView style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
@@ -100,23 +116,45 @@ const ImageUpload = () => {
           onChangeText={setText}
         />
 
-        {/* Image preview should be right below the text input */}
-        {image && <Image source={{ uri: image }} style={styles.imagePreview} />}
+        {images.length > 0 && (
+          <FlatList
+            data={images}
+            renderItem={renderImagePreview}
+            keyExtractor={(item, index) => index.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.imageList}
+          />
+        )}
 
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleImageUpload}>
-            <Icon name="clipboard" size={20} color="green" />
-            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Blueprint</Text>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={handleImageUpload}
+            disabled={images.length >= 5}
+          >
+            <Icon name="clipboard" size={20} color={images.length >= 5 ? '#999' : 'green'} />
+            <Text style={[
+              styles.actionText, 
+              isDarkMode ? styles.darkActionText : styles.lightActionText,
+              images.length >= 5 && styles.disabledText
+            ]}>
+              Blueprint ({images.length}/5)
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
             <Icon name="video" size={20} color="red" />
-            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Inspection</Text>
+            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
+              Inspection
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
             <Icon name="tasks" size={20} color="orange" />
-            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>Task</Text>
+            <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
+              Task
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -125,7 +163,9 @@ const ImageUpload = () => {
           onPress={handleUpload}
           disabled={uploading}
         >
-          <Text style={styles.postButtonText}>{uploading ? 'Uploading...' : 'Post Update'}</Text>
+          <Text style={styles.postButtonText}>
+            {uploading ? 'Uploading...' : 'Post Update'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -150,7 +190,26 @@ const styles = StyleSheet.create({
   },
   lightInput: { borderBottomColor: '#ddd', color: '#000' },
   darkInput: { borderBottomColor: '#444', color: '#fff' },
-  imagePreview: { width: 200, height: 200, borderRadius: 10, marginTop: 10 }, // Updated size
+  imageList: {
+    marginVertical: 10,
+  },
+  imagePreviewContainer: {
+    marginRight: 10,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: 150,
+    height: 150,
+    borderRadius: 10,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 2,
+  },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -161,6 +220,7 @@ const styles = StyleSheet.create({
   actionText: { marginLeft: 5, fontSize: 14 },
   lightActionText: { color: '#000' },
   darkActionText: { color: '#fff' },
+  disabledText: { color: '#999' },
   postButton: {
     padding: 10,
     alignItems: 'center',
