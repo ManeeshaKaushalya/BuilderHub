@@ -3,7 +3,8 @@ import { View, Text, Image, StyleSheet, ScrollView, Dimensions } from 'react-nat
 
 const { width } = Dimensions.get('window');
 
-function Post({ postId, username, caption, imageList }) {
+function Post({ postId, username, caption, imageList,ownerid }) {
+  
     return (
         <View style={styles.postContainer}>
             <Text style={styles.username}>{username}</Text>

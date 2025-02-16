@@ -96,6 +96,7 @@ function UsersPostsScreen() {
                     caption={item.post.caption}
                     image={item.post.image}
                     imageList={item.post.imageUrls} // List of images if available
+                    ownerId={item.post.uid}
                 />
             );
         }

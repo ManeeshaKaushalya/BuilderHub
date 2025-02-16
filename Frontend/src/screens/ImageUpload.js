@@ -7,18 +7,17 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore, storage } from '../../firebase/firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
+import { useUser } from '../context/UserContext'; 
+
 
 const ImageUpload = () => {
   const [images, setImages] = useState([]);
   const [text, setText] = useState('');
   const { isDarkMode } = useTheme();
   const [uploading, setUploading] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user } = useUser(); 
 
-  useEffect(() => {
-    const auth = getAuth();
-    setUser(auth.currentUser);
-  }, []);
+  
 
   const handleImageUpload = async () => {
     try {
@@ -75,7 +74,7 @@ const ImageUpload = () => {
         timestamp: serverTimestamp(),
         caption: text,
         imageUrls, // Store array of image URLs
-        username: user?.displayName || 'Anonymous',
+        username: user?.name || 'Anonymous',
         uid: user?.uid,
       });
 
