@@ -28,6 +28,7 @@ import Sidebar from './src/screens/Sidebar';
 import SidebarRow from './src/screens/SidebarRow';
 import DarkModeScreen from './src/screens/DarkModeScreen';
 import ImageUpload from './src/screens/ImageUpload';
+import Posts from './src/screens/Posts';
 
 
 const Stack = createStackNavigator();
@@ -57,6 +58,7 @@ export default function App() {
             <Stack.Screen name="sidebarRow" component={SidebarRow} />
             <Stack.Screen name="darkmodescreen" component={DarkModeScreen} />
             <Stack.Screen name="ImageUpload" component={ImageUpload} />
+            <Stack.Screen name="posts" component={Posts} />
           </Stack.Navigator>
           </UserProvider>
         </NavigationContainer>
