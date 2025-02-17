@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, ActivityIndicator } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
-import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import ImageUpload from './ImageUpload';
 import Post from './Posts';
 
@@ -14,25 +14,43 @@ function UsersPostsScreen() {
     const [loading, setLoading] = useState(false);
     const [posts, setPosts] = useState([]);
 
-    // Listen for changes in the Firestore 'posts' collection
+    // Listen for real-time updates from Firestore 'posts' collection
     useEffect(() => {
-        const unsubscribe = onSnapshot(
-            collection(firestore, 'posts'),
-            (snapshot) => {
-                const postList = snapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                setPosts(postList);
-                setLoading(false); // Set loading to false after data is fetched
-            },
-            (error) => {
-                console.error("Error fetching posts:", error);
-                setLoading(false);
-            }
-        );
+        const unsubscribe = onSnapshot(collection(firestore, 'posts'), async (snapshot) => {
+            const postList = await Promise.all(
+                snapshot.docs.map(async (docSnapshot) => {
+                    const postData = { id: docSnapshot.id, ...docSnapshot.data() };
 
-        // Clean up listener on unmount
+                    // Fetch user details based on ownerId (uid)
+                    let ownerData = { name: 'Unknown User', profileImage: null };
+
+                    if (postData.uid) {
+                        try {
+                            const userDocRef = doc(firestore, 'users', postData.uid);
+                            const userDocSnap = await getDoc(userDocRef);
+                            if (userDocSnap.exists()) {
+                                ownerData = {
+                                    name: userDocSnap.data().name || 'Unknown User',
+                                    profileImage: userDocSnap.data().profileImage || null, // Fetch user's profile image
+                                };
+                            }
+                        } catch (error) {
+                            console.error('Error fetching user:', error);
+                        }
+                    }
+
+                    return {
+                        ...postData,
+                        ownerName: ownerData.name,
+                        userImage: ownerData.profileImage,
+                    };
+                })
+            );
+
+            setPosts(postList);
+            setLoading(false);
+        });
+
         return () => unsubscribe();
     }, []);
 
@@ -92,11 +110,13 @@ function UsersPostsScreen() {
             return (
                 <Post
                     postId={item.post.id}
-                    username={item.post.username}
+                    username={item.post.ownerName}
                     caption={item.post.caption}
-                    image={item.post.image}
                     imageList={item.post.imageUrls} // List of images if available
                     ownerId={item.post.uid}
+                    userImage={item.post.userImage} // Pass fetched user image
+                    uploadDate={item.post.timestamp}
+                    isDarkMode={isDarkMode} // Pass isDarkMode to Post component
                 />
             );
         }
@@ -108,16 +128,13 @@ function UsersPostsScreen() {
             keyExtractor={item => item.id}
             renderItem={renderItem}
             ListHeaderComponent={
-                <>
-                    {/* Search Bar */}
-                    <TextInput
-                        style={[styles.searchInput, isDarkMode ? styles.darkInput : styles.lightInput]}
-                        placeholder="Search users..."
-                        placeholderTextColor={isDarkMode ? "#bbb" : "#666"}
-                        value={search}
-                        onChangeText={setSearch}
-                    />
-                </>
+                <TextInput
+                    style={[styles.searchInput, isDarkMode ? styles.darkInput : styles.lightInput]}
+                    placeholder="Search users..."
+                    placeholderTextColor={isDarkMode ? "#bbb" : "#666"}
+                    value={search}
+                    onChangeText={setSearch}
+                />
             }
             ListEmptyComponent={
                 loading ? (
@@ -162,7 +179,6 @@ const styles = StyleSheet.create({
 
     loader: { marginTop: 20 },
 
-    // No results text style
     noResults: {
         fontSize: 16,
         textAlign: 'center',
