@@ -1,11 +1,15 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext'; // Import the useTheme hook
+import React, { useState } from 'react';
+import { View, Text, Image, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { useTheme } from '../hooks/ThemeContext';
+import { FontAwesome } from '@expo/vector-icons'; // Make sure to install expo/vector-icons
 
 const { width } = Dimensions.get('window');
 
-function Post({ postId, username, caption, imageList, userImage, uploadDate }) {
-    const { isDarkMode } = useTheme(); // Get the dark mode state
+function Post({ postId, username, caption, imageList, userImage, uploadDate, initialLikes = 0, initialComments = [] }) {
+    const { isDarkMode } = useTheme();
+    const [likes, setLikes] = useState(initialLikes);
+    const [isLiked, setIsLiked] = useState(false);
+    const [showComments, setShowComments] = useState(false);
 
     // Convert Firestore Timestamp to a readable date string
     const formattedDate = uploadDate && uploadDate.seconds
@@ -15,6 +19,17 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate }) {
             day: 'numeric',
         })
         : "Unknown date";
+
+    const handleLike = () => {
+        setIsLiked(!isLiked);
+        setLikes(isLiked ? likes - 1 : likes + 1);
+        // Here you would typically make an API call to update likes in your backend
+    };
+
+    const handleComment = () => {
+        setShowComments(!showComments);
+        // Here you would typically navigate to comments screen or show comments modal
+    };
 
     return (
         <View style={[styles.postContainer, isDarkMode ? styles.darkPostContainer : styles.lightPostContainer]}>
@@ -38,7 +53,7 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate }) {
             {/* Caption */}
             <Text style={[styles.caption, isDarkMode ? styles.darkText : styles.lightText]}>{caption}</Text>
 
-            {/* Render multiple images (even if it's just one) */}
+            {/* Images */}
             {imageList && imageList.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageContainer}>
                     {imageList.map((img, index) => (
@@ -55,6 +70,40 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate }) {
                     No images available
                 </Text>
             )}
+
+            {/* Like and Comment count */}
+            <View style={styles.statsContainer}>
+                <Text style={[styles.statsText, isDarkMode ? styles.darkText : styles.lightText]}>
+                    {likes} likes • {initialComments.length} comments
+                </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                    style={styles.actionButton} 
+                    onPress={handleLike}
+                >
+                    <FontAwesome 
+                        name={isLiked ? "heart" : "heart-o"} 
+                        size={24} 
+                        color={isLiked ? "#e41e3f" : (isDarkMode ? "#fff" : "#000")} 
+                    />
+                    <Text style={[styles.actionText, isDarkMode ? styles.darkText : styles.lightText]}>Like</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={styles.actionButton} 
+                    onPress={handleComment}
+                >
+                    <FontAwesome 
+                        name="comment-o" 
+                        size={24} 
+                        color={isDarkMode ? "#fff" : "#000"} 
+                    />
+                    <Text style={[styles.actionText, isDarkMode ? styles.darkText : styles.lightText]}>Comment</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }
@@ -79,7 +128,7 @@ const styles = StyleSheet.create({
     userImage: {
         width: 40,
         height: 40,
-        borderRadius: 20, // Makes it circular
+        borderRadius: 20,
         marginRight: 10,
     },
     username: {
@@ -89,7 +138,7 @@ const styles = StyleSheet.create({
     uploadDate: {
         fontSize: 12,
         color: '#666',
-        marginTop: 2, // Small spacing between name and date
+        marginTop: 2,
     },
     caption: {
         marginTop: 5,
@@ -113,6 +162,29 @@ const styles = StyleSheet.create({
     },
     darkText: {
         color: '#fff',
+    },
+    statsContainer: {
+        marginTop: 10,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    statsText: {
+        fontSize: 14,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginTop: 10,
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+    },
+    actionText: {
+        marginLeft: 8,
+        fontSize: 14,
     },
 });
 
