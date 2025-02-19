@@ -40,6 +40,7 @@ const Sidebar = () => {
           imageLink={user.profileImage} 
           title={user.name} 
           isUser 
+          onPress={() => navigation.navigate('UserProfile', { userId: user.uid })} // Navigate to UserProfile screen
         />
       )}
 

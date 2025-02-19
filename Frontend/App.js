@@ -20,6 +20,7 @@ import MessageScreen from './src/screens/MessageScreen';
 import TabsScreen from './src/screens/TabsScreen';
 import MapScreen from './src/screens/MapScreen';
 
+
 // Context Providers
 import { ThemeProvider } from './src/hooks/ThemeContext';
 import ForgetPassword from './src/screens/ForgetPassword';
@@ -29,6 +30,7 @@ import SidebarRow from './src/screens/SidebarRow';
 import DarkModeScreen from './src/screens/DarkModeScreen';
 import ImageUpload from './src/screens/ImageUpload';
 import Posts from './src/screens/Posts';
+import UserProfile from './src/screens/UserProfile';
 
 
 const Stack = createStackNavigator();
@@ -59,6 +61,7 @@ export default function App() {
             <Stack.Screen name="darkmodescreen" component={DarkModeScreen} />
             <Stack.Screen name="ImageUpload" component={ImageUpload} />
             <Stack.Screen name="posts" component={Posts} />
+            <Stack.Screen name="UserProfile" component={UserProfile} />
           </Stack.Navigator>
           </UserProvider>
         </NavigationContainer>
