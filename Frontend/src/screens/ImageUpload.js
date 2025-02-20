@@ -7,7 +7,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore, storage } from '../../firebase/firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
-import { useUser } from '../context/UserContext'; 
+import { useUser } from '../context/UserContext';
 
 
 const ImageUpload = () => {
@@ -15,9 +15,9 @@ const ImageUpload = () => {
   const [text, setText] = useState('');
   const { isDarkMode } = useTheme();
   const [uploading, setUploading] = useState(false);
-  const { user } = useUser(); 
+  const { user } = useUser();
 
-  
+
 
   const handleImageUpload = async () => {
     try {
@@ -127,14 +127,14 @@ const ImageUpload = () => {
         )}
 
         <View style={styles.actionRow}>
-          <TouchableOpacity 
-            style={styles.actionButton} 
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={handleImageUpload}
             disabled={images.length >= 5}
           >
             <Icon name="clipboard" size={20} color={images.length >= 5 ? '#999' : 'green'} />
             <Text style={[
-              styles.actionText, 
+              styles.actionText,
               isDarkMode ? styles.darkActionText : styles.lightActionText,
               images.length >= 5 && styles.disabledText
             ]}>

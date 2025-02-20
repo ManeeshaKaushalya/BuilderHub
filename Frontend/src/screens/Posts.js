@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, Text, Image, StyleSheet, ScrollView, 
-    Dimensions, TouchableOpacity, ActivityIndicator, 
-    TextInput, FlatList 
+import {
+    View, Text, Image, StyleSheet, ScrollView,
+    Dimensions, TouchableOpacity, ActivityIndicator,
+    TextInput, FlatList
 } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';
 import { FontAwesome } from '@expo/vector-icons';
@@ -37,7 +37,7 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
             try {
                 const postRef = doc(firestore, 'posts', postId);
                 const postSnap = await getDoc(postRef);
-                
+
                 if (postSnap.exists()) {
                     const postData = postSnap.data();
                     setLikes(postData.likes || 0);
@@ -58,7 +58,7 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
 
     const handleLike = async () => {
         if (!userId) return;
-        
+
         const postRef = doc(firestore, 'posts', postId);
 
         try {
@@ -84,20 +84,20 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
 
     const handleAddComment = async () => {
         if (!userId || newComment.trim() === "") return;
-    
+
         try {
             // Fetch the user's name from Firestore
             const userRef = doc(firestore, "users", userId); // Adjust the collection name if needed
             const userSnap = await getDoc(userRef);
-    
+
             if (!userSnap.exists()) {
                 console.error("User document not found");
                 return;
             }
-    
+
             const userData = userSnap.data();
             const userName = userData.name || "Anonymous"; // Use 'name' field from Firestore
-    
+
             // Create comment object
             const commentData = {
                 userId,
@@ -105,20 +105,20 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
                 text: newComment,
                 timestamp: new Date()
             };
-    
+
             // Update Firestore with the new comment
             const postRef = doc(firestore, "posts", postId);
             await updateDoc(postRef, {
                 comments: arrayUnion(commentData)
             });
-    
+
             setComments([...comments, commentData]);
             setNewComment("");
         } catch (error) {
             console.error("Error adding comment:", error);
         }
     };
-    
+
 
     if (loading) {
         return <ActivityIndicator size="large" color="#0000ff" />;
@@ -163,10 +163,10 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
 
             <View style={styles.actionButtons}>
                 <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-                    <FontAwesome 
-                        name={isLiked ? "heart" : "heart-o"} 
-                        size={24} 
-                        color={isLiked ? "#e41e3f" : (isDarkMode ? "#fff" : "#000")} 
+                    <FontAwesome
+                        name={isLiked ? "heart" : "heart-o"}
+                        size={24}
+                        color={isLiked ? "#e41e3f" : (isDarkMode ? "#fff" : "#000")}
                     />
                     <Text style={[styles.actionText, isDarkMode ? styles.darkText : styles.lightText]}>Like</Text>
                 </TouchableOpacity>

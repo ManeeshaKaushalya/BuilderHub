@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet,Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../hooks/ThemeContext';
@@ -9,7 +9,7 @@ import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
 const Sidebar = () => {
   const navigation = useNavigation();
   const { user } = useUser();
-  const { isDarkMode } = useTheme(); 
+  const { isDarkMode } = useTheme();
 
   // Logout function
   const handleLogout = () => {
@@ -36,10 +36,10 @@ const Sidebar = () => {
     <View style={[styles.sidebar, isDarkMode ? styles.darkSidebar : styles.lightSidebar]}>
       {/* User Profile Section */}
       {user && (
-        <SidebarRow 
-          imageLink={user.profileImage} 
-          title={user.name} 
-          isUser 
+        <SidebarRow
+          imageLink={user.profileImage}
+          title={user.name}
+          isUser
           onPress={() => navigation.navigate('UserProfile', { userId: user.uid })} // Navigate to UserProfile screen
         />
       )}
@@ -58,8 +58,8 @@ const Sidebar = () => {
       <SidebarRow imageLink="https://static.xx.fbcdn.net/rsrc.php/v3/y-/r/Uy-TOlM5VXG.png" title="Memories" />
       <SidebarRow imageLink="https://static.xx.fbcdn.net/rsrc.php/v3/yA/r/KlDlsO3UxDM.png" title="Saved" />
       <SidebarRow dropdown title="See more" />
-       {/* Logout Button */}
-       <SidebarRow imageLink={null} title="Logout" onPress={handleLogout} />
+      {/* Logout Button */}
+      <SidebarRow imageLink={null} title="Logout" onPress={handleLogout} />
 
       {/* Footer Section */}
       <View style={styles.policies}>

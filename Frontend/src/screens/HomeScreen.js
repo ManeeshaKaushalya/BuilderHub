@@ -12,9 +12,9 @@ const HomeScreen = () => {
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Home Screen
       </Text>
-     
-      
-     
+
+
+
     </View>
   );
 };

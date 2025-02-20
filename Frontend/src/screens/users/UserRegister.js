@@ -12,10 +12,10 @@ import { doc, setDoc, getFirestore } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
 
 
-const UserRegister = ({ navigation}) => {
+const UserRegister = ({ navigation }) => {
   const route = useRoute(); // Add this line
   const { isDarkMode } = useTheme();
-  
+
   // Add missing state declarations
   const [accountType, setAccountType] = useState('Person');
   const [profileImage, setProfileImage] = useState(null);
@@ -30,8 +30,8 @@ const UserRegister = ({ navigation}) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
 
-   // Handle location updates from MapScreen
-   useEffect(() => {
+  // Handle location updates from MapScreen
+  useEffect(() => {
     if (route.params?.location) {
       setLocation(route.params.location);
     }
@@ -57,7 +57,7 @@ const UserRegister = ({ navigation}) => {
     };
   }, [showSuccessModal, navigation]);
 
-  
+
   const requestPermissions = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -74,7 +74,7 @@ const UserRegister = ({ navigation}) => {
     }
   };
 
- 
+
 
   const handleImageUpload = async () => {
     try {
@@ -84,21 +84,21 @@ const UserRegister = ({ navigation}) => {
         aspect: [1, 1],
         quality: 1,
       });
-  
+
       if (!result.canceled) {
         const uri = result.assets[0].uri;
         setProfileImage(uri);
-  
+
         // Upload image to Firebase Storage
         const storage = getStorage();
         const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
         const response = await fetch(uri);
         const blob = await response.blob();
-  
+
         const uploadTask = uploadBytesResumable(storageRef, blob);
         uploadTask.on(
           'state_changed',
-          snapshot => {},
+          snapshot => { },
           error => {
             console.error('Image upload failed:', error);
           },
@@ -113,7 +113,7 @@ const UserRegister = ({ navigation}) => {
       Alert.alert('Error', 'Failed to upload image');
     }
   };
-  
+
 
   // Success Modal Component
   const SuccessModal = () => (
@@ -139,17 +139,17 @@ const UserRegister = ({ navigation}) => {
 
   const validateForm = () => {
     const errors = [];
-    
+
     if (!name.trim()) errors.push('Name is required');
     if (!email.trim()) errors.push('Email is required');
     if (!password.trim()) errors.push('Password is required');
     if (!location.trim()) errors.push('Location is required');
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       errors.push('Please enter a valid email address');
     }
-    
+
     if (password.length < 6) {
       errors.push('Password must be at least 6 characters long');
     }
@@ -194,7 +194,7 @@ const UserRegister = ({ navigation}) => {
 
       // Create document reference
       const userRef = doc(firestore, 'users', user.uid);
-      
+
       // Store user data in Firestore
       await setDoc(userRef, userData);
       console.log('User data stored successfully');
@@ -205,7 +205,7 @@ const UserRegister = ({ navigation}) => {
     } catch (error) {
       setIsLoading(false);
       console.error('Registration error:', error);
-      
+
       // Provide specific error messages
       let errorMessage = 'Failed to register';
       if (error.code === 'auth/email-already-in-use') {
@@ -217,18 +217,18 @@ const UserRegister = ({ navigation}) => {
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection.';
       }
-      
+
       Alert.alert('Registration Error', errorMessage);
     }
   };
 
   const handleLocationSelect = () => {
-    navigation.navigate('MapScreen', { 
+    navigation.navigate('MapScreen', {
       registrationType: 'user',
-      previousLocation: location 
+      previousLocation: location
     });
   };
-  
+
   // Dynamic styles based on theme
   const dynamicStyles = StyleSheet.create({
     container: {
@@ -268,147 +268,147 @@ const UserRegister = ({ navigation}) => {
           </Text>
         </View>
       )}
-      
+
       <SuccessModal />
-    <ScrollView 
-      contentContainerStyle={dynamicStyles.container}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={dynamicStyles.title}>Create Your Account</Text>
-
-      <TouchableOpacity 
-        style={styles.imageUploadContainer} 
-        onPress={handleImageUpload}
+      <ScrollView
+        contentContainerStyle={dynamicStyles.container}
+        keyboardShouldPersistTaps="handled"
       >
-        {profileImage ? (
-          <Image 
-            source={{ uri: profileImage }} 
-            style={styles.profileImage} 
+        <Text style={dynamicStyles.title}>Create Your Account</Text>
+
+        <TouchableOpacity
+          style={styles.imageUploadContainer}
+          onPress={handleImageUpload}
+        >
+          {profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <Icon
+              name="camera"
+              size={50}
+              color={isDarkMode ? '#444' : '#ccc'}
+            />
+          )}
+        </TouchableOpacity>
+        <Text style={dynamicStyles.uploadText}>Upload Profile Picture</Text>
+
+        <View style={dynamicStyles.inputContainer}>
+          <Icon
+            name="user"
+            size={20}
+            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
           />
-        ) : (
-          <Icon 
-            name="camera" 
-            size={50} 
-            color={isDarkMode ? '#444' : '#ccc'} 
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Full Name"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={name}
+            onChangeText={setName}
           />
+        </View>
+
+        <View style={dynamicStyles.inputContainer}>
+          <Icon
+            name="envelope"
+            size={20}
+            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
+          />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Email"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={dynamicStyles.inputContainer}>
+          <Icon
+            name="lock"
+            size={20}
+            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
+          />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Password"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
+
+        {accountType === 'Person' && (
+          <>
+            <View style={dynamicStyles.inputContainer}>
+              <Icon
+                name="briefcase"
+                size={20}
+                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
+              />
+              <TextInput
+                style={dynamicStyles.input}
+                placeholder="Profession"
+                placeholderTextColor={isDarkMode ? '#888' : '#666'}
+                value={profession}
+                onChangeText={setProfession}
+              />
+            </View>
+
+            <View style={dynamicStyles.inputContainer}>
+              <Icon
+                name="clock-o"
+                size={20}
+                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
+              />
+              <TextInput
+                style={dynamicStyles.input}
+                placeholder="Years of Experience"
+                placeholderTextColor={isDarkMode ? '#888' : '#666'}
+                value={experience}
+                onChangeText={setExperience}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={dynamicStyles.inputContainer}>
+              <Icon
+                name="tags"
+                size={20}
+                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
+              />
+              <TextInput
+                style={dynamicStyles.input}
+                placeholder="Skills (comma separated)"
+                placeholderTextColor={isDarkMode ? '#888' : '#666'}
+                value={skills}
+                onChangeText={setSkills}
+              />
+            </View>
+          </>
         )}
-      </TouchableOpacity>
-      <Text style={dynamicStyles.uploadText}>Upload Profile Picture</Text>
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="user" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Full Name" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={name} 
-          onChangeText={setName} 
-        />
-      </View>
+        {/* Location Picker */}
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="envelope" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Email" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={email} 
-          onChangeText={setEmail} 
-          keyboardType="email-address" 
-          autoCapitalize="none" 
-        />
-      </View>
-
-      <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="lock" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-        />
-        <TextInput 
-          style={dynamicStyles.input} 
-          placeholder="Password" 
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry 
-        />
-      </View>
-
-      {accountType === 'Person' && (
-        <>
-          <View style={dynamicStyles.inputContainer}>
-            <Icon 
-              name="briefcase" 
-              size={20} 
-              style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-            />
-            <TextInput 
-              style={dynamicStyles.input} 
-              placeholder="Profession" 
-              placeholderTextColor={isDarkMode ? '#888' : '#666'}
-              value={profession} 
-              onChangeText={setProfession} 
-            />
-          </View>
-
-          <View style={dynamicStyles.inputContainer}>
-            <Icon 
-              name="clock-o" 
-              size={20} 
-              style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-            />
-            <TextInput 
-              style={dynamicStyles.input} 
-              placeholder="Years of Experience" 
-              placeholderTextColor={isDarkMode ? '#888' : '#666'}
-              value={experience} 
-              onChangeText={setExperience} 
-              keyboardType="numeric" 
-            />
-          </View>
-
-          <View style={dynamicStyles.inputContainer}>
-            <Icon 
-              name="tags" 
-              size={20} 
-              style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
-            />
-            <TextInput 
-              style={dynamicStyles.input} 
-              placeholder="Skills (comma separated)" 
-              placeholderTextColor={isDarkMode ? '#888' : '#666'}
-              value={skills} 
-              onChangeText={setSkills} 
-            />
-          </View>
-        </>
-      )}
-
-       {/* Location Picker */}
-       
-       <View style={dynamicStyles.inputContainer}>
-          <Icon 
-            name="map-marker" 
-            size={20} 
-            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+        <View style={dynamicStyles.inputContainer}>
+          <Icon
+            name="map-marker"
+            size={20}
+            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
           />
-          <TextInput 
+          <TextInput
             style={[dynamicStyles.input, { flex: 1 }]}
             placeholder="Location"
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={location}
             editable={false}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleLocationSelect}
             style={styles.locationButton}
           >
@@ -416,167 +416,167 @@ const UserRegister = ({ navigation}) => {
           </TouchableOpacity>
         </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleRegister}>
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={dynamicStyles.link}>
-          Already have an account? <Text style={styles.linkBold}>Login here</Text>
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={dynamicStyles.link}>
+            Already have an account? <Text style={styles.linkBold}>Login here</Text>
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-    container: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  imageUploadContainer: {
+    width: 120, // Adjust width
+    height: 120, // Adjust height
+    borderRadius: 60, // To keep the image circular
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20, // Add more margin if needed for spacing
+    borderWidth: 1, // Optional: Add border to make it look defined
+    borderColor: '#ddd', // Optional: Add a border color
+  },
+  profileImage: {
+    width: 100, // Slightly reduce the size of the image
+    height: 100, // Keep it a circle
+    borderRadius: 50, // Circular image
+  },
+  uploadText: {
+    marginBottom: 20,
+    textAlign: 'center',
+    fontSize: 16, // Optional: Adjust font size for the upload text
+    color: '#555',
+  },
+  inputContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 10,
+    height: 50,
+  },
+  icon: {
+    padding: 10,
+  },
+  input: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 5,
+    height: 50,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  link: {
+    marginTop: 15,
+    fontWeight: '500',
+  },
+  linkBold: {
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
     },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 20,
-    },
-    imageUploadContainer: {
-      width: 120, // Adjust width
-      height: 120, // Adjust height
-      borderRadius: 60, // To keep the image circular
-      backgroundColor: '#f0f0f0',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 20, // Add more margin if needed for spacing
-      borderWidth: 1, // Optional: Add border to make it look defined
-      borderColor: '#ddd', // Optional: Add a border color
-    },
-    profileImage: {
-      width: 100, // Slightly reduce the size of the image
-      height: 100, // Keep it a circle
-      borderRadius: 50, // Circular image
-    },
-    uploadText: {
-      marginBottom: 20,
-      textAlign: 'center',
-      fontSize: 16, // Optional: Adjust font size for the upload text
-      color: '#555',
-    },
-    inputContainer: {
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderRadius: 5,
-      marginBottom: 10,
-      height: 50,
-    },
-    icon: {
-      padding: 10,
-    },
-    input: {
-      flex: 1,
-      padding: 10,
-      borderRadius: 5,
-      height: 50,
-      fontSize: 16,
-    },
-    button: {
-      backgroundColor: '#007BFF',
-      padding: 15,
-      borderRadius: 5,
-      alignItems: 'center',
-      width: '100%',
-      marginTop: 10,
-    },
-    buttonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    link: {
-      marginTop: 15,
-      fontWeight: '500',
-    },
-    linkBold: {
-      fontWeight: 'bold',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: '#fff',
-      borderRadius: 20,
-      padding: 30,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 5,
-      width: '80%',
-    },
-    modalContentDark: {
-      backgroundColor: '#333',
-    },
-    modalTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginTop: 15,
-      marginBottom: 10,
-      color: '#000',
-    },
-    modalTitleDark: {
-      color: '#fff',
-    },
-    modalText: {
-      fontSize: 16,
-      textAlign: 'center',
-      marginBottom: 20,
-      color: '#666',
-    },
-    modalTextDark: {
-      color: '#ccc',
-    },
-    modalButton: {
-      backgroundColor: '#007BFF',
-      paddingHorizontal: 30,
-      paddingVertical: 12,
-      borderRadius: 25,
-      elevation: 2,
-    },
-    modalButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0, 0, 0, 0.3)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 999,
-    },
-    locationButton: {
-      backgroundColor: '#007BFF',
-      padding: 8,
-      borderRadius: 5,
-      marginLeft: 10,
-    },
-    locationButtonText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: 'bold',
-    },
-  });
-  
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '80%',
+  },
+  modalContentDark: {
+    backgroundColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+    color: '#000',
+  },
+  modalTitleDark: {
+    color: '#fff',
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  modalTextDark: {
+    color: '#ccc',
+  },
+  modalButton: {
+    backgroundColor: '#007BFF',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    elevation: 2,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  locationButton: {
+    backgroundColor: '#007BFF',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+});
+
 
 export default UserRegister;

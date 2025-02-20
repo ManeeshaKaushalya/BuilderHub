@@ -1,20 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';  
-import { useUser } from '../context/UserContext';  
+import { useTheme } from '../hooks/ThemeContext';
+import { useUser } from '../context/UserContext';
 import Sidebar from './Sidebar';
 
 function ProfileScreen() {
-  const { isDarkMode } = useTheme(); 
-  const { user } = useUser(); 
+  const { isDarkMode } = useTheme();
+  const { user } = useUser();
 
   return (
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Profile Screen
       </Text>
-      
-      <Sidebar /> 
+
+      <Sidebar />
     </View>
   );
 }

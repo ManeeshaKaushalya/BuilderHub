@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext'; 
-import { useNavigation } from '@react-navigation/native'; 
+import { useTheme } from '../hooks/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 
 const SidebarRow = ({ imageLink, title, isUser, onPress }) => {
-  const { isDarkMode } = useTheme(); 
+  const { isDarkMode } = useTheme();
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.row, 
-        isUser && styles.userRow, 
+        styles.row,
+        isUser && styles.userRow,
         isDarkMode ? styles.darkRow : styles.lightRow
       ]}
       onPress={onPress} // Use dynamic onPress instead of fixed navigation
@@ -18,12 +18,12 @@ const SidebarRow = ({ imageLink, title, isUser, onPress }) => {
       {imageLink ? (
         <Image source={{ uri: imageLink }} style={isUser ? styles.avatar : styles.icon} />
       ) : (
-        <View style={styles.placeholderIcon} /> 
+        <View style={styles.placeholderIcon} />
       )}
-      <Text 
+      <Text
         style={[
-          styles.title, 
-          isUser && styles.userName, 
+          styles.title,
+          isUser && styles.userName,
           isDarkMode ? styles.darkText : styles.lightText
         ]}
       >

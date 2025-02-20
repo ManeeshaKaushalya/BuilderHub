@@ -41,7 +41,7 @@ const ForgetPassword = ({ navigation }) => {
       );
     } catch (error) {
       let errorMessage = 'Failed to send reset email';
-      
+
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email address';
       } else if (error.code === 'auth/invalid-email') {
@@ -49,7 +49,7 @@ const ForgetPassword = ({ navigation }) => {
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many attempts. Please try again later';
       }
-      
+
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
@@ -87,16 +87,16 @@ const ForgetPassword = ({ navigation }) => {
   return (
     <View style={dynamicStyles.container}>
       <Text style={dynamicStyles.title}>Reset Password</Text>
-      
+
       <Text style={dynamicStyles.description}>
         Enter your email address and we'll send you instructions to reset your password.
       </Text>
 
       <View style={dynamicStyles.inputContainer}>
-        <Icon 
-          name="envelope" 
-          size={20} 
-          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} 
+        <Icon
+          name="envelope"
+          size={20}
+          style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
         />
         <TextInput
           style={dynamicStyles.input}
@@ -110,7 +110,7 @@ const ForgetPassword = ({ navigation }) => {
         />
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.button, isLoading && styles.disabledButton]}
         onPress={handleResetPassword}
         disabled={isLoading}
@@ -122,7 +122,7 @@ const ForgetPassword = ({ navigation }) => {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={() => navigation.navigate('Login')}
         style={styles.backButton}
       >

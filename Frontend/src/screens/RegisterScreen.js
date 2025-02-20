@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
+import {
+  View,
+  Text,
   Alert,
-  StyleSheet, 
-  ScrollView 
+  StyleSheet,
+  ScrollView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,7 +26,7 @@ const RegisterScreen = ({ navigation }) => {
         Alert.alert(
           'Permission Required',
           'We need camera roll permissions to upload images.',
-          [{ text: 'OK', onPress: () => {} }]
+          [{ text: 'OK', onPress: () => { } }]
         );
       }
     } catch (error) {
@@ -34,7 +34,7 @@ const RegisterScreen = ({ navigation }) => {
       Alert.alert(
         'Error',
         'Failed to request camera roll permissions.',
-        [{ text: 'OK', onPress: () => {} }]
+        [{ text: 'OK', onPress: () => { } }]
       );
     }
   };
@@ -53,12 +53,12 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Create Your Account</Text>
-      
+
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={accountType}

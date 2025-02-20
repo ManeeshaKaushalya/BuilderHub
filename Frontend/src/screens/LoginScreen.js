@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, Alert} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
@@ -9,66 +9,66 @@ import { useUser } from '../context/UserContext';
 
 
 const LoginScreen = ({ navigation }) => {
-    const { isDarkMode } = useTheme(); // Get dark mode state
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const db = getFirestore();
-    const { loginUser } = useUser(); 
-
-
-    
+  const { isDarkMode } = useTheme(); // Get dark mode state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const db = getFirestore();
+  const { loginUser } = useUser();
 
 
 
-const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert("Error", "Please enter email and password");
-    return;
-  }
 
-  try {
-    setIsLoading(true);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    //console.log("User logged in:", userCredential.user);
-    Alert.alert("Success", "Logged in successfully!");
 
-    // Get user data
-    const user = userCredential.user;
 
-    // Fetch user data from Firestore
-    const docRef = doc(db, 'users', user.uid);
-
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      loginUser(userData);  // Save user data in context
-      // Log all user data to the console
-      console.log('User data:', userData);
-    } else {
-      console.log("No such user data!");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter email and password");
+      return;
     }
 
-    // Navigate to home screen
-    navigation.replace('Tabs'); 
-  } catch (error) {
-    console.error("Login error:", error.message);
-    Alert.alert("Login Failed", error.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      setIsLoading(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      //console.log("User logged in:", userCredential.user);
+      Alert.alert("Success", "Logged in successfully!");
+
+      // Get user data
+      const user = userCredential.user;
+
+      // Fetch user data from Firestore
+      const docRef = doc(db, 'users', user.uid);
+
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        loginUser(userData);  // Save user data in context
+        // Log all user data to the console
+        console.log('User data:', userData);
+      } else {
+        console.log("No such user data!");
+      }
+
+      // Navigate to home screen
+      navigation.replace('Tabs');
+    } catch (error) {
+      console.error("Login error:", error.message);
+      Alert.alert("Login Failed", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <View style={styles.innerContainer}>
         <Image source={require('../../assets/logo.png')} style={styles.logo} />
-        
+
         <Text style={styles.title}>Login</Text>
 
         <View style={styles.inputContainer}>
@@ -111,65 +111,65 @@ const handleLogin = async () => {
 
 const styles = StyleSheet.create({
   container: {
-     flex: 1,
-      backgroundColor: '#fff'
-     },
-  innerContainer: { 
     flex: 1,
-     justifyContent: 'center',
-      alignItems: 'center',
-       padding: 20
-     },
+    backgroundColor: '#fff'
+  },
+  innerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
   logo: {
-     width: 140, 
-     height: 100, 
-     marginBottom: 20
-     },
-  title: { 
-    fontSize: 24, 
+    width: 140,
+    height: 100,
+    marginBottom: 20
+  },
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20, 
-    color: '#333' 
-    },
-  inputContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    marginBottom: 20,
+    color: '#333'
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
-     marginBottom: 15, 
-     borderWidth: 1, 
-     borderColor: '#ccc', 
-     borderRadius: 5, 
-     paddingHorizontal: 10 
-    },
-  icon: { 
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    paddingHorizontal: 10
+  },
+  icon: {
     marginRight: 10
- },
-  input: { 
-    flex: 1, 
-    height: 40, 
-    color: '#333' 
- },
-  loginButton: { 
-    width: '100%', 
-    backgroundColor: '#007BFF', 
-    padding: 15, 
-    borderRadius: 5, 
-    alignItems: 'center', 
-    marginTop: 10 
-},
-  loginButtonText: { 
-    color: '#fff', 
-    fontSize: 16, 
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    color: '#333'
+  },
+  loginButton: {
+    width: '100%',
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold'
- },
-  link: { 
+  },
+  link: {
     marginTop: 15,
-     color: '#666'
-     },
-  linkBold: { 
+    color: '#666'
+  },
+  linkBold: {
     fontWeight: 'bold',
-     color: '#007BFF' 
-    },
+    color: '#007BFF'
+  },
 });
 
 export default LoginScreen;

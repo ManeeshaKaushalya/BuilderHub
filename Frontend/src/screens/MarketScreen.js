@@ -8,7 +8,7 @@ function MarketScreen() {
 
   return (
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-      
+
       {/* Search Bar */}
       <TextInput
         style={[styles.searchInput, isDarkMode ? styles.darkInput : styles.lightInput]}
@@ -22,7 +22,7 @@ function MarketScreen() {
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Market Screen
       </Text>
-      
+
     </View>
   );
 };
@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   lightContainer: { backgroundColor: '#fff' },
   darkContainer: { backgroundColor: '#121212' },
-  
+
   text: { fontSize: 18, fontWeight: 'bold', marginTop: 20 },
   lightText: { color: '#000' },
   darkText: { color: '#fff' },

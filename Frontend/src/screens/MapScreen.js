@@ -69,7 +69,7 @@ const MapScreen = ({ navigation, route }) => {
   const handleConfirmLocation = () => {
     if (selectedLocation) {
       const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
-      
+
       switch (registrationType) {
         case 'shop':
           navigation.navigate('ShopRegister', { location: locationString });

@@ -4,7 +4,7 @@ import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
 
 function NotificationScreen() {
   const { isDarkMode } = useTheme(); // Get dark mode state
-return (
+  return (
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
         Welcome to Notification Screen

@@ -22,35 +22,35 @@ const CompanyRegister = ({ navigation }) => {
   const [profileImage, setProfileImage] = useState(null);
   const [location, setLocation] = useState(route?.params?.location || '');
   const [accountType, setAccountType] = useState('Company');
-    const [isLoading, setIsLoading] = useState(false);
-    const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
-    // Handle location updates from MapScreen
-     useEffect(() => {
-      if (route.params?.location) {
-        setLocation(route.params.location);
+  // Handle location updates from MapScreen
+  useEffect(() => {
+    if (route.params?.location) {
+      setLocation(route.params.location);
+    }
+  }, [route.params?.location]);
+
+  useEffect(() => {
+    requestPermissions();
+  }, []);
+
+  // Add useEffect to handle auto-navigation
+  useEffect(() => {
+    let navigationTimer;
+    if (showSuccessModal) {
+      navigationTimer = setTimeout(() => {
+        setShowSuccessModal(false);
+        navigation.navigate('Login');
+      }, 2000); // Show success message for 2 seconds
+    }
+    return () => {
+      if (navigationTimer) {
+        clearTimeout(navigationTimer);
       }
-    }, [route.params?.location]);
-  
-    useEffect(() => {
-      requestPermissions();
-    }, []);
-  
-    // Add useEffect to handle auto-navigation
-    useEffect(() => {
-      let navigationTimer;
-      if (showSuccessModal) {
-        navigationTimer = setTimeout(() => {
-          setShowSuccessModal(false);
-          navigation.navigate('Login');
-        }, 2000); // Show success message for 2 seconds
-      }
-      return () => {
-        if (navigationTimer) {
-          clearTimeout(navigationTimer);
-        }
-      };
-    }, [showSuccessModal, navigation]);
+    };
+  }, [showSuccessModal, navigation]);
 
   const requestPermissions = async () => {
     try {
@@ -68,7 +68,7 @@ const CompanyRegister = ({ navigation }) => {
     }
   };
 
- 
+
 
   const handleImageUpload = async () => {
     try {
@@ -78,21 +78,21 @@ const CompanyRegister = ({ navigation }) => {
         aspect: [1, 1],
         quality: 1,
       });
-  
+
       if (!result.canceled) {
         const uri = result.assets[0].uri;
         setProfileImage(uri);
-  
+
         // Upload image to Firebase Storage
         const storage = getStorage();
         const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
         const response = await fetch(uri);
         const blob = await response.blob();
-  
+
         const uploadTask = uploadBytesResumable(storageRef, blob);
         uploadTask.on(
           'state_changed',
-          snapshot => {},
+          snapshot => { },
           error => {
             console.error('Image upload failed:', error);
           },
@@ -107,79 +107,79 @@ const CompanyRegister = ({ navigation }) => {
       Alert.alert('Error', 'Failed to upload image');
     }
   };
-    // Success Modal Component
-    const SuccessModal = () => (
-      <Modal
-        transparent={true}
-        visible={showSuccessModal}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-            <Icon name="check-circle" size={50} color="#4CAF50" />
-            <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-              Registration Successful!
-            </Text>
-            <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
-              Your account has been created successfully.
-            </Text>
-            {/* Removed the button since we're auto-navigating */}
-          </View>
+  // Success Modal Component
+  const SuccessModal = () => (
+    <Modal
+      transparent={true}
+      visible={showSuccessModal}
+      animationType="fade"
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+          <Icon name="check-circle" size={50} color="#4CAF50" />
+          <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
+            Registration Successful!
+          </Text>
+          <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
+            Your account has been created successfully.
+          </Text>
+          {/* Removed the button since we're auto-navigating */}
         </View>
-      </Modal>
-    );
+      </View>
+    </Modal>
+  );
 
-    const handleRegister = async () => {
-      if (!companyName || !email || !password) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-    
-      if (!email.includes('@')) {
-        Alert.alert('Error', 'Please enter a valid email address');
-        return;
-      }
-    
-      try {
-        setIsLoading(true);
-    
-        // Register user with Firebase Authentication
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-    
-        // Prepare company data
-        const companyData = {
-          companyName,
-          email,
-          accountType,
-          companyDescription,
-          location,
-          profileImage: profileImage || '',
-          createdAt: new Date().toISOString(),
-        };
-    
-        // Create document reference directly using the firestore instance
-        const userDocRef = doc(firestore, 'users', user.uid);
-        
-        // Save company data to Firestore
-        await setDoc(userDocRef, companyData);
-    
-        setIsLoading(false);
-        setShowSuccessModal(true);
-      } catch (error) {
-        setIsLoading(false);
-        console.error('Registration error:', error);
-        Alert.alert('Error', 'Failed to register: ' + error.message);
-      }
-    };
+  const handleRegister = async () => {
+    if (!companyName || !email || !password) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
 
-        const handleLocationSelect = () => {
-          navigation.navigate('MapScreen', { 
-            registrationType: 'company',
-            previousLocation: location 
-          });
-        };
- const dynamicStyles = StyleSheet.create({
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Register user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Prepare company data
+      const companyData = {
+        companyName,
+        email,
+        accountType,
+        companyDescription,
+        location,
+        profileImage: profileImage || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      // Create document reference directly using the firestore instance
+      const userDocRef = doc(firestore, 'users', user.uid);
+
+      // Save company data to Firestore
+      await setDoc(userDocRef, companyData);
+
+      setIsLoading(false);
+      setShowSuccessModal(true);
+    } catch (error) {
+      setIsLoading(false);
+      console.error('Registration error:', error);
+      Alert.alert('Error', 'Failed to register: ' + error.message);
+    }
+  };
+
+  const handleLocationSelect = () => {
+    navigation.navigate('MapScreen', {
+      registrationType: 'company',
+      previousLocation: location
+    });
+  };
+  const dynamicStyles = StyleSheet.create({
     container: {
       ...styles.container,
       backgroundColor: isDarkMode ? '#1a1a1a' : '#fff'
@@ -210,96 +210,96 @@ const CompanyRegister = ({ navigation }) => {
 
 
   return (
-<>
+    <>
       {isLoading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#007BFF" />
-              <Text style={{ color: '#fff', marginTop: 10 }}>
-                Creating your account...
-              </Text>
-            </View>
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#007BFF" />
+          <Text style={{ color: '#fff', marginTop: 10 }}>
+            Creating your account...
+          </Text>
+        </View>
+      )}
+      <SuccessModal />
+      <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
+        <Text style={dynamicStyles.title}>Create Your Company Account</Text>
+
+        <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
+          {profileImage ? (
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          ) : (
+            <Icon name="camera" size={50} color={isDarkMode ? '#444' : '#ccc'} />
           )}
-           <SuccessModal />
-    <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
-      <Text style={dynamicStyles.title}>Create Your Company Account</Text>
+        </TouchableOpacity>
+        <Text style={dynamicStyles.uploadText}>Upload Company Logo</Text>
 
-      <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
-        {profileImage ? (
-          <Image source={{ uri: profileImage }} style={styles.profileImage} />
-        ) : (
-          <Icon name="camera" size={50} color={isDarkMode ? '#444' : '#ccc'} />
-        )}
-      </TouchableOpacity>
-      <Text style={dynamicStyles.uploadText}>Upload Company Logo</Text>
+        <View style={dynamicStyles.inputContainer}>
+          <Icon name="building" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Company Name"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={companyName}
+            onChangeText={setCompanyName}
+          />
+        </View>
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon name="building" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder="Company Name"
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={companyName}
-          onChangeText={setCompanyName}
-        />
-      </View>
+        <View style={dynamicStyles.inputContainer}>
+          <Icon name="envelope" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Email"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon name="envelope" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder="Email"
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
+        <View style={dynamicStyles.inputContainer}>
+          <Icon name="lock" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Password"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon name="lock" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder="Password"
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-      </View>
+        <View style={dynamicStyles.inputContainer}>
+          <Icon name="info-circle" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Company Description"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={companyDescription}
+            onChangeText={setCompanyDescription}
+          />
+        </View>
 
-      <View style={dynamicStyles.inputContainer}>
-        <Icon name="info-circle" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder="Company Description"
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={companyDescription}
-          onChangeText={setCompanyDescription}
-        />
-      </View>
+        <TouchableOpacity style={dynamicStyles.inputContainer} onPress={handleLocationSelect}>
+          <Icon name="map-marker" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <TextInput
+            style={dynamicStyles.input}
+            placeholder="Select Location"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={location}
+            editable={false}
+          />
+        </TouchableOpacity>
 
-      <TouchableOpacity style={dynamicStyles.inputContainer} onPress={handleLocationSelect}>
-        <Icon name="map-marker" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
-        <TextInput
-          style={dynamicStyles.input}
-          placeholder="Select Location"
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={location}
-          editable={false}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleRegister}>
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
 
-       <TouchableOpacity style={styles.button} onPress={handleRegister}>
-              <Text style={styles.buttonText}>Register</Text>
-            </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={dynamicStyles.link}>
-          Already have an account? <Text style={styles.linkBold}>Login here</Text>
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={dynamicStyles.link}>
+            Already have an account? <Text style={styles.linkBold}>Login here</Text>
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </>
   );
 };

@@ -117,7 +117,7 @@ function UsersPostsScreen() {
                     userImage={item.post.userImage} // Pass fetched user image
                     uploadDate={item.post.timestamp}
                     isDarkMode={isDarkMode} // Pass isDarkMode to Post component
-                    
+
                 />
             );
         }
