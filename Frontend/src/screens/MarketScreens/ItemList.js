@@ -11,6 +11,7 @@ import {
 import { firestore } from "../../../firebase/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import FormatPrice from "./FormatPrice";
 
 const ItemList = ({ navigation }) => {
   const [items, setItems] = useState([]);
@@ -53,7 +54,9 @@ const ItemList = ({ navigation }) => {
         <Text style={styles.itemDescription} numberOfLines={2}>
           {item.description}
         </Text>
-        <Text style={styles.itemPrice}>${item.price}</Text>
+        <Text style={styles.itemPrice}>
+        <FormatPrice price={item.price} />
+      </Text>
       </View>
 
       <TouchableOpacity
