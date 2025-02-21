@@ -1,34 +1,28 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import React from 'react';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { useTheme } from '../hooks/ThemeContext'; // Import useTheme hook
+import FilterSection from './MarketScreens/FilterSection';
+import ItemList from './MarketScreens/ItemList';
 
-function MarketScreen() {
+function MarketScreen({ navigation }) {
   const { isDarkMode } = useTheme(); // Get dark mode state
-  const [searchItemQuery, setSearchItemQuery] = useState('');
 
   return (
-    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-
-      {/* Search Bar */}
-      <TextInput
-        style={[styles.searchInput, isDarkMode ? styles.darkInput : styles.lightInput]}
-        placeholder="Search items..."
-        placeholderTextColor={isDarkMode ? "#bbb" : "#666"}
-        value={searchItemQuery}
-        onChangeText={setSearchItemQuery}
-      />
-
-      {/* Title */}
-      <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
-        Welcome to Market Screen
-      </Text>
-
-    </View>
+    <FlatList
+      data={[{}]} // Dummy data to ensure at least one item in FlatList
+      renderItem={() => null} // Render nothing for each item
+      keyExtractor={() => 'dummy'} // Ensure unique key
+      ListHeaderComponent={<FilterSection navigation={navigation} />} // Filter Section at the top
+      ListFooterComponent={<ItemList />} // Item List Section at the bottom
+      numColumns={2} // Set the number of columns to 2 for two items per row
+      key={isDarkMode ? 'dark' : 'light'} // Change the key based on dark mode to reset FlatList
+      style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}
+    />
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
   lightContainer: { backgroundColor: '#fff' },
   darkContainer: { backgroundColor: '#121212' },
 

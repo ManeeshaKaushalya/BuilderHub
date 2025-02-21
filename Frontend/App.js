@@ -3,7 +3,11 @@ import { ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import 'react-native-get-random-values';
+import { Provider as PaperProvider } from 'react-native-paper'; // Import Paper Provider
+
+// Context Providers
+import { ThemeProvider } from './src/hooks/ThemeContext';
+import { UserProvider } from './src/context/UserContext';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -19,53 +23,57 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import MessageScreen from './src/screens/MessageScreen';
 import TabsScreen from './src/screens/TabsScreen';
 import MapScreen from './src/screens/MapScreen';
-
-
-// Context Providers
-import { ThemeProvider } from './src/hooks/ThemeContext';
 import ForgetPassword from './src/screens/ForgetPassword';
-import { UserProvider } from './src/context/UserContext';
 import Sidebar from './src/screens/Sidebar';
 import SidebarRow from './src/screens/SidebarRow';
 import DarkModeScreen from './src/screens/DarkModeScreen';
 import ImageUpload from './src/screens/ImageUpload';
 import Posts from './src/screens/Posts';
 import UserProfile from './src/screens/UserProfile';
-
+import FilterSection from './src/screens/MarketScreens/FilterSection';
+import FormatPrice from './src/screens/MarketScreens/FormatPrice';
+import AddItem from './src/screens/MarketScreens/AddItem';
+import ItemList from './src/screens/MarketScreens/ItemList';
 
 const Stack = createStackNavigator();
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <NavigationContainer fallback={<ActivityIndicator size="large" color="#007AFF" />}>
-        <UserProvider>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="CompanyRegister" component={CompanyRegister} />
-            <Stack.Screen name="ShopRegister" component={ShopRegister} />
-            <Stack.Screen name="UserRegister" component={UserRegister} />
-            <Stack.Screen name="Tabs" component={TabsScreen} />
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="PostsScreen" component={UsersPostsScreen} />
-            <Stack.Screen name="MarketScreen" component={MarketScreen} />
-            <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
-            <Stack.Screen name="MessageScreen" component={MessageScreen} />
-            <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-            <Stack.Screen name="MapScreen" component={MapScreen} />
-            <Stack.Screen name="forgetpassword" component={ForgetPassword} />
-            <Stack.Screen name="sidebar" component={Sidebar} />
-            <Stack.Screen name="sidebarRow" component={SidebarRow} />
-            <Stack.Screen name="darkmodescreen" component={DarkModeScreen} />
-            <Stack.Screen name="ImageUpload" component={ImageUpload} />
-            <Stack.Screen name="posts" component={Posts} />
-            <Stack.Screen name="UserProfile" component={UserProfile} />
-          </Stack.Navigator>
+      <PaperProvider> {/* Wrap your app with PaperProvider */}
+        <ThemeProvider>
+          <UserProvider>
+            <NavigationContainer fallback={<ActivityIndicator size="large" color="#007AFF" />}>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Register" component={RegisterScreen} />
+                <Stack.Screen name="CompanyRegister" component={CompanyRegister} />
+                <Stack.Screen name="ShopRegister" component={ShopRegister} />
+                <Stack.Screen name="UserRegister" component={UserRegister} />
+                <Stack.Screen name="Tabs" component={TabsScreen} />
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="PostsScreen" component={UsersPostsScreen} />
+                <Stack.Screen name="MarketScreen" component={MarketScreen} />
+                <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
+                <Stack.Screen name="MessageScreen" component={MessageScreen} />
+                <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+                <Stack.Screen name="MapScreen" component={MapScreen} />
+                <Stack.Screen name="ForgetPassword" component={ForgetPassword} />
+                <Stack.Screen name="Sidebar" component={Sidebar} />
+                <Stack.Screen name="SidebarRow" component={SidebarRow} />
+                <Stack.Screen name="DarkModeScreen" component={DarkModeScreen} />
+                <Stack.Screen name="ImageUpload" component={ImageUpload} />
+                <Stack.Screen name="Posts" component={Posts} />
+                <Stack.Screen name="UserProfile" component={UserProfile} />
+                <Stack.Screen name="FilterSection" component={FilterSection} />
+                <Stack.Screen name="FormatPrice" component={FormatPrice} />
+                <Stack.Screen name="AddItem" component={AddItem} />
+                <Stack.Screen name="ItemList" component={ItemList} />
+              </Stack.Navigator>
+            </NavigationContainer>
           </UserProvider>
-        </NavigationContainer>
-      </ThemeProvider>
+        </ThemeProvider>
+      </PaperProvider>
     </SafeAreaProvider>
   );
 }
