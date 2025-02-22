@@ -1,7 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView, FlatList } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { debounce } from 'lodash';
 import { FontAwesome } from '@expo/vector-icons';
+import FormatPrice from './FormatPrice';
 
 const categories = [
   { id: 'all', label: 'All' },
@@ -13,10 +15,13 @@ const categories = [
 
 const colors = ['all', 'red', 'blue', 'green', 'yellow', 'black', 'white'];
 
-const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch }) => {
-  const [searchText, setSearchText] = useState("");
+
+
+const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch , setPriceRange}) => {
+  const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedColor, setSelectedColorState] = useState('all');
+  const [price, setPrice] = useState(1000); // Default price value
 
   const debouncedSearch = useCallback(
     debounce((text) => onSearch(text), 150),
@@ -37,6 +42,11 @@ const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch }) => {
     setSelectedColorState(color);
     setSelectedColor(color);
   }, [setSelectedColor]);
+
+  const handlePriceChange = (value) => {
+    // You can pass an object with the selected min and max values of the price range
+    setPriceRange(value);
+  };
 
   return (
     <View style={styles.container}>
@@ -102,6 +112,23 @@ const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch }) => {
         keyExtractor={(item) => item}
         contentContainerStyle={styles.colorContainer}
       />
+
+      {/* Price Slider */}
+      <Text style={styles.label}>Price</Text>
+      <Slider
+        style={styles.slider}
+        minimumValue={10000}
+        maximumValue={100000}
+        step={100}
+        value={price}
+        onValueChange={setPrice}
+        minimumTrackTintColor="#007bff"
+        maximumTrackTintColor="#ccc"
+        thumbTintColor="#007bff"
+      />
+      <Text style={styles.priceText}>
+        <FormatPrice price={price} />
+      </Text>
     </View>
   );
 };
@@ -199,6 +226,17 @@ const styles = StyleSheet.create({
   selectedColorCircle: {
     borderWidth: 2,
     borderColor: '#000',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
+    color: '#007bff',
   },
 });
 

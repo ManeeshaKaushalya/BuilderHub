@@ -6,9 +6,10 @@ import ItemList from './MarketScreens/ItemList';
 
 function MarketScreen({ navigation }) {
   const { isDarkMode } = useTheme();
-  const [selectedCategory, setSelectedCategory] = useState("all"); // Ensuring lowercase consistency
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColor, setSelectedColor] = useState("all");
+  const [priceRange, setPriceRange] = useState([0, 10000]); // Min and Max price range
 
   return (
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
@@ -17,7 +18,8 @@ function MarketScreen({ navigation }) {
         setSelectedCategory={setSelectedCategory} 
         setSelectedColor={setSelectedColor} 
         onSearch={setSearchQuery} 
-        isDarkMode={isDarkMode} // Pass dark mode state
+        isDarkMode={isDarkMode} 
+        setPriceRange={setPriceRange} // Pass the price range setter
       />
 
       {/* Item List */}
@@ -25,7 +27,8 @@ function MarketScreen({ navigation }) {
         navigation={navigation} 
         selectedCategory={selectedCategory} 
         searchText={searchQuery} 
-        selectedColor={selectedColor} // Pass selectedColor
+        selectedColor={selectedColor} 
+        priceRange={priceRange} // Pass the selected price range
       />
     </View>
   );

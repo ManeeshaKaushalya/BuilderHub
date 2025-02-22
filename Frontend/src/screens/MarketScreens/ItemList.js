@@ -16,7 +16,7 @@ import { firestore } from '../../../firebase/firebaseConfig';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 36) / 2; // 36 = padding (16) + margin (20)
 
-const ItemList = ({ selectedCategory, searchText, selectedColor }) => {
+const ItemList = ({ selectedCategory, searchText, selectedColor,priceRange }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,8 +52,13 @@ const ItemList = ({ selectedCategory, searchText, selectedColor }) => {
         itemList = itemList.filter(item => 
           item.color?.toLowerCase() === selectedColor.toLowerCase()
         );
+
       }
 
+      // Apply price filter
+    itemList = itemList.filter(item => 
+      item.price >= priceRange[0] && item.price <= priceRange[1]
+    );
       setItems(itemList);
     } catch (error) {
       console.error("Error fetching items:", error);
