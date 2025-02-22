@@ -1,154 +1,94 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
-import { firestore } from "../../../firebase/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import FormatPrice from "./FormatPrice";
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { firestore } from '../../../firebase/firebaseConfig'; // Adjust the path
 
-const ItemList = ({ navigation }) => {
+const ItemList = ({ selectedCategory }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch data from Firestore on component mount
     const fetchItems = async () => {
+      setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(firestore, "items"));
-        const fetchedItems = querySnapshot.docs.map((doc) => ({
+        const itemsRef = collection(firestore, 'items');
+        let q = selectedCategory === "All" ? itemsRef : query(itemsRef, where('category', '==', selectedCategory));
+
+        const querySnapshot = await getDocs(q);
+        const itemList = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
-        setItems(fetchedItems);
+
+        setItems(itemList);
       } catch (error) {
-        console.error("Error fetching items: ", error);
+        console.error("Error fetching items:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchItems();
-  }, []);
+  }, [selectedCategory]);
 
-  const renderItem = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <View style={styles.imageWrapper}>
-        {/* Display item image */}
-        {item.images && item.images.length > 0 ? (
-          <Image source={{ uri: item.images[0] }} style={styles.itemImage} />
-        ) : (
-          <Ionicons name="image-outline" size={40} color="#ccc" />
-        )}
-      </View>
+  if (loading) {
+    return <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />;
+  }
 
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.itemName}</Text>
-        <Text style={styles.itemCategory}>{item.category}</Text>
-        <Text style={styles.itemDescription} numberOfLines={2}>
-          {item.description}
-        </Text>
-        <Text style={styles.itemPrice}>
-        <FormatPrice price={item.price} />
-      </Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.viewButton}
-        onPress={() => navigation.navigate("ItemDetails", { itemId: item.id })}
-      >
-        <Text style={styles.viewButtonText}>View Details</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  return loading ? (
-    <ActivityIndicator size="large" color="#28a745" style={styles.loader} />
-  ) : (
+  return (
     <FlatList
       data={items}
-      renderItem={renderItem}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContainer}
+      numColumns={2}
+      renderItem={({ item }) => (
+        <View style={styles.card}>
+          {item.images && item.images.length > 0 ? ( // Ensure images exist
+            <Image source={{ uri: item.images[0] }} style={styles.image} />
+          ) : (
+            <Text style={styles.noImageText}>No Image</Text>
+          )}
+          <Text style={styles.text}>{item.itemName}</Text>
+        </View>
+      )}
+      ListEmptyComponent={<Text style={styles.emptyText}>No items found</Text>}
     />
   );
 };
 
 const styles = StyleSheet.create({
-  listContainer: {
+  card: {
+    flex: 1,
+    margin: 10,
+    backgroundColor: '#fff',
     padding: 10,
-  },
-  itemContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
     borderRadius: 10,
-    marginBottom: 15,
-    padding: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    alignItems: 'center',
     elevation: 3,
   },
-  imageWrapper: {
+  image: {
     width: 100,
     height: 100,
-    marginRight: 10,
-  },
-  itemImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8,
-  },
-  itemInfo: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  itemName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-  },
-  itemCategory: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 5,
-  },
-  itemDescription: {
-    fontSize: 14,
-    color: "#555",
-    marginBottom: 5,
-  },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#28a745",
-  },
-  viewButton: {
-    backgroundColor: "#28a745",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
     borderRadius: 5,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 10,
   },
-  viewButtonText: {
-    color: "#fff",
+  noImageText: {
     fontSize: 14,
-    fontWeight: "bold",
+    color: 'gray',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  text: {
+    marginTop: 5,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 18,
+    color: 'gray',
   },
   loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    marginTop: 50,
   },
 });
 
