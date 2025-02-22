@@ -1,21 +1,32 @@
 import React, { useState } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext'; // Import useTheme hook
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../hooks/ThemeContext';
 import FilterSection from './MarketScreens/FilterSection';
 import ItemList from './MarketScreens/ItemList';
 
 function MarketScreen({ navigation }) {
-  const { isDarkMode } = useTheme(); // Get dark mode state
-  const [selectedCategory, setSelectedCategory] = useState("All"); // State to manage selected category
+  const { isDarkMode } = useTheme();
+  const [selectedCategory, setSelectedCategory] = useState("all"); // Ensuring lowercase consistency
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedColor, setSelectedColor] = useState("all");
 
   return (
     <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       {/* Filter Section */}
-      <FilterSection setSelectedCategory={setSelectedCategory} onSearch={setSearchQuery}/>
+      <FilterSection 
+        setSelectedCategory={setSelectedCategory} 
+        setSelectedColor={setSelectedColor} 
+        onSearch={setSearchQuery} 
+        isDarkMode={isDarkMode} // Pass dark mode state
+      />
 
       {/* Item List */}
-      <ItemList navigation={navigation} selectedCategory={selectedCategory}  searchText={searchQuery} />
+      <ItemList 
+        navigation={navigation} 
+        selectedCategory={selectedCategory} 
+        searchText={searchQuery} 
+        selectedColor={selectedColor} // Pass selectedColor
+      />
     </View>
   );
 }

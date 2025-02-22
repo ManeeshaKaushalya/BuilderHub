@@ -16,7 +16,7 @@ import { firestore } from '../../../firebase/firebaseConfig';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 36) / 2; // 36 = padding (16) + margin (20)
 
-const ItemList = ({ selectedCategory, searchText }) => {
+const ItemList = ({ selectedCategory, searchText, selectedColor }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,6 +47,13 @@ const ItemList = ({ selectedCategory, searchText }) => {
         );
       }
 
+      // Apply color filter if selectedColor is not "all"
+      if (selectedColor && selectedColor !== "all") {
+        itemList = itemList.filter(item => 
+          item.color?.toLowerCase() === selectedColor.toLowerCase()
+        );
+      }
+
       setItems(itemList);
     } catch (error) {
       console.error("Error fetching items:", error);
@@ -57,7 +64,7 @@ const ItemList = ({ selectedCategory, searchText }) => {
   useEffect(() => {
     setLoading(true);
     fetchItems().finally(() => setLoading(false));
-  }, [selectedCategory, searchText]);
+  }, [selectedCategory, searchText, selectedColor]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -124,8 +131,8 @@ const ItemList = ({ selectedCategory, searchText }) => {
       ListEmptyComponent={
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
-            {searchText 
-              ? "No items match your search"
+            {searchText || selectedColor !== "all"
+              ? "No items match your search or color selection"
               : "No items found in this category"}
           </Text>
         </View>

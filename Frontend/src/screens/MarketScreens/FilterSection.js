@@ -1,17 +1,26 @@
 import React, { useState, useCallback } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView, FlatList } from 'react-native';
 import { debounce } from 'lodash';
+import { FontAwesome } from '@expo/vector-icons';
 
-const FilterSection = ({ setSelectedCategory, onSearch }) => {
+const categories = [
+  { id: 'all', label: 'All' },
+  { id: 'paints', label: 'Paint Machine' },
+  { id: 'machines', label: 'Machines' },
+  { id: 'tools', label: 'Tools' },
+  { id: 'furniture', label: 'Furniture' }
+];
+
+const colors = ['all', 'red', 'blue', 'green', 'yellow', 'black', 'white'];
+
+const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch }) => {
   const [searchText, setSearchText] = useState("");
   const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedColor, setSelectedColorState] = useState('all');
 
-  // Debounce the search to avoid too many updates
   const debouncedSearch = useCallback(
-    debounce((text) => {
-      onSearch(text);
-    }, 300),
-    []
+    debounce((text) => onSearch(text), 150),
+    [onSearch]
   );
 
   const handleSearch = (text) => {
@@ -19,18 +28,15 @@ const FilterSection = ({ setSelectedCategory, onSearch }) => {
     debouncedSearch(text);
   };
 
-  const categories = [
-    { id: 'all', label: 'All' },
-    { id: 'paints', label: 'Paint Machine' },
-    { id: 'machines', label: 'Machines' },
-    { id: 'tools', label: 'Tools' },
-    { id: 'furniture', label: 'Furniture' }
-  ];
-
-  const handleCategoryPress = (category) => {
+  const handleCategoryPress = useCallback((category) => {
     setActiveCategory(category.id);
     setSelectedCategory(category.id);
-  };
+  }, [setSelectedCategory]);
+
+  const handleColorPress = useCallback((color) => {
+    setSelectedColorState(color);
+    setSelectedColor(color);
+  }, [setSelectedColor]);
 
   return (
     <View style={styles.container}>
@@ -58,33 +64,44 @@ const FilterSection = ({ setSelectedCategory, onSearch }) => {
           </TouchableOpacity>
         )}
       </View>
-      
-      {/* Horizontal Scrollable Categories */}
-      <ScrollView 
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesContainer}
-      >
+
+      {/* Categories */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
         {categories.map((category) => (
           <TouchableOpacity
             key={category.id}
             onPress={() => handleCategoryPress(category)}
-            style={[
-              styles.categoryButton,
-              activeCategory === category.id && styles.activeCategoryButton
-            ]}
+            style={[styles.categoryButton, activeCategory === category.id && styles.activeCategoryButton]}
+            accessibilityRole="button"
           >
-            <Text
-              style={[
-                styles.categoryText,
-                activeCategory === category.id && styles.activeCategoryText
-              ]}
-            >
+            <Text style={[styles.categoryText, activeCategory === category.id && styles.activeCategoryText]}>
               {category.label}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Color Selection */}
+      <Text style={styles.label}>Colors</Text>
+      <FlatList
+        horizontal
+        data={colors}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleColorPress(item)}
+            style={[
+              styles.colorCircle,
+              { backgroundColor: item === "all" ? "#ddd" : item },
+              selectedColor === item && styles.selectedColorCircle
+            ]}
+            accessibilityRole="button"
+          >
+            {selectedColor === item && <FontAwesome name="check" size={12} color="white" />}
+          </TouchableOpacity>
+        )}
+        keyExtractor={(item) => item}
+        contentContainerStyle={styles.colorContainer}
+      />
     </View>
   );
 };
@@ -141,10 +158,7 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
   },
@@ -160,6 +174,31 @@ const styles = StyleSheet.create({
   activeCategoryText: {
     color: '#ffffff',
     fontWeight: '600',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#343a40',
+  },
+  colorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  selectedColorCircle: {
+    borderWidth: 2,
+    borderColor: '#000',
   },
 });
 
