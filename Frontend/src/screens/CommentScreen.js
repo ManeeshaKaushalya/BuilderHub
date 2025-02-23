@@ -5,6 +5,7 @@ import { firestore } from '../../firebase/firebaseConfig';
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Pressable, Animated } from 'react-native';
 
 const CommentScreen = () => {
     const route = useRoute();
@@ -20,6 +21,8 @@ const CommentScreen = () => {
     const [isPosting, setIsPosting] = useState(false);
     const [replyTo, setReplyTo] = useState(null);
     const [userDetails, setUserDetails] = useState({});
+    const [selectedCommentId, setSelectedCommentId] = useState(null);
+    const fadeAnim = useState(new Animated.Value(0))[0];
 
     useEffect(() => {
         fetchComments();
@@ -109,6 +112,28 @@ const CommentScreen = () => {
             Alert.alert("Error", "Failed to update like. Please try again.");
         }
     };
+      // Add this function to handle long press
+      const handleLongPress = (index) => {
+        const comment = comments[index];
+        if (comment.userId === userId) {
+            setSelectedCommentId(index);
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        }
+    };
+    
+    // Add this function to hide the delete menu
+    const hideDeleteMenu = () => {
+        Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: true,
+        }).start(() => setSelectedCommentId(null));
+    };
+
 
     const handleDeleteComment = async (commentIndex) => {
         const commentToDelete = comments[commentIndex];
@@ -195,31 +220,28 @@ const CommentScreen = () => {
         const hasLiked = item.likes?.includes(userId);
         const replyToUser = item.replyTo ? userDetails[item.replyTo.userId] : null;
         const isOwnComment = item.userId === userId;
+        const isSelected = selectedCommentId === index;
 
         return (
-            <View style={styles.commentContainer}>
+            <Pressable
+                onLongPress={() => handleLongPress(index)}
+                onPress={() => isSelected && hideDeleteMenu()}
+                delayLongPress={500}
+                style={styles.commentContainer}
+            >
                 <View style={styles.commentHeader}>
                     <View style={styles.userInfo}>
-                        <Image
+                        <Image 
                             source={{ uri: user.profileImage || 'https://via.placeholder.com/40' }}
                             style={styles.profileImage}
                         />
                         <View style={styles.commentContent}>
-                            <View style={styles.commentBubble}>
+                            <View style={[
+                                styles.commentBubble,
+                                isSelected && styles.selectedComment
+                            ]}>
                                 <View style={styles.commentTopRow}>
                                     <Text style={styles.username}>{user.name || "Anonymous"}</Text>
-                                    {isOwnComment && (
-                                        <TouchableOpacity
-                                            onPress={() => handleDeleteComment(index)}
-                                            style={styles.deleteButton}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="delete-outline"
-                                                size={18}
-                                                color="#65676b"
-                                            />
-                                        </TouchableOpacity>
-                                    )}
                                 </View>
                                 {replyToUser && (
                                     <Text style={styles.replyingTo}>
@@ -229,8 +251,8 @@ const CommentScreen = () => {
                                 <Text style={styles.commentText}>{item.text}</Text>
                             </View>
                             <View style={styles.commentActions}>
-                                <TouchableOpacity
-                                    style={styles.actionButton}
+                                <TouchableOpacity 
+                                    style={styles.actionButton} 
                                     onPress={() => handleLike(index)}
                                 >
                                     <Text style={[
@@ -240,7 +262,7 @@ const CommentScreen = () => {
                                         Like {likeCount > 0 && `(${likeCount})`}
                                     </Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
+                                <TouchableOpacity 
                                     style={styles.actionButton}
                                     onPress={() => setReplyTo({ userId: item.userId, name: user.name })}
                                 >
@@ -253,7 +275,31 @@ const CommentScreen = () => {
                         </View>
                     </View>
                 </View>
-            </View>
+                
+                {isSelected && isOwnComment && (
+                    <Animated.View 
+                        style={[
+                            styles.deleteMenu,
+                            { opacity: fadeAnim }
+                        ]}
+                    >
+                        <TouchableOpacity 
+                            style={styles.deleteOption}
+                            onPress={() => {
+                                hideDeleteMenu();
+                                handleDeleteComment(index);
+                            }}
+                        >
+                            <MaterialCommunityIcons 
+                                name="delete-outline" 
+                                size={24} 
+                                color="#FF3B30" 
+                            />
+                            <Text style={styles.deleteText}>Delete Comment</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                )}
+            </Pressable>
         );
     };
 
@@ -484,7 +530,39 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#1877F2',
         fontWeight: '500',
-    }
+    },
+    selectedComment: {
+        backgroundColor: '#E4E6EB',
+    },
+    deleteMenu: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: '100%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        marginBottom: 8,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+        marginHorizontal: 16,
+    },
+    deleteOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+    },
+    deleteText: {
+        marginLeft: 12,
+        fontSize: 16,
+        color: '#FF3B30',
+        fontWeight: '500',
+    },
 });
 
 export default CommentScreen;
