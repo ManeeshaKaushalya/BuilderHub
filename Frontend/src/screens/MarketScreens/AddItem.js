@@ -29,6 +29,7 @@ const AddItem = ({ navigation }) => {
   const [color, setColor] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [Stock, setStock] = useState("");
   const [loading, setLoading] = useState(false); // State for loading indicator
 
   const { user } = useUser();
@@ -58,6 +59,7 @@ const AddItem = ({ navigation }) => {
         color,
         description,
         price,
+        Stock,
         images,
       };
 
@@ -138,6 +140,14 @@ const AddItem = ({ navigation }) => {
         onChangeText={setDescription}
         style={[styles.input, styles.textarea]}
         multiline
+      />
+
+      <TextInput
+        placeholder="Stock"
+        value={Stock}
+        onChangeText={setStock}
+        keyboardType="numeric"
+        style={styles.input}
       />
 
       <TextInput
