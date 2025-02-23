@@ -4,6 +4,11 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper'; // Import Paper Provider
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation'
+]);
+
 
 // Context Providers
 import { ThemeProvider } from './src/hooks/ThemeContext';

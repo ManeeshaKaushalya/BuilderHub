@@ -10,66 +10,78 @@ import {
   TouchableOpacity,
   RefreshControl
 } from 'react-native';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../../../firebase/firebaseConfig';
+import { useUser } from '../../context/UserContext';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 36) / 2; // 36 = padding (16) + margin (20)
 
-const ItemList = ({ selectedCategory, searchText, selectedColor,priceRange }) => {
+const ItemList = ({ selectedCategory, searchText, selectedColor, priceRange }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const { user } = useUser();
 
-  const fetchItems = async () => {
+  const fetchItems = () => {
     setError(null);
     try {
       const itemsRef = collection(firestore, 'items');
       let q = itemsRef;
-      
-      if (selectedCategory && selectedCategory !== "all") {
+  
+      if (selectedCategory === "useritem" && user?.uid) {
+        q = query(itemsRef, where('itemOwnerId', '==', user.uid));
+      } else if (selectedCategory && selectedCategory !== "all") {
         q = query(itemsRef, where('category', '==', selectedCategory));
       }
-
-      const querySnapshot = await getDocs(q);
-      let itemList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      // Apply search filter if searchText exists
-      if (searchText) {
-        const searchLower = searchText.toLowerCase();
+  
+      // Real-time listener
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        let itemList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+  
+        // Apply search filter if searchText exists
+        if (searchText) {
+          const searchLower = searchText.toLowerCase();
+          itemList = itemList.filter(item => 
+            item.itemName.toLowerCase().includes(searchLower) ||
+            item.description?.toLowerCase().includes(searchLower)
+          );
+        }
+  
+        // Apply color filter if selectedColor is not "all"
+        if (selectedColor && selectedColor !== "all") {
+          itemList = itemList.filter(item => 
+            item.color?.toLowerCase() === selectedColor.toLowerCase()
+          );
+        }
+  
+        // Apply price filter
         itemList = itemList.filter(item => 
-          item.itemName.toLowerCase().includes(searchLower) ||
-          item.description?.toLowerCase().includes(searchLower)
+          item.price >= priceRange[0] && item.price <= priceRange[1]
         );
-      }
-
-      // Apply color filter if selectedColor is not "all"
-      if (selectedColor && selectedColor !== "all") {
-        itemList = itemList.filter(item => 
-          item.color?.toLowerCase() === selectedColor.toLowerCase()
-        );
-
-      }
-
-      // Apply price filter
-    itemList = itemList.filter(item => 
-      item.price >= priceRange[0] && item.price <= priceRange[1]
-    );
-      setItems(itemList);
+  
+        setItems(itemList);
+        setLoading(false);
+      });
+  
+      return unsubscribe;
     } catch (error) {
       console.error("Error fetching items:", error);
       setError("Failed to load items. Please try again later.");
+      setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     setLoading(true);
-    fetchItems().finally(() => setLoading(false));
-  }, [selectedCategory, searchText, selectedColor]);
+    const unsubscribe = fetchItems();
+    return () => unsubscribe(); // Clean up listener on unmount
+  }, [selectedCategory, searchText, selectedColor, priceRange]);
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -4,9 +4,11 @@ import Slider from '@react-native-community/slider';
 import { debounce } from 'lodash';
 import { FontAwesome } from '@expo/vector-icons';
 import FormatPrice from './FormatPrice';
+import { Button } from 'react-native-paper';
 
 const categories = [
   { id: 'all', label: 'All' },
+  { id: 'useritem', label: 'User Item' },
   { id: 'paints', label: 'Paint Machine' },
   { id: 'machines', label: 'Machines' },
   { id: 'tools', label: 'Tools' },
@@ -17,7 +19,7 @@ const colors = ['all', 'red', 'blue', 'green', 'yellow', 'black', 'white'];
 
 
 
-const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch , setPriceRange}) => {
+const FilterSection = ({ navigation,setSelectedCategory, setSelectedColor, onSearch , setPriceRange}) => {
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedColor, setSelectedColorState] = useState('all');
@@ -129,6 +131,14 @@ const FilterSection = ({ setSelectedCategory, setSelectedColor, onSearch , setPr
       <Text style={styles.priceText}>
         <FormatPrice price={price} />
       </Text>
+       {/* Add Items Button */}
+            <Button
+              mode="contained"
+              onPress={() => navigation.navigate("AddItem")} 
+              style={styles.addButton}
+            >
+              Add Items
+            </Button>
     </View>
   );
 };
@@ -237,6 +247,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     color: '#007bff',
+  },
+  addButton: {
+    marginTop: 10,
+    backgroundColor: "#28a745",
   },
 });
 
