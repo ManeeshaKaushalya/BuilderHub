@@ -9,7 +9,7 @@ function MarketScreen({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColor, setSelectedColor] = useState("all");
-  const [priceRange, setPriceRange] = useState([0, 10000]); // Min and Max price range
+  const [priceRange, setPriceRange] = useState([0, 500000000]); // Min and Max price range
 
   const data = []; // Example data, you can replace with actual item data
 

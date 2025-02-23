@@ -39,6 +39,7 @@ import FilterSection from './src/screens/MarketScreens/FilterSection';
 import FormatPrice from './src/screens/MarketScreens/FormatPrice';
 import AddItem from './src/screens/MarketScreens/AddItem';
 import ItemList from './src/screens/MarketScreens/ItemList';
+import ItemDetails from './src/screens/MarketScreens/ItemDetails';
 
 const Stack = createStackNavigator();
 
@@ -74,6 +75,7 @@ export default function App() {
                 <Stack.Screen name="FormatPrice" component={FormatPrice} />
                 <Stack.Screen name="AddItem" component={AddItem} />
                 <Stack.Screen name="ItemList" component={ItemList} />
+                <Stack.Screen name="ItemDetails" component={ItemDetails} />
               </Stack.Navigator>
             </NavigationContainer>
           </UserProvider>

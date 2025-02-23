@@ -15,35 +15,39 @@ import { firestore } from '../../../firebase/firebaseConfig';
 import { useUser } from '../../context/UserContext';
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 36) / 2; // 36 = padding (16) + margin (20)
+const cardWidth = (width - 36) / 2;
 
-const ItemList = ({ selectedCategory, searchText, selectedColor, priceRange }) => {
+const ItemList = ({ navigation,selectedCategory, searchText, selectedColor, priceRange }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useUser();
 
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = fetchItems();
+    return () => unsubscribe && unsubscribe();
+  }, [selectedCategory, searchText, selectedColor, priceRange]);
+
   const fetchItems = () => {
     setError(null);
     try {
       const itemsRef = collection(firestore, 'items');
       let q = itemsRef;
-  
+
       if (selectedCategory === "useritem" && user?.uid) {
         q = query(itemsRef, where('itemOwnerId', '==', user.uid));
       } else if (selectedCategory && selectedCategory !== "all") {
         q = query(itemsRef, where('category', '==', selectedCategory));
       }
-  
-      // Real-time listener
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+
+      return onSnapshot(q, (querySnapshot) => {
         let itemList = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
-  
-        // Apply search filter if searchText exists
+
         if (searchText) {
           const searchLower = searchText.toLowerCase();
           itemList = itemList.filter(item => 
@@ -51,53 +55,43 @@ const ItemList = ({ selectedCategory, searchText, selectedColor, priceRange }) =
             item.description?.toLowerCase().includes(searchLower)
           );
         }
-  
-        // Apply color filter if selectedColor is not "all"
+
         if (selectedColor && selectedColor !== "all") {
           itemList = itemList.filter(item => 
             item.color?.toLowerCase() === selectedColor.toLowerCase()
           );
         }
-  
-        // Apply price filter
-        itemList = itemList.filter(item => 
-          item.price >= priceRange[0] && item.price <= priceRange[1]
-        );
-  
+
+        if (priceRange && priceRange.length === 2) {
+          itemList = itemList.filter(item => 
+            Number(item.price) >= Number(priceRange[0]) && Number(item.price) <= Number(priceRange[1])
+          );
+        }
+
         setItems(itemList);
         setLoading(false);
       });
-  
-      return unsubscribe;
     } catch (error) {
       console.error("Error fetching items:", error);
       setError("Failed to load items. Please try again later.");
       setLoading(false);
     }
   };
-  
-
-  useEffect(() => {
-    setLoading(true);
-    const unsubscribe = fetchItems();
-    return () => unsubscribe(); // Clean up listener on unmount
-  }, [selectedCategory, searchText, selectedColor, priceRange]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchItems();
+    fetchItems();
     setRefreshing(false);
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={() => navigation.navigate('ItemDetails', { item })}
+    >
       <View style={styles.imageContainer}>
         {item.images && item.images.length > 0 ? (
-          <Image 
-            source={{ uri: item.images[0] }} 
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: item.images[0] }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.noImageContainer}>
             <Text style={styles.noImageText}>No Image</Text>
@@ -106,11 +100,9 @@ const ItemList = ({ selectedCategory, searchText, selectedColor, priceRange }) =
       </View>
       <View style={styles.contentContainer}>
         <Text style={styles.itemName} numberOfLines={2}>{item.itemName}</Text>
-        <Text style={styles.price}>Rs. {item.price.toLocaleString()}</Text>
+        <Text style={styles.price}>Rs. {Number(item.price).toLocaleString()}</Text>
         {item.description && (
-          <Text style={styles.description} numberOfLines={2}>
-            {item.description}
-          </Text>
+          <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -142,9 +134,7 @@ const ItemList = ({ selectedCategory, searchText, selectedColor, priceRange }) =
       numColumns={2}
       renderItem={renderItem}
       contentContainerStyle={styles.listContainer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListEmptyComponent={
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
@@ -177,7 +167,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: cardWidth, // Square aspect ratio
+    height: cardWidth,
     backgroundColor: '#f8f9fa',
   },
   image: {
@@ -195,35 +185,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
   },
-  contentContainer: {
-    padding: 12,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212529',
-    marginBottom: 4,
-  },
-  price: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#007bff',
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6c757d',
-    textAlign: 'center',
   },
   errorText: {
     fontSize: 16,
