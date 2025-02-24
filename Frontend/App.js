@@ -41,6 +41,7 @@ import AddItem from './src/screens/MarketScreens/AddItem';
 import ItemList from './src/screens/MarketScreens/ItemList';
 import ItemDetails from './src/screens/MarketScreens/ItemDetails';
 import CommentScreen from './src/screens/CommentScreen';
+import EditItem from './src/screens/MarketScreens/EditItem';
 
 const Stack = createStackNavigator();
 
@@ -78,6 +79,7 @@ export default function App() {
                 <Stack.Screen name="ItemList" component={ItemList} />
                 <Stack.Screen name="ItemDetails" component={ItemDetails} />
                 <Stack.Screen name="CommentScreen" component={CommentScreen} />
+                <Stack.Screen name="EditItem" component={EditItem} />
               </Stack.Navigator>
             </NavigationContainer>
           </UserProvider>

@@ -15,8 +15,13 @@ const ItemDetails = ({ route, navigation }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const flatListRef = useRef(null);
   const { user } = useUser(); // Get current user from context
-  
+
   const isOwner = user?.uid === item.itemOwnerId;
+
+  const handleBuyNow = () => {
+    // Navigate to checkout or payment screen
+    navigation.navigate('Checkout', { item });
+  };
 
   const handleDelete = async () => {
     Alert.alert(
@@ -45,7 +50,7 @@ const ItemDetails = ({ route, navigation }) => {
       ]
     );
   };
-  
+
   const handleShare = async () => {
     try {
       await Share.share({
@@ -59,8 +64,8 @@ const ItemDetails = ({ route, navigation }) => {
 
   const renderImageItem = ({ item: imageUrl, index }) => (
     <View style={styles.imageSlide}>
-      <Image 
-        source={{ uri: imageUrl }} 
+      <Image
+        source={{ uri: imageUrl }}
         style={styles.slideImage}
         resizeMode="cover"
       />
@@ -105,10 +110,10 @@ const ItemDetails = ({ route, navigation }) => {
     // Listen for real-time updates to seller data
     const setupSellerListener = () => {
       if (!item.itemOwnerId) return null;
-      
+
       const usersRef = collection(firestore, 'users');
       const q = query(usersRef, where('uid', '==', item.itemOwnerId));
-      
+
       return onSnapshot(q, (querySnapshot) => {
         setLoading(false);
         if (!querySnapshot.empty) {
@@ -178,8 +183,8 @@ const ItemDetails = ({ route, navigation }) => {
               <Icon name="share" size={24} color="#333" />
             </TouchableOpacity>
             {isOwner && (
-              <TouchableOpacity 
-                onPress={handleDelete} 
+              <TouchableOpacity
+                onPress={handleDelete}
                 style={[styles.headerButton, styles.deleteButton]}
               >
                 <Icon name="delete" size={24} color="#dc3545" />
@@ -188,7 +193,7 @@ const ItemDetails = ({ route, navigation }) => {
           </View>
         </View>
 
-        
+
         {/* Image Slider Section */}
         {item.images && item.images.length > 0 ? (
           <View style={styles.imageSliderContainer}>
@@ -214,7 +219,7 @@ const ItemDetails = ({ route, navigation }) => {
         {/* Item Details Section */}
         <View style={styles.detailsContainer}>
           <Text style={styles.itemName}>{item.itemName}</Text>
-          
+
           {/* Price Section */}
           <View style={styles.priceContainer}>
             <Icon name="attach-money" size={24} color="#28a745" />
@@ -257,8 +262,8 @@ const ItemDetails = ({ route, navigation }) => {
                 </View>
               ) : sellerData ? (
                 sellerData.profileImage ? (
-                  <Image 
-                    source={{ uri: sellerData.profileImage }} 
+                  <Image
+                    source={{ uri: sellerData.profileImage }}
                     style={styles.sellerImage}
                   />
                 ) : (
@@ -288,11 +293,11 @@ const ItemDetails = ({ route, navigation }) => {
             </View>
           </View>
         </View>
-     
-       {/* Add Edit Button for Owner in Item Details Section */}
-       {isOwner && (
+
+        {/* Add Edit Button for Owner in Item Details Section */}
+        {isOwner && (
           <View style={styles.ownerActionsContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.editButton}
               onPress={() => navigation.navigate('EditItem', { item })}
             >
@@ -302,21 +307,38 @@ const ItemDetails = ({ route, navigation }) => {
           </View>
         )}
 
-      {/* Modify Bottom Action Button */}
-      <View style={styles.bottomContainer}>
+        {/* Modified Bottom Action Button */}
+        <View style={styles.bottomContainer}>
           {!isOwner ? (
-            <TouchableOpacity 
-              style={[
-                styles.contactButton,
-                item.Stock === 0 && styles.disabledButton
-              ]}
-              disabled={item.Stock === 0}
-            >
-              <Icon name="chat" size={24} color="#fff" />
-              <Text style={styles.contactButtonText}>
-                {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.buyActionsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.contactButton,
+                  { flex: 1, marginRight: 8 },
+                  item.Stock === 0 && styles.disabledButton
+                ]}
+                disabled={item.Stock === 0}
+              >
+                <Icon name="chat" size={24} color="#fff" />
+                <Text style={styles.contactButtonText}>
+                  {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.buyButton,
+                  { flex: 1 },
+                  item.Stock === 0 && styles.disabledButton
+                ]}
+                onPress={handleBuyNow}
+                disabled={item.Stock === 0}
+              >
+                <Icon name="shopping-cart" size={24} color="#fff" />
+                <Text style={styles.buyButtonText}>
+                  {item.Stock === 0 ? 'Out of Stock' : 'Buy Now'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.ownerBottomContainer}>
               <Text style={styles.ownerItemText}>You are the owner of this item</Text>
@@ -578,7 +600,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e9ecef',
     marginBottom: 16,
   },
-  
+
   stockInfoContainer: {
     marginBottom: 16,
     backgroundColor: '#f8f9fa',
@@ -702,6 +724,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  buyActionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#28a745',
+    padding: 12,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  buyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#6c757d',
+    opacity: 0.7,
   },
 });
 
