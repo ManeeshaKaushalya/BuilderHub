@@ -42,6 +42,8 @@ import ItemList from './src/screens/MarketScreens/ItemList';
 import ItemDetails from './src/screens/MarketScreens/ItemDetails';
 import CommentScreen from './src/screens/CommentScreen';
 import EditItem from './src/screens/MarketScreens/EditItem';
+import 'react-native-get-random-values';
+
 
 const Stack = createStackNavigator();
 
