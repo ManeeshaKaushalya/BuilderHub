@@ -1,26 +1,43 @@
-import React from 'react'
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../hooks/ThemeContext';
+import { useNavigation } from '@react-navigation/native'; // Import useNavigation
+import ChatList from './MarketScreens/ChatList';
 
 function MessageScreen() {
-  const { isDarkMode } = useTheme(); // Get dark mode state
+  const { isDarkMode } = useTheme();
+  const navigation = useNavigation(); // Get navigation object
+  
   return (
-    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-      <Text style={[styles.text, isDarkMode ? styles.darkText : styles.lightText]}>
-        Welcome to Message Screen
-      </Text>
+    <View style={[
+      styles.container, 
+      isDarkMode ? styles.darkContainer : styles.lightContainer
+    ]}>
+      <ChatList navigation={navigation} />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  lightContainer: { backgroundColor: '#fff' },
-  darkContainer: { backgroundColor: '#121212' },
-  text: { fontSize: 18, fontWeight: 'bold' },
-  lightText: { color: '#000' },
-  darkText: { color: '#fff' },
+  container: { 
+    flex: 1
+  },
+  lightContainer: { 
+    backgroundColor: '#fff' 
+  },
+  darkContainer: { 
+    backgroundColor: '#121212' 
+  },
+  text: { 
+    fontSize: 18, 
+    fontWeight: 'bold' 
+  },
+  lightText: { 
+    color: '#000' 
+  },
+  darkText: { 
+    color: '#fff' 
+  },
 });
 
-
-export default MessageScreen
+export default MessageScreen;

@@ -20,7 +20,7 @@ const ItemDetails = ({ route, navigation }) => {
 
   const handleBuyNow = () => {
     // Navigate to checkout or payment screen
-    navigation.navigate('Checkout', { item });
+    navigation.navigate('BuyItem', { item });
   };
 
   const handleDelete = async () => {
@@ -312,17 +312,18 @@ const ItemDetails = ({ route, navigation }) => {
           {!isOwner ? (
             <View style={styles.buyActionsContainer}>
               <TouchableOpacity
-                style={[
-                  styles.contactButton,
-                  { flex: 1, marginRight: 8 },
-                  item.Stock === 0 && styles.disabledButton
-                ]}
-                disabled={item.Stock === 0}
-              >
-                <Icon name="chat" size={24} color="#fff" />
-                <Text style={styles.contactButtonText}>
-                  {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
-                </Text>
+                  style={[
+                    styles.contactButton,
+                    { flex: 1, marginRight: 8 },
+                    item.Stock === 0 && styles.disabledButton
+                  ]}
+                  disabled={item.Stock === 0}
+                  onPress={() => navigation.navigate('ChatScreen', { item, sellerData })}
+                >
+                  <Icon name="chat" size={24} color="#fff" />
+                  <Text style={styles.contactButtonText}>
+                    {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
+                  </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[

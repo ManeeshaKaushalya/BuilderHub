@@ -43,6 +43,9 @@ import ItemDetails from './src/screens/MarketScreens/ItemDetails';
 import CommentScreen from './src/screens/CommentScreen';
 import EditItem from './src/screens/MarketScreens/EditItem';
 import 'react-native-get-random-values';
+import BuyItem from './src/screens/MarketScreens/BuyItem';
+import ChatScreen from './src/screens/MarketScreens/ChatBox';
+import ChatList from './src/screens/MarketScreens/ChatList';
 
 
 const Stack = createStackNavigator();
@@ -82,6 +85,9 @@ export default function App() {
                 <Stack.Screen name="ItemDetails" component={ItemDetails} />
                 <Stack.Screen name="CommentScreen" component={CommentScreen} />
                 <Stack.Screen name="EditItem" component={EditItem} />
+                <Stack.Screen name="BuyItem" component={BuyItem} />
+                <Stack.Screen name="ChatScreen" component={ChatScreen} />
+                <Stack.Screen name="ChatList" component={ChatList} />
               </Stack.Navigator>
             </NavigationContainer>
           </UserProvider>
