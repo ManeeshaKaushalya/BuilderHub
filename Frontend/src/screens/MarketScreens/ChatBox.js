@@ -1,30 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Image
-} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,FlatList,StyleSheet,KeyboardAvoidingView,Platform,ActivityIndicator,Image}from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { firestore } from '../../../firebase/firebaseConfig';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  serverTimestamp, 
-  doc, 
-  getDoc,
-  updateDoc
-} from 'firebase/firestore';
+import { collection,addDoc,query, where, orderBy, onSnapshot, serverTimestamp, doc,getDoc,updateDoc} from 'firebase/firestore';
 import { useUser } from '../../context/UserContext';
 
 const ChatScreen = ({ route, navigation }) => {

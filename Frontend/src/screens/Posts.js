@@ -11,7 +11,7 @@ import { getAuth } from 'firebase/auth';
 
 const { width } = Dimensions.get('window');
 
-function Post({ postId, username, caption, imageList, userImage, uploadDate, initialLikes = 0 }) {
+function Post({ postId, username, caption, imageList, userImage, uploadDate, initialLikes = 0, ownerId }) {
     const auth = getAuth();
     const user = auth.currentUser;
     const userId = user?.uid;
@@ -73,20 +73,26 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
         }
     };
 
+    const navigateToUserProfile = () => {
+        if (ownerId) {
+            navigation.navigate('UploaderProfile', { userId: ownerId });
+        }
+    };
+
     if (loading) {
         return <ActivityIndicator size="large" color="#0000ff" />;
     }
 
     return (
         <View style={styles.postContainer}>
-            {/* User Info */}
-            <View style={styles.userInfo}>
+            {/* User Info - Now clickable */}
+            <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile}>
                 <Image source={{ uri: userImage || '../../assets/default-user.png' }} style={styles.userImage} />
                 <View>
                     <Text style={styles.username}>{username}</Text>
                     <Text style={styles.uploadDate}>{uploadDate?.seconds ? new Date(uploadDate.seconds * 1000).toLocaleDateString() : "Unknown date"}</Text>
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Caption */}
             <Text style={styles.caption}>{caption}</Text>
@@ -140,7 +146,12 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3
     },
-    userInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    userInfo: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        marginBottom: 8,
+        padding: 5 // Adding padding to make the touchable area larger
+    },
     userImage: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
     username: { fontWeight: 'bold', fontSize: 16 },
     uploadDate: { fontSize: 12, color: '#666' },
