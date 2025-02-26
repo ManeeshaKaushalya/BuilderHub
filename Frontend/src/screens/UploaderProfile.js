@@ -7,14 +7,20 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     ScrollView,
-    SafeAreaView
+    SafeAreaView,
+    Dimensions,
+    Animated,
+    Platform
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import Post from './Posts';
+
+const { width } = Dimensions.get('window');
 
 function UploaderProfile() {
     const route = useRoute();
@@ -30,6 +36,10 @@ function UploaderProfile() {
     const [userPosts, setUserPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
+    const [userRating, setUserRating] = useState(0);
+    const [averageRating, setAverageRating] = useState(0);
+    const [totalRatings, setTotalRatings] = useState(0);
+    const [ratingAnimation] = useState(new Animated.Value(1)); // Initialize to 1 to show by default
     const [stats, setStats] = useState({
         postsCount: 0,
         followersCount: 0,
@@ -57,11 +67,31 @@ function UploaderProfile() {
                         profileImage: userData.profileImage || null,
                         followers: userData.followers || [],
                         following: userData.following || [],
+                        ratings: userData.ratings || {},
+                        profession: userData.profession || 'Creator',
+                        location: userData.location || null,
+                        website: userData.website || null,
                     });
 
                     // Check if current user is following this profile
                     if (currentUser) {
                         setIsFollowing(userData.followers?.includes(currentUser.uid) || false);
+                        
+                        // Get user's rating if they've rated before
+                        if (userData.ratings && userData.ratings.users && 
+                            userData.ratings.users[currentUser.uid]) {
+                            setUserRating(userData.ratings.users[currentUser.uid]);
+                        }
+                    }
+
+                    // Calculate average rating
+                    if (userData.ratings && userData.ratings.users) {
+                        const ratings = Object.values(userData.ratings.users);
+                        if (ratings.length > 0) {
+                            const sum = ratings.reduce((a, b) => a + b, 0);
+                            setAverageRating(sum / ratings.length);
+                            setTotalRatings(ratings.length);
+                        }
                     }
 
                     // Set stats
@@ -73,6 +103,8 @@ function UploaderProfile() {
                 }
             } catch (error) {
                 console.error('Error fetching user profile:', error);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -111,10 +143,8 @@ function UploaderProfile() {
                 });
 
                 setUserPosts(posts);
-                setLoading(false);
             } catch (error) {
                 console.error('Error fetching user posts:', error);
-                setLoading(false);
             }
         };
 
@@ -122,6 +152,16 @@ function UploaderProfile() {
             fetchUserPosts();
         }
     }, [profileId, userProfile]);
+
+    // Animate rating stars when component mounts
+    useEffect(() => {
+        // Start animation regardless of rating value
+        Animated.timing(ratingAnimation, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+        }).start();
+    }, [ratingAnimation]);
 
     const handleFollow = async () => {
         if (!currentUser || !profileId || currentUser.uid === profileId) return;
@@ -173,10 +213,86 @@ function UploaderProfile() {
         }
     };
 
+    const handleRating = async (rating) => {
+        if (!currentUser || !profileId || currentUser.uid === profileId) return;
+
+        try {
+            const userRef = doc(firestore, 'users', profileId);
+            const userDoc = await getDoc(userRef);
+            
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                // Initialize ratings object if it doesn't exist
+                const ratings = userData.ratings || { users: {} };
+                
+                // Update the user's rating
+                ratings.users = {
+                    ...ratings.users,
+                    [currentUser.uid]: rating
+                };
+                
+                // Calculate new average
+                const ratingValues = Object.values(ratings.users);
+                const newAverage = ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length;
+                
+                // Update in Firestore
+                await updateDoc(userRef, { 
+                    ratings: ratings,
+                    averageRating: newAverage 
+                });
+                
+                // Update local state
+                setUserRating(rating);
+                setAverageRating(newAverage);
+                setTotalRatings(ratingValues.length);
+                
+                // Animate rating change
+                Animated.sequence([
+                    Animated.timing(ratingAnimation, {
+                        toValue: 0.8,
+                        duration: 300,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(ratingAnimation, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    })
+                ]).start();
+            }
+        } catch (error) {
+            console.error('Error updating rating:', error);
+        }
+    };
+
+    const renderStars = (rating, onRatingPress, size = 24) => {
+        const stars = [];
+        const maxStars = 5;
+        
+        for (let i = 1; i <= maxStars; i++) {
+            stars.push(
+                <TouchableOpacity 
+                    key={i} 
+                    onPress={() => onRatingPress && onRatingPress(i)}
+                    style={styles.starContainer}
+                    activeOpacity={onRatingPress ? 0.6 : 1}
+                >
+                    <FontAwesome 
+                        name={i <= rating ? "star" : "star-o"} 
+                        size={size} 
+                        color={i <= rating ? "#FFD700" : "#aaa"} 
+                    />
+                </TouchableOpacity>
+            );
+        }
+        
+        return stars;
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0000ff" />
+                <ActivityIndicator size="large" color="#0095f6" />
             </View>
         );
     }
@@ -186,7 +302,7 @@ function UploaderProfile() {
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>User not found</Text>
                 <TouchableOpacity 
-                    style={styles.backButton}
+                    style={styles.backButtonFallback}
                     onPress={() => navigation.goBack()}
                 >
                     <Text style={styles.backButtonText}>Go Back</Text>
@@ -197,77 +313,177 @@ function UploaderProfile() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView>
-                {/* Header with back button */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color="#000" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{userProfile.name}</Text>
-                    <View style={{ width: 24 }} /> {/* Empty view for spacing */}
+            {/* Header with back button */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonIcon}>
+                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>{userProfile.name}</Text>
+                <TouchableOpacity style={styles.headerIconButton}>
+                    <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Cover and Profile Image Section */}
+                <View style={styles.coverContainer}>
+                    <LinearGradient
+                        colors={['#4c669f', '#3b5998', '#192f6a']}
+                        style={styles.coverGradient}
+                    >
+                        <View style={styles.profileImageContainer}>
+                            <Image 
+                                source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }} 
+                                style={styles.profileImage} 
+                                resizeMode="cover"
+                            />
+                            <View style={styles.onlineIndicator} />
+                        </View>
+                    </LinearGradient>
                 </View>
 
-                {/* Profile Info */}
-                <View style={styles.profileContainer}>
-                    <Image 
-                        source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }} 
-                        style={styles.profileImage} 
-                    />
-                    
-                    <View style={styles.profileInfo}>
+                {/* Profile Info Card */}
+                <View style={styles.profileInfoCard}>
+                    {/* User Info */}
+                    <View style={styles.userInfoSection}>
                         <Text style={styles.nameText}>{userProfile.name}</Text>
+                        <Text style={styles.professionText}>{userProfile.profession}</Text>
+                        
+                        {userProfile.location && (
+                            <View style={styles.infoRow}>
+                                <Ionicons name="location-outline" size={16} color="#666" />
+                                <Text style={styles.infoText}>{userProfile.location}</Text>
+                            </View>
+                        )}
+                        
+                        {userProfile.website && (
+                            <View style={styles.infoRow}>
+                                <Ionicons name="globe-outline" size={16} color="#666" />
+                                <Text style={styles.infoText}>{userProfile.website}</Text>
+                            </View>
+                        )}
+                        
                         {userProfile.bio ? (
                             <Text style={styles.bioText}>{userProfile.bio}</Text>
                         ) : null}
                     </View>
-                </View>
 
-                {/* Stats Row */}
-                <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{stats.postsCount}</Text>
-                        <Text style={styles.statLabel}>Posts</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{stats.followersCount}</Text>
-                        <Text style={styles.statLabel}>Followers</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{stats.followingCount}</Text>
-                        <Text style={styles.statLabel}>Following</Text>
-                    </View>
-                </View>
+                    {/* Rating Card - now shown regardless of whether there are ratings */}
+                    <Animated.View 
+                        style={[
+                            styles.ratingCard,
+                            {
+                                opacity: ratingAnimation,
+                                transform: [
+                                    { scale: ratingAnimation.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.8, 1]
+                                    }) }
+                                ]
+                            }
+                        ]}
+                    >
+                        <LinearGradient
+                            colors={['#f5f7fa', '#e4e8f0']}
+                            style={styles.ratingGradient}
+                        >
+                            <View style={styles.ratingHeader}>
+                                <MaterialCommunityIcons name="star-circle" size={22} color="#FFB400" />
+                                <Text style={styles.ratingTitle}>Reputation Score</Text>
+                            </View>
+                            
+                            <View style={styles.ratingValue}>
+                                <Text style={styles.ratingNumber}>
+                                    {totalRatings > 0 ? averageRating.toFixed(1) : '0.0'}
+                                </Text>
+                                <View style={styles.ratingStarsContainer}>
+                                    <View style={styles.ratingStarsRow}>
+                                        {renderStars(averageRating, null, 18)}
+                                    </View>
+                                    <Text style={styles.ratingCount}>
+                                        {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'}
+                                    </Text>
+                                </View>
+                            </View>
+                            
+                            {/* User can rate if not viewing their own profile */}
+                            {currentUser && currentUser.uid !== profileId && (
+                                <View style={styles.userRatingContainer}>
+                                    <Text style={styles.userRatingTitle}>
+                                        {userRating > 0 ? 'Your Rating' : 'Rate This Profile'}
+                                    </Text>
+                                    <View style={styles.userRatingStars}>
+                                        {renderStars(userRating, handleRating, 26)}
+                                    </View>
+                                </View>
+                            )}
+                        </LinearGradient>
+                    </Animated.View>
 
-                {/* Follow/Message Button Row */}
-                {currentUser && currentUser.uid !== profileId && (
-                    <View style={styles.actionButtonsContainer}>
-                        <TouchableOpacity 
-                            style={[
-                                styles.followButton, 
-                                isFollowing ? styles.followingButton : null
-                            ]}
-                            onPress={handleFollow}
-                        >
-                            <Text style={[
-                                styles.followButtonText,
-                                isFollowing ? styles.followingButtonText : null
-                            ]}>
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={styles.messageButton}
-                            onPress={() => navigation.navigate('ChatScreen', { userId: profileId })}
-                        >
-                            <Text style={styles.messageButtonText}>Message</Text>
-                        </TouchableOpacity>
+                    {/* Stats Counters */}
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statNumber}>{stats.postsCount}</Text>
+                            <Text style={styles.statLabel}>Posts</Text>
+                        </View>
+                        <View style={[styles.statItem, styles.statDivider]}>
+                            <Text style={styles.statNumber}>{stats.followersCount}</Text>
+                            <Text style={styles.statLabel}>Followers</Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statNumber}>{stats.followingCount}</Text>
+                            <Text style={styles.statLabel}>Following</Text>
+                        </View>
                     </View>
-                )}
+
+                    {/* Action Buttons */}
+                    {currentUser && currentUser.uid !== profileId && (
+                        <View style={styles.actionButtonsContainer}>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.followButton, 
+                                    isFollowing ? styles.followingButton : null
+                                ]}
+                                onPress={handleFollow}
+                            >
+                                <Ionicons 
+                                    name={isFollowing ? "checkmark-circle" : "person-add"} 
+                                    size={18} 
+                                    color={isFollowing ? "#0095f6" : "#fff"} 
+                                    style={styles.buttonIcon}
+                                />
+                                <Text style={[
+                                    styles.followButtonText,
+                                    isFollowing ? styles.followingButtonText : null
+                                ]}>
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={styles.messageButton}
+                                onPress={() => navigation.navigate('ChatScreen', { userId: profileId })}
+                            >
+                                <Ionicons 
+                                    name="chatbubble-ellipses-outline" 
+                                    size={18} 
+                                    color="#333" 
+                                    style={styles.buttonIcon}
+                                />
+                                <Text style={styles.messageButtonText}>Message</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
 
                 {/* Posts Section */}
                 <View style={styles.postsSection}>
-                    <Text style={styles.sectionTitle}>Posts</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Posts</Text>
+                        <TouchableOpacity style={styles.seeAllButton}>
+                            <Text style={styles.seeAllText}>See All</Text>
+                        </TouchableOpacity>
+                    </View>
                     
                     {userPosts.length === 0 ? (
                         <View style={styles.emptyPostsContainer}>
@@ -298,7 +514,325 @@ function UploaderProfile() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        backgroundColor: '#192f6a',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerIconButton: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backButtonIcon: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    coverContainer: {
+        width: '100%',
+        height: 200,
+    },
+    coverGradient: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
+    profileImageContainer: {
+        width: 120,
+        height: 120,
+        marginBottom: -60,
+        borderRadius: 60,
+        borderWidth: 4,
+        borderColor: '#fff',
+        overflow: 'hidden',
         backgroundColor: '#fff',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 5,
+            },
+        }),
+    },
+    profileImage: {
+        width: '100%',
+        height: '100%',
+    },
+    onlineIndicator: {
+        position: 'absolute',
+        width: 20,
+        height: 20,
+        backgroundColor: '#4CAF50',
+        borderRadius: 10,
+        bottom: 0,
+        right: 0,
+        borderWidth: 3,
+        borderColor: '#fff',
+    },
+    profileInfoCard: {
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        marginTop: 70,
+        marginHorizontal: 15,
+        paddingTop: 60,
+        paddingBottom: 20,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 5,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
+    },
+    userInfoSection: {
+        paddingHorizontal: 15,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    nameText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    professionText: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 4,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    infoText: {
+        marginLeft: 5,
+        fontSize: 14,
+        color: '#666',
+    },
+    bioText: {
+        fontSize: 14,
+        color: '#333',
+        textAlign: 'center',
+        marginTop: 15,
+        lineHeight: 20,
+    },
+    ratingCard: {
+        marginHorizontal: 15,
+        marginBottom: 20,
+        borderRadius: 12,
+        overflow: 'hidden',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
+    },
+    ratingGradient: {
+        padding: 15,
+        borderRadius: 12,
+    },
+    ratingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    ratingTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 8,
+        color: '#333',
+    },
+    ratingValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    ratingNumber: {
+        fontSize: 36,
+        fontWeight: 'bold',
+        marginRight: 15,
+        color: '#333',
+    },
+    ratingStarsContainer: {
+        flex: 1,
+    },
+    ratingStarsRow: {
+        flexDirection: 'row',
+        marginBottom: 5,
+    },
+    ratingCount: {
+        fontSize: 12,
+        color: '#666',
+    },
+    userRatingContainer: {
+        marginTop: 15,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.05)',
+    },
+    userRatingTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#555',
+    },
+    userRatingStars: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    starContainer: {
+        padding: 3,
+    },
+    statsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingVertical: 15,
+        marginBottom: 20,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statDivider: {
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    statNumber: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    statLabel: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 4,
+    },
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 15,
+    },
+    followButton: {
+        flex: 1,
+        backgroundColor: '#0095f6',
+        borderRadius: 8,
+        padding: 12,
+        alignItems: 'center',
+        marginRight: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    followingButton: {
+        backgroundColor: '#f8f9fa',
+        borderWidth: 1,
+        borderColor: '#0095f6',
+    },
+    followButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
+    followingButtonText: {
+        color: '#0095f6',
+    },
+    messageButton: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 8,
+        padding: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    messageButtonText: {
+        color: '#333',
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    buttonIcon: {
+        marginRight: 6,
+    },
+    postsSection: {
+        marginTop: 20,
+        marginBottom: 30,
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        paddingVertical: 15,
+        marginHorizontal: 15,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 5,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+        marginBottom: 15,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    seeAllButton: {
+        padding: 5,
+    },
+    seeAllText: {
+        color: '#0095f6',
+        fontWeight: '600',
+    },
+    emptyPostsContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
+    emptyPostsText: {
+        marginTop: 10,
+        color: '#999',
+        fontSize: 16,
     },
     loadingContainer: {
         flex: 1,
@@ -315,126 +849,16 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 20,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    profileContainer: {
-        padding: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    profileImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        marginRight: 20,
-    },
-    profileInfo: {
-        flex: 1,
-    },
-    nameText: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    bioText: {
-        fontSize: 14,
-        color: '#555',
-        lineHeight: 20,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    statItem: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 15,
-    },
-    statNumber: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    statLabel: {
-        fontSize: 14,
-        color: '#666',
-        marginTop: 5,
-    },
-    actionButtonsContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-    },
-    followButton: {
-        flex: 1,
+    backButtonFallback: {
         backgroundColor: '#0095f6',
-        padding: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
         borderRadius: 5,
-        alignItems: 'center',
-        marginRight: 10,
-    },
-    followingButton: {
-        backgroundColor: '#eee',
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    followButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    followingButtonText: {
-        color: '#333',
-    },
-    messageButton: {
-        flex: 1,
-        backgroundColor: '#fff',
-        padding: 10,
-        borderRadius: 5,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    messageButtonText: {
-        color: '#333',
-        fontWeight: 'bold',
-    },
-    postsSection: {
-        padding: 15,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-    },
-    emptyPostsContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-    },
-    emptyPostsText: {
-        fontSize: 16,
-        color: '#888',
-        marginTop: 10,
-    },
-    backButton: {
-        padding: 5,
     },
     backButtonText: {
-        color: '#0095f6',
+        color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '600',
     },
 });
 
