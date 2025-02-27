@@ -3,27 +3,45 @@ import { View, Text, StyleSheet, TextInput, FlatList, ActivityIndicator } from '
 import { useTheme } from '../hooks/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import ImageUpload from './ImageUpload';
 import Post from './Posts';
 
 function UsersPostsScreen() {
+    const auth = getAuth();
+    const user = auth.currentUser;
     const { isDarkMode } = useTheme();
     const [search, setSearch] = useState('');
     const [users, setUsers] = useState([]);
     const [filteredUsers, setFilteredUsers] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
 
-    // Listen for real-time updates from Firestore 'posts' collection
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(firestore, 'posts'), async (snapshot) => {
+        if (!user) {
+            console.log("No authenticated user in UsersPostsScreen!");
+            setLoading(false);
+            return;
+        }
+        console.log("Authenticated user UID in UsersPostsScreen:", user.uid);
+
+        const postsRef = collection(firestore, 'posts');
+        console.log("Setting up posts listener...");
+        const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
+            console.log("Posts snapshot received, size:", snapshot.size);
+            if (snapshot.empty) {
+                console.log("No posts found in collection.");
+                setPosts([]);
+                setLoading(false);
+                return;
+            }
+
             const postList = await Promise.all(
                 snapshot.docs.map(async (docSnapshot) => {
                     const postData = { id: docSnapshot.id, ...docSnapshot.data() };
+                    console.log("Processing post in UsersPostsScreen:", postData.id, postData);
 
-                    // Fetch user details based on ownerId (uid)
                     let ownerData = { name: 'Unknown User', profileImage: null };
-
                     if (postData.uid) {
                         try {
                             const userDocRef = doc(firestore, 'users', postData.uid);
@@ -31,11 +49,13 @@ function UsersPostsScreen() {
                             if (userDocSnap.exists()) {
                                 ownerData = {
                                     name: userDocSnap.data().name || 'Unknown User',
-                                    profileImage: userDocSnap.data().profileImage || null, // Fetch user's profile image
+                                    profileImage: userDocSnap.data().profileImage || null,
                                 };
+                            } else {
+                                console.log("User not found for UID:", postData.uid);
                             }
                         } catch (error) {
-                            console.error('Error fetching user:', error);
+                            console.error('Error fetching user for post', postData.id, ':', error);
                         }
                     }
 
@@ -47,39 +67,45 @@ function UsersPostsScreen() {
                 })
             );
 
+            console.log("Posts processed, total:", postList.length);
             setPosts(postList);
+            setLoading(false);
+        }, (error) => {
+            console.error("Posts snapshot error in UsersPostsScreen:", error);
             setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            console.log("Unsubscribing from posts listener in UsersPostsScreen");
+            unsubscribe();
+        };
+    }, [user]);
 
-    // Fetch users from Firestore (runs once)
     useEffect(() => {
+        if (!user) return;
+
         const fetchUsers = async () => {
             try {
-                setLoading(true);
+                console.log("Fetching users...");
                 const usersCollection = collection(firestore, 'users');
                 const userSnapshot = await getDocs(usersCollection);
                 const userList = userSnapshot.docs.map(doc => ({
                     id: doc.id,
-                    name: doc.data().name || "Unknown User", // Default value
+                    name: doc.data().name || "Unknown User",
                 }));
+                console.log("Users fetched:", userList.length);
                 setUsers(userList);
-                setLoading(false);
             } catch (error) {
                 console.error("Error fetching users:", error);
-                setLoading(false);
             }
         };
 
         fetchUsers();
-    }, []);
+    }, [user]);
 
-    // Filter users when search input changes
     useEffect(() => {
         if (search.trim() === '') {
-            setFilteredUsers([]); // Hide list when search is empty
+            setFilteredUsers([]);
         } else {
             const filtered = users.filter(user =>
                 user.name.toLowerCase().includes(search.toLowerCase())
@@ -88,7 +114,6 @@ function UsersPostsScreen() {
         }
     }, [search, users]);
 
-    // Combined list to display both users and posts
     const combinedData = [
         { type: 'imageUpload', id: 'imageUpload' },
         ...filteredUsers.map(user => ({ type: 'user', id: user.id, user })),
@@ -107,17 +132,17 @@ function UsersPostsScreen() {
                 </View>
             );
         } else if (item.type === 'post') {
+            console.log("Rendering post:", item.post.id);
             return (
                 <Post
                     postId={item.post.id}
                     username={item.post.ownerName}
                     caption={item.post.caption}
-                    imageList={item.post.imageUrls} // List of images if available
+                    imageList={item.post.imageUrls}
                     ownerId={item.post.uid}
-                    userImage={item.post.userImage} // Pass fetched user image
+                    userImage={item.post.userImage}
                     uploadDate={item.post.timestamp}
-                    isDarkMode={isDarkMode} // Pass isDarkMode to Post component
-
+                    initialLikes={item.post.likes || 0}
                 />
             );
         }
@@ -142,7 +167,7 @@ function UsersPostsScreen() {
                     <ActivityIndicator size="large" color="#007BFF" style={styles.loader} />
                 ) : (
                     <Text style={[styles.noResults, isDarkMode ? styles.darkText : styles.lightText]}>
-                        No users found
+                        No posts or users found
                     </Text>
                 )
             }
@@ -154,7 +179,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, padding: 20 },
     lightContainer: { backgroundColor: '#fff' },
     darkContainer: { backgroundColor: '#121212' },
-
     searchInput: {
         width: '100%',
         height: 40,
@@ -165,7 +189,6 @@ const styles = StyleSheet.create({
     },
     lightInput: { backgroundColor: '#f0f0f0', color: '#000' },
     darkInput: { backgroundColor: '#1e1e1e', color: '#fff' },
-
     userCard: {
         padding: 15,
         borderRadius: 8,
@@ -173,13 +196,10 @@ const styles = StyleSheet.create({
     },
     lightCard: { backgroundColor: '#f9f9f9' },
     darkCard: { backgroundColor: '#1e1e1e' },
-
     userName: { fontSize: 18 },
     lightText: { color: '#000' },
     darkText: { color: '#fff' },
-
     loader: { marginTop: 20 },
-
     noResults: {
         fontSize: 16,
         textAlign: 'center',

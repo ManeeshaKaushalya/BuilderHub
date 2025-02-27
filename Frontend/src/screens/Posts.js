@@ -23,50 +23,58 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        let unsubscribe;
-        
-        if (userId) {
-            const postRef = doc(firestore, 'posts', postId);
-            
-            // Set up real-time listener for the post document
-            unsubscribe = onSnapshot(postRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    const postData = snapshot.data();
-                    setLikes(postData.likes || 0);
-                    setIsLiked(postData.likedBy?.includes(userId));
-                    setCommentsCount(postData.comments?.length || 0);
-                    setLoading(false);
-                }
-            }, (error) => {
-                console.error('Error setting up real-time listener:', error);
-                setLoading(false);
-            });
+        if (!userId) {
+            console.log("No authenticated user for Post component!");
+            setLoading(false);
+            return;
         }
 
-        // Cleanup listener when component unmounts
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
+        console.log("Setting up listener for post:", postId);
+        const postRef = doc(firestore, 'posts', postId);
+
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const postData = snapshot.data();
+                console.log("Post data received:", postData);
+                setLikes(postData.likes || 0);
+                setIsLiked(postData.likedBy?.includes(userId) || false);
+                setCommentsCount(postData.comments?.length || 0);
+                setLoading(false);
+            } else {
+                console.log("Post document does not exist:", postId);
+                setLoading(false);
             }
+        }, (error) => {
+            console.error('Error in Post snapshot listener:', error);
+            setLoading(false);
+        });
+
+        return () => {
+            console.log("Unsubscribing from post:", postId);
+            unsubscribe();
         };
     }, [postId, userId]);
 
     const handleLike = async () => {
-        if (!userId) return;
+        if (!userId) {
+            console.log("Cannot like post: no user authenticated");
+            return;
+        }
 
         const postRef = doc(firestore, 'posts', postId);
-
         try {
             if (isLiked) {
                 await updateDoc(postRef, {
                     likes: likes - 1,
                     likedBy: arrayRemove(userId)
                 });
+                console.log("Unliked post:", postId);
             } else {
                 await updateDoc(postRef, {
                     likes: likes + 1,
                     likedBy: arrayUnion(userId)
                 });
+                console.log("Liked post:", postId);
             }
         } catch (error) {
             console.error('Error updating likes:', error);
@@ -80,24 +88,23 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" color="#0000ff" />;
+        return <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />;
     }
 
     return (
         <View style={styles.postContainer}>
-            {/* User Info - Now clickable */}
             <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile}>
-                <Image source={{ uri: userImage || '../../assets/default-user.png' }} style={styles.userImage} />
+                <Image source={{ uri: userImage || 'https://via.placeholder.com/40' }} style={styles.userImage} />
                 <View>
                     <Text style={styles.username}>{username}</Text>
-                    <Text style={styles.uploadDate}>{uploadDate?.seconds ? new Date(uploadDate.seconds * 1000).toLocaleDateString() : "Unknown date"}</Text>
+                    <Text style={styles.uploadDate}>
+                        {uploadDate?.seconds ? new Date(uploadDate.seconds * 1000).toLocaleDateString() : "Unknown date"}
+                    </Text>
                 </View>
             </TouchableOpacity>
 
-            {/* Caption */}
             <Text style={styles.caption}>{caption}</Text>
 
-            {/* Image List */}
             {imageList?.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageContainer}>
                     {imageList.map((img, index) => (
@@ -106,12 +113,9 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
                 </ScrollView>
             ) : null}
 
-            {/* Stats */}
             <Text style={styles.statsText}>{likes} likes • {commentsCount} comments</Text>
 
-            {/* Action Buttons */}
             <View style={styles.actionButtons}>
-                {/* Like Button */}
                 <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
                     <FontAwesome
                         name={isLiked ? "heart" : "heart-o"}
@@ -121,7 +125,6 @@ function Post({ postId, username, caption, imageList, userImage, uploadDate, ini
                     <Text style={styles.actionText}>Like</Text>
                 </TouchableOpacity>
 
-                {/* Comment Button */}
                 <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => navigation.navigate('CommentScreen', { postId })}
@@ -150,15 +153,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row', 
         alignItems: 'center', 
         marginBottom: 8,
-        padding: 5 // Adding padding to make the touchable area larger
+        padding: 5
     },
     userImage: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
     username: { fontWeight: 'bold', fontSize: 16 },
     uploadDate: { fontSize: 12, color: '#666' },
     caption: { marginTop: 5, fontSize: 14, lineHeight: 20 },
-    imageContainer: {
-        marginTop: 10,
-    },
+    imageContainer: { marginTop: 10 },
     postImage: { 
         height: 200, 
         borderRadius: 8, 
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666'
     },
+    loader: { marginVertical: 20 }
 });
 
 export default Post;

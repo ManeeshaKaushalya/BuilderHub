@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,8 @@ import {
   getDoc,
   onSnapshot,
   deleteDoc,
-  updateDoc
+  updateDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 
 const ChatList = () => {
@@ -36,43 +37,61 @@ const ChatList = () => {
     if (!user) return;
 
     const chatsRef = collection(firestore, 'chats');
-    const q = query(
-      chatsRef,
-      where('participants', 'array-contains', user.uid)
-    );
+    const q = query(chatsRef, where('participants', 'array-contains', user.uid));
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       let chatList = [];
       querySnapshot.forEach((doc) => {
         chatList.push({ id: doc.id, ...doc.data() });
       });
-      
-      // Sort chats: unread first, then by timestamp
+
+      // Add persistent bot chat entry
+      const botChatId = `bot_${user.uid}`;
+      const botChatIndex = chatList.findIndex(chat => chat.id === botChatId);
+      const botChat = {
+        id: botChatId,
+        itemId: 'constructionBot',
+        itemName: 'Construction Help',
+        itemImage: null, // You can add a default bot image URL here if available
+        participants: [user.uid, 'constructionBot'],
+        lastMessage: chatList[botChatIndex]?.lastMessage || 'Ask me about construction!',
+        lastMessageTime: chatList[botChatIndex]?.lastMessageTime || serverTimestamp(),
+        isBotChat: true
+      };
+
+      // Replace or add bot chat at the top
+      if (botChatIndex >= 0) {
+        chatList[botChatIndex] = botChat;
+      } else {
+        chatList.unshift(botChat);
+      }
+
+      // Sort chats: bot first, then unread, then by timestamp
       chatList.sort((a, b) => {
-        // First prioritize unread chats
-        if ((a.unreadBy && a.unreadBy.includes(user.uid)) && 
-            !(b.unreadBy && b.unreadBy.includes(user.uid))) {
-          return -1;
-        }
-        if (!(a.unreadBy && a.unreadBy.includes(user.uid)) && 
-            (b.unreadBy && b.unreadBy.includes(user.uid))) {
-          return 1;
-        }
-        
-        // Then sort by time
+        // Bot chat always first
+        if (a.isBotChat) return -1;
+        if (b.isBotChat) return 1;
+
+        // Prioritize unread chats
+        if ((a.unreadBy?.includes(user.uid) && !b.unreadBy?.includes(user.uid))) return -1;
+        if ((!a.unreadBy?.includes(user.uid) && b.unreadBy?.includes(user.uid))) return 1;
+
+        // Sort by time
         const timeA = a.lastMessageTime ? a.lastMessageTime.toDate().getTime() : 0;
         const timeB = b.lastMessageTime ? b.lastMessageTime.toDate().getTime() : 0;
         return timeB - timeA; // Descending order (newest first)
       });
-      
+
       setChats(chatList);
       setLoading(false);
 
-      // Fetch user profiles for all participants
+      // Fetch user profiles for all participants (excluding bot)
       chatList.forEach(chat => {
-        const otherUserId = chat.participants.find(id => id !== user.uid);
-        if (otherUserId && !userProfiles[otherUserId]) {
-          fetchUserProfile(otherUserId);
+        if (!chat.isBotChat) {
+          const otherUserId = chat.participants.find(id => id !== user.uid);
+          if (otherUserId && !userProfiles[otherUserId]) {
+            fetchUserProfile(otherUserId);
+          }
         }
       });
     });
@@ -97,8 +116,7 @@ const ChatList = () => {
   };
 
   const getOtherUserProfile = (chat) => {
-    if (!chat || !chat.participants) return null;
-    
+    if (!chat || !chat.participants || chat.isBotChat) return null;
     const otherUserId = chat.participants.find(id => id !== user.uid);
     return userProfiles[otherUserId] || null;
   };
@@ -106,37 +124,29 @@ const ChatList = () => {
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
     
-    const date = timestamp.toDate();
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     
-    // If same day, show time
     if (date.toDateString() === now.toDateString()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     
-    // If within the last week, show day name
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     if (date > oneWeekAgo) {
-      const options = { weekday: 'short' };
-      return date.toLocaleDateString(undefined, options);
+      return date.toLocaleDateString(undefined, { weekday: 'short' });
     }
     
-    // Otherwise show date
     return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
   };
 
-  // Function to delete a chat
   const deleteChat = async (chatId) => {
     try {
       Alert.alert(
         "Delete Conversation",
         "Are you sure you want to delete this conversation?",
         [
-          {
-            text: "Cancel",
-            style: "cancel"
-          },
+          { text: "Cancel", style: "cancel" },
           {
             text: "Delete",
             onPress: async () => {
@@ -163,13 +173,9 @@ const ChatList = () => {
       
       if (chatDoc.exists()) {
         const chatData = chatDoc.data();
-        
-        if (chatData.unreadBy && chatData.unreadBy.includes(user.uid)) {
+        if (chatData.unreadBy?.includes(user.uid)) {
           const updatedUnreadBy = chatData.unreadBy.filter(id => id !== user.uid);
-          
-          await updateDoc(chatRef, {
-            unreadBy: updatedUnreadBy
-          });
+          await updateDoc(chatRef, { unreadBy: updatedUnreadBy });
         }
       }
     } catch (error) {
@@ -179,64 +185,58 @@ const ChatList = () => {
 
   const navigateToChat = async (item, otherUser) => {
     try {
-      // Mark as read when navigating to chat
+      if (item.isBotChat) {
+        navigation.navigate('ChatScreen', {
+          item: { id: 'constructionBot', itemName: 'Construction Help', images: [], price: 'N/A' },
+          sellerData: { name: 'Construction Bot', profileImage: null }, // Add bot image if available
+          isBotChat: true,
+          chatId: item.id
+        });
+        return;
+      }
+
       await markChatAsRead(item.id);
-      
       const itemRef = doc(firestore, 'items', item.itemId);
       const itemSnap = await getDoc(itemRef);
       
-      if (itemSnap.exists()) {
-        const itemData = { id: itemSnap.id, ...itemSnap.data() };
-        navigation.navigate('ChatScreen', { 
-          item: itemData, 
-          sellerData: otherUser,
-          chatId: item.id 
-        });
-      } else {
-        // Item no longer exists
-        navigation.navigate('ChatScreen', { 
-          item: { 
-            id: item.itemId, 
-            itemName: item.itemName || 'Deleted Item',
-            images: item.itemImage ? [item.itemImage] : [],
-            price: 'N/A'
-          }, 
-          sellerData: otherUser,
-          chatId: item.id
-        });
-      }
+      navigation.navigate('ChatScreen', { 
+        item: itemSnap.exists() ? { id: itemSnap.id, ...itemSnap.data() } : { 
+          id: item.itemId, 
+          itemName: item.itemName || 'Deleted Item',
+          images: item.itemImage ? [item.itemImage] : [],
+          price: 'N/A'
+        }, 
+        sellerData: otherUser,
+        chatId: item.id 
+      });
     } catch (error) {
-      console.error('Error fetching item:', error);
+      console.error('Error navigating to chat:', error);
     }
   };
 
   const countUnreadMessages = (chat) => {
-    if (!chat || !chat.unreadCount || !chat.unreadBy || !chat.unreadBy.includes(user.uid)) {
-      return 0;
-    }
-    return chat.unreadCount[user.uid] || 1; // Default to 1 if count not specified
+    if (!chat || !chat.unreadCount || !chat.unreadBy || !chat.unreadBy.includes(user.uid)) return 0;
+    return chat.unreadCount[user.uid] || 1;
   };
 
   const renderChatItem = ({ item }) => {
-    const otherUser = getOtherUserProfile(item);
-    const hasUnread = item.unreadBy && item.unreadBy.includes(user.uid);
+    const otherUser = item.isBotChat ? { name: 'Construction Bot', profileImage: null } : getOtherUserProfile(item);
+    const hasUnread = item.unreadBy?.includes(user.uid);
     const unreadCount = countUnreadMessages(item);
-    
+
     return (
       <TouchableOpacity
-        style={[
-          styles.chatItem,
-          hasUnread && styles.unreadChatItem
-        ]}
+        style={[styles.chatItem, hasUnread && styles.unreadChatItem]}
         onPress={() => navigateToChat(item, otherUser)}
-        onLongPress={() => deleteChat(item.id)}
+        onLongPress={() => !item.isBotChat && deleteChat(item.id)} // Prevent bot chat deletion
         delayLongPress={500}
         activeOpacity={0.7}
       >
         <View style={styles.chatItemContent}>
-          {/* Avatar Section */}
           <View style={styles.avatarContainer}>
-            {otherUser && otherUser.profileImage ? (
+            {item.isBotChat ? (
+              <Image source={require('../../../assets/bot-avatar.png')} style={styles.avatar} /> // Ensure this asset exists
+            ) : otherUser?.profileImage ? (
               <Image source={{ uri: otherUser.profileImage }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarPlaceholder, hasUnread && styles.unreadAvatarPlaceholder]}>
@@ -245,17 +245,9 @@ const ChatList = () => {
             )}
           </View>
           
-          {/* Middle Content */}
           <View style={styles.chatInfo}>
-            {/* Name and Time Row */}
             <View style={styles.chatTopRow}>
-              <Text 
-                style={[
-                  styles.userName, 
-                  hasUnread && styles.unreadText
-                ]} 
-                numberOfLines={1}
-              >
+              <Text style={[styles.userName, hasUnread && styles.unreadText]} numberOfLines={1}>
                 {otherUser ? otherUser.name : 'User'}
               </Text>
               <Text style={styles.timeStamp}>
@@ -263,36 +255,30 @@ const ChatList = () => {
               </Text>
             </View>
             
-            {/* Preview and Item Row */}
             <View style={styles.chatBottomRow}>
               <View style={styles.lastMessageContainer}>
-                <Text 
-                  style={[
-                    styles.lastMessage,
-                    hasUnread && styles.unreadText
-                  ]} 
-                  numberOfLines={1}
-                >
+                <Text style={[styles.lastMessage, hasUnread && styles.unreadText]} numberOfLines={1}>
                   {item.lastMessage || 'No messages yet'}
                 </Text>
               </View>
               
-              <View style={styles.itemPreview}>
-                {item.itemImage ? (
-                  <Image source={{ uri: item.itemImage }} style={styles.itemThumbnail} />
-                ) : (
-                  <View style={styles.itemThumbnailPlaceholder}>
-                    <Icon name="image-not-supported" size={12} color="#999" />
-                  </View>
-                )}
-                <Text style={styles.itemName} numberOfLines={1}>
-                  {item.itemName || 'Item'}
-                </Text>
-              </View>
+              {!item.isBotChat && (
+                <View style={styles.itemPreview}>
+                  {item.itemImage ? (
+                    <Image source={{ uri: item.itemImage }} style={styles.itemThumbnail} />
+                  ) : (
+                    <View style={styles.itemThumbnailPlaceholder}>
+                      <Icon name="image-not-supported" size={12} color="#999" />
+                    </View>
+                  )}
+                  <Text style={styles.itemName} numberOfLines={1}>
+                    {item.itemName || 'Item'}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
           
-          {/* Unread Count Badge */}
           {hasUnread && (
             <View style={styles.badgeContainer}>
               <View style={styles.unreadBadge}>
@@ -303,9 +289,6 @@ const ChatList = () => {
             </View>
           )}
         </View>
-
-        {/* Swipe/Long Press Hint - Only visible initially */}
-       
       </TouchableOpacity>
     );
   };
@@ -315,24 +298,6 @@ const ChatList = () => {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007bff" />
         <Text style={styles.loadingText}>Loading your conversations...</Text>
-      </View>
-    );
-  }
-
-  if (chats.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Icon name="forum" size={80} color="#e0e0e0" />
-        <Text style={styles.emptyTitle}>No conversations yet</Text>
-        <Text style={styles.emptySubtitle}>
-          When you contact sellers, your conversations will appear here
-        </Text>
-        <TouchableOpacity
-          style={styles.browseButton}
-          onPress={() => navigation.navigate('Home')}
-        >
-          <Text style={styles.browseButtonText}>Browse Items</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -382,7 +347,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
   },
   unreadChatItem: {
-    backgroundColor: '#fff', // Keep white background for clean look
+    backgroundColor: '#fff',
   },
   chatItemContent: {
     flexDirection: 'row',
@@ -401,12 +366,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#A0A0A0', // Default gray for read messages
+    backgroundColor: '#A0A0A0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   unreadAvatarPlaceholder: {
-    backgroundColor: '#007bff', // Brighter blue for unread messages
+    backgroundColor: '#007bff',
   },
   chatInfo: {
     flex: 1,
@@ -426,8 +391,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadText: {
-    fontWeight: '700', // Bolder for unread
-    color: '#000000', // Darker for unread
+    fontWeight: '700',
+    color: '#000000',
   },
   timeStamp: {
     fontSize: 12,
@@ -519,15 +484,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'right',
-    marginTop: 8,
-    opacity: 0.7,
-  },
+  }
 });
 
 export default ChatList;
