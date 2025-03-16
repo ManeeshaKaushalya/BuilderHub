@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -45,32 +45,32 @@ const ChatList = () => {
         chatList.push({ id: doc.id, ...doc.data() });
       });
 
-      // Add persistent bot chat entry
-      const botChatId = `bot_${user.uid}`;
-      const botChatIndex = chatList.findIndex(chat => chat.id === botChatId);
-      const botChat = {
-        id: botChatId,
-        itemId: 'constructionBot',
-        itemName: 'Construction Help',
-        itemImage: null, // You can add a default bot image URL here if available
-        participants: [user.uid, 'constructionBot'],
-        lastMessage: chatList[botChatIndex]?.lastMessage || 'Ask me about construction!',
-        lastMessageTime: chatList[botChatIndex]?.lastMessageTime || serverTimestamp(),
-        isBotChat: true
+      // Add persistent support chat entry
+      const supportChatId = `support_${user.uid}`;
+      const supportChatIndex = chatList.findIndex(chat => chat.id === supportChatId);
+      const supportChat = {
+        id: supportChatId,
+        itemId: 'supportAgent',
+        itemName: 'Customer Support',
+        itemImage: null,
+        participants: [user.uid, 'supportAgent'],
+        lastMessage: chatList[supportChatIndex]?.lastMessage || 'How can we help you today?',
+        lastMessageTime: chatList[supportChatIndex]?.lastMessageTime || serverTimestamp(),
+        isSupportChat: true
       };
 
-      // Replace or add bot chat at the top
-      if (botChatIndex >= 0) {
-        chatList[botChatIndex] = botChat;
+      // Replace or add support chat at the top
+      if (supportChatIndex >= 0) {
+        chatList[supportChatIndex] = supportChat;
       } else {
-        chatList.unshift(botChat);
+        chatList.unshift(supportChat);
       }
 
-      // Sort chats: bot first, then unread, then by timestamp
+      // Sort chats: support first, then unread, then by timestamp
       chatList.sort((a, b) => {
-        // Bot chat always first
-        if (a.isBotChat) return -1;
-        if (b.isBotChat) return 1;
+        // Support chat always first
+        if (a.isSupportChat) return -1;
+        if (b.isSupportChat) return 1;
 
         // Prioritize unread chats
         if ((a.unreadBy?.includes(user.uid) && !b.unreadBy?.includes(user.uid))) return -1;
@@ -85,9 +85,9 @@ const ChatList = () => {
       setChats(chatList);
       setLoading(false);
 
-      // Fetch user profiles for all participants (excluding bot)
+      // Fetch user profiles for all participants (excluding support)
       chatList.forEach(chat => {
-        if (!chat.isBotChat) {
+        if (!chat.isSupportChat) {
           const otherUserId = chat.participants.find(id => id !== user.uid);
           if (otherUserId && !userProfiles[otherUserId]) {
             fetchUserProfile(otherUserId);
@@ -116,7 +116,7 @@ const ChatList = () => {
   };
 
   const getOtherUserProfile = (chat) => {
-    if (!chat || !chat.participants || chat.isBotChat) return null;
+    if (!chat || !chat.participants || chat.isSupportChat) return null;
     const otherUserId = chat.participants.find(id => id !== user.uid);
     return userProfiles[otherUserId] || null;
   };
@@ -185,11 +185,11 @@ const ChatList = () => {
 
   const navigateToChat = async (item, otherUser) => {
     try {
-      if (item.isBotChat) {
+      if (item.isSupportChat) {
         navigation.navigate('ChatScreen', {
-          item: { id: 'constructionBot', itemName: 'Construction Help', images: [], price: 'N/A' },
-          sellerData: { name: 'Construction Bot', profileImage: null }, // Add bot image if available
-          isBotChat: true,
+          item: { id: 'supportAgent', itemName: 'Customer Support', images: [], price: 'N/A' },
+          sellerData: { name: 'Support Team', profileImage: null },
+          isSupportChat: true,
           chatId: item.id
         });
         return;
@@ -202,7 +202,7 @@ const ChatList = () => {
       navigation.navigate('ChatScreen', { 
         item: itemSnap.exists() ? { id: itemSnap.id, ...itemSnap.data() } : { 
           id: item.itemId, 
-          itemName: item.itemName || 'Deleted Item',
+          itemName: item.itemName || 'Item Unavailable',
           images: item.itemImage ? [item.itemImage] : [],
           price: 'N/A'
         }, 
@@ -220,7 +220,7 @@ const ChatList = () => {
   };
 
   const renderChatItem = ({ item }) => {
-    const otherUser = item.isBotChat ? { name: 'Construction Bot', profileImage: null } : getOtherUserProfile(item);
+    const otherUser = item.isSupportChat ? { name: 'Support Team', profileImage: null } : getOtherUserProfile(item);
     const hasUnread = item.unreadBy?.includes(user.uid);
     const unreadCount = countUnreadMessages(item);
 
@@ -228,64 +228,62 @@ const ChatList = () => {
       <TouchableOpacity
         style={[styles.chatItem, hasUnread && styles.unreadChatItem]}
         onPress={() => navigateToChat(item, otherUser)}
-        onLongPress={() => !item.isBotChat && deleteChat(item.id)} // Prevent bot chat deletion
+        onLongPress={() => !item.isSupportChat && deleteChat(item.id)}
         delayLongPress={500}
         activeOpacity={0.7}
       >
-        <View style={styles.chatItemContent}>
-          <View style={styles.avatarContainer}>
-            {item.isBotChat ? (
-              <Image source={require('../../../assets/bot-avatar.png')} style={styles.avatar} /> // Ensure this asset exists
-            ) : otherUser?.profileImage ? (
-              <Image source={{ uri: otherUser.profileImage }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, hasUnread && styles.unreadAvatarPlaceholder]}>
-                <Icon name="person" size={24} color="#fff" />
+        <View style={styles.avatarContainer}>
+          {item.isSupportChat ? (
+            <View style={styles.supportAvatar}>
+              <Icon name="support-agent" size={26} color="#fff" />
+            </View>
+          ) : otherUser?.profileImage ? (
+            <Image source={{ uri: otherUser.profileImage }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, hasUnread && styles.unreadAvatarPlaceholder]}>
+              <Text style={styles.avatarInitial}>
+                {otherUser?.name ? otherUser.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            </View>
+          )}
+          {hasUnread && <View style={styles.statusIndicator} />}
+        </View>
+        
+        <View style={styles.contentContainer}>
+          <View style={styles.headerRow}>
+            <Text style={[styles.userName, hasUnread && styles.unreadText]} numberOfLines={1}>
+              {item.isSupportChat ? 'Support Team' : (otherUser?.name || 'User')}
+            </Text>
+            <Text style={styles.timeStamp}>
+              {item.lastMessageTime ? formatTimestamp(item.lastMessageTime) : ''}
+            </Text>
+          </View>
+          
+          <View style={styles.messagePreview}>
+            <Text style={[styles.lastMessage, hasUnread && styles.unreadText]} numberOfLines={1}>
+              {item.lastMessage || 'No messages yet'}
+            </Text>
+            {hasUnread && (
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
               </View>
             )}
           </View>
           
-          <View style={styles.chatInfo}>
-            <View style={styles.chatTopRow}>
-              <Text style={[styles.userName, hasUnread && styles.unreadText]} numberOfLines={1}>
-                {otherUser ? otherUser.name : 'User'}
-              </Text>
-              <Text style={styles.timeStamp}>
-                {item.lastMessageTime ? formatTimestamp(item.lastMessageTime) : ''}
-              </Text>
-            </View>
-            
-            <View style={styles.chatBottomRow}>
-              <View style={styles.lastMessageContainer}>
-                <Text style={[styles.lastMessage, hasUnread && styles.unreadText]} numberOfLines={1}>
-                  {item.lastMessage || 'No messages yet'}
-                </Text>
-              </View>
-              
-              {!item.isBotChat && (
-                <View style={styles.itemPreview}>
-                  {item.itemImage ? (
-                    <Image source={{ uri: item.itemImage }} style={styles.itemThumbnail} />
-                  ) : (
-                    <View style={styles.itemThumbnailPlaceholder}>
-                      <Icon name="image-not-supported" size={12} color="#999" />
-                    </View>
-                  )}
-                  <Text style={styles.itemName} numberOfLines={1}>
-                    {item.itemName || 'Item'}
-                  </Text>
+          {!item.isSupportChat && item.itemName && (
+            <View style={styles.itemTag}>
+              {item.itemImage ? (
+                <Image source={{ uri: item.itemImage }} style={styles.itemThumb} />
+              ) : (
+                <View style={styles.itemThumbPlaceholder}>
+                  <Icon name="inventory-2" size={12} color="#555" />
                 </View>
               )}
-            </View>
-          </View>
-          
-          {hasUnread && (
-            <View style={styles.badgeContainer}>
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {item.itemName}
+              </Text>
             </View>
           )}
         </View>
@@ -293,11 +291,21 @@ const ChatList = () => {
     );
   };
 
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Icon name="chat-bubble-outline" size={60} color="#ccc" />
+      <Text style={styles.emptyTitle}>No conversations yet</Text>
+      <Text style={styles.emptySubtitle}>
+        When you connect with someone, your conversations will appear here
+      </Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={styles.loadingText}>Loading your conversations...</Text>
+        <ActivityIndicator size="large" color="#4a6fa5" />
+        <Text style={styles.loadingText}>Loading conversations...</Text>
       </View>
     );
   }
@@ -310,6 +318,13 @@ const ChatList = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={renderEmptyComponent}
+        refreshing={loading}
+        onRefresh={() => {
+          setLoading(true);
+          // The useEffect will automatically refresh the data
+          setTimeout(() => setLoading(false), 1000);
+        }}
       />
     </View>
   );
@@ -318,11 +333,11 @@ const ChatList = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-    width: '100%',
+    backgroundColor: '#f5f7fa',
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: 12,
+    flexGrow: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -330,160 +345,172 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: '#4a6fa5',
+    fontWeight: '500',
   },
   chatItem: {
-    backgroundColor: '#fff',
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
     marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
-    padding: 12,
-    elevation: 1,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   unreadChatItem: {
-    backgroundColor: '#fff',
-  },
-  chatItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#f0f6ff',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4a6fa5',
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 12,
+    marginRight: 16,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
   },
   avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#A0A0A0',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#e0e6ee',
     justifyContent: 'center',
     alignItems: 'center',
   },
   unreadAvatarPlaceholder: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#4a6fa5',
   },
-  chatInfo: {
+  avatarInitial: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#4a6fa5',
+  },
+  supportAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#4a6fa5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    bottom: 0,
+    right: 0,
+  },
+  contentContainer: {
     flex: 1,
-    marginRight: 8,
+    justifyContent: 'center',
   },
-  chatTopRow: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212121',
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#2c3e50',
     flex: 1,
     marginRight: 8,
   },
   unreadText: {
     fontWeight: '700',
-    color: '#000000',
+    color: '#1a365d',
   },
   timeStamp: {
-    fontSize: 12,
-    color: '#757575',
+    fontSize: 13,
+    color: '#7f8c8d',
+    fontWeight: '400',
   },
-  chatBottomRow: {
-    flexDirection: 'column',
-  },
-  lastMessageContainer: {
-    marginBottom: 6,
+  messagePreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   lastMessage: {
     fontSize: 14,
-    color: '#757575',
+    color: '#7f8c8d',
+    flex: 1,
+    marginRight: 8,
   },
-  itemPreview: {
+  badgeContainer: {
+    backgroundColor: '#4a6fa5',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  itemTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f3f4',
-    borderRadius: 8,
+    backgroundColor: '#f2f4f6',
+    borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 8,
     alignSelf: 'flex-start',
   },
-  itemThumbnail: {
-    width: 20,
-    height: 20,
+  itemThumb: {
+    width: 18,
+    height: 18,
     borderRadius: 4,
     marginRight: 6,
   },
-  itemThumbnailPlaceholder: {
-    width: 20,
-    height: 20,
+  itemThumbPlaceholder: {
+    width: 18,
+    height: 18,
     borderRadius: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#e0e6ee',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
   },
   itemName: {
     fontSize: 12,
-    color: '#555',
+    color: '#546e7a',
     maxWidth: 120,
-  },
-  badgeContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unreadBadge: {
-    backgroundColor: '#007bff',
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    marginTop: 60,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#4a6fa5',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#7f8c8d',
     textAlign: 'center',
     marginTop: 8,
-    marginBottom: 24,
-  },
-  browseButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  browseButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   }
 });
 
