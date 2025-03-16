@@ -1,209 +1,254 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import { useTheme } from '../hooks/ThemeContext'; // Assuming this exists in your project
 
-const GOOGLE_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE';
+// Constants
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE'; // Move to .env file in production
+const COLORS = {
+  LIGHT_BG: '#fff',
+  DARK_BG: '#1a1a1a',
+  LIGHT_TEXT: '#333',
+  DARK_TEXT: '#ddd',
+  PRIMARY: '#007BFF',
+  GRAY: '#666',
+  LIGHT_GRAY: '#f9f9f9',
+  DARK_GRAY: '#333',
+};
+const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
+const REGISTRATION_TYPES = ['user', 'shop', 'company'];
 
 const MapScreen = ({ navigation, route }) => {
+  const { isDarkMode } = useTheme();
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [watchSubscription, setWatchSubscription] = useState(null);
-  const registrationType = route.params?.registrationType || 'user';
+  const registrationType = route?.params?.registrationType || 'user';
 
+  // Validate registrationType
   useEffect(() => {
+    if (!REGISTRATION_TYPES.includes(registrationType)) {
+      console.warn('Invalid registration type:', registrationType);
+      navigation.goBack();
+    }
+  }, [registrationType, navigation]);
+
+  // Handle location permissions and updates
+  useEffect(() => {
+    let mounted = true;
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permission to access location was denied');
-        return;
-      }
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          if (mounted) {
+            Alert.alert(
+              'Permission Denied',
+              'Location access is required to select a location. Please enable it in settings.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+          }
+          return;
+        }
 
-      // Get initial location
-      let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
-      });
-      setCurrentLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      // Start watching position
-      const subscription = await Location.watchPositionAsync(
-        {
+        const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 10,
-        },
-        (newLocation) => {
+        });
+        if (mounted) {
           setCurrentLocation({
-            latitude: newLocation.coords.latitude,
-            longitude: newLocation.coords.longitude,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
           });
         }
-      );
-      setWatchSubscription(subscription);
+
+        const subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 1000,
+            distanceInterval: 10,
+          },
+          (newLocation) => {
+            if (mounted) {
+              setCurrentLocation({
+                latitude: newLocation.coords.latitude,
+                longitude: newLocation.coords.longitude,
+              });
+            }
+          }
+        );
+        if (mounted) setWatchSubscription(subscription);
+      } catch (error) {
+        if (mounted) {
+          console.error('Location error:', error);
+          Alert.alert('Error', 'Failed to access location. Please try again.');
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
     })();
 
-    // Cleanup subscription on unmount
     return () => {
-      if (watchSubscription) {
-        watchSubscription.remove();
-      }
+      mounted = false;
+      if (watchSubscription) watchSubscription.remove();
     };
+  }, [watchSubscription]);
+
+  const handleLocationSelect = useCallback((data, details) => {
+    const { lat, lng } = details.geometry.location;
+    setSelectedLocation({ latitude: lat, longitude: lng });
   }, []);
 
-  const handleLocationSelect = (data, details) => {
-    const { lat, lng } = details.geometry.location;
-    setSelectedLocation({
-      latitude: lat,
-      longitude: lng,
-    });
-  };
-
-  const handleSelectLocation = (event) => {
+  const handleMapPress = useCallback((event) => {
     setSelectedLocation(event.nativeEvent.coordinate);
-  };
+  }, []);
 
-  const handleConfirmLocation = () => {
-    if (selectedLocation) {
-      const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
-
-      switch (registrationType) {
-        case 'shop':
-          navigation.navigate('ShopRegister', { location: locationString });
-          break;
-        case 'company':
-          navigation.navigate('CompanyRegister', { location: locationString });
-          break;
-        case 'user':
-          navigation.navigate('UserRegister', { location: locationString });
-          break;
-        default:
-          console.warn('Unknown registration type:', registrationType);
-          navigation.goBack();
-      }
-    } else {
-      alert('Please select a location');
+  const handleConfirmLocation = useCallback(() => {
+    if (!selectedLocation) {
+      Alert.alert('No Location Selected', 'Please select a location on the map or via search.');
+      return;
     }
-  };
 
-  if (!currentLocation) {
-    return <Text>Loading...</Text>;
+    const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+    const targetScreen = {
+      user: 'UserRegister',
+      shop: 'ShopRegister',
+      company: 'CompanyRegister',
+    }[registrationType] || 'UserRegister'; // Fallback to UserRegister
+
+    navigation.navigate(targetScreen, { location: locationString });
+  }, [selectedLocation, registrationType, navigation]);
+
+  const themedStyles = styles(isDarkMode);
+
+  if (isLoading || !currentLocation) {
+    return (
+      <View style={themedStyles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <Text style={themedStyles.loadingText}>Loading map...</Text>
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
+    <View style={themedStyles.container}>
+      <View style={themedStyles.searchContainer}>
         <GooglePlacesAutocomplete
           placeholder="Search for a location"
           onPress={handleLocationSelect}
-          query={{
-            key: GOOGLE_API_KEY,
-            language: 'en',
-          }}
+          query={{ key: GOOGLE_API_KEY, language: 'en' }}
           styles={{
-            textInput: styles.searchInput,
-            container: {
-              flex: 0,
-            },
+            textInput: themedStyles.searchInput,
+            container: { flex: 0 },
+          }}
+          textInputProps={{
+            accessibilityLabel: 'Search location',
+            accessibilityHint: 'Enter a place name to find it on the map',
           }}
         />
       </View>
 
       <MapView
         provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          ...currentLocation,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        onPress={handleSelectLocation}
+        style={themedStyles.map}
+        initialRegion={{ ...currentLocation, ...INITIAL_DELTA }}
+        region={selectedLocation ? { ...selectedLocation, ...INITIAL_DELTA } : undefined}
+        showsUserLocation
+        showsMyLocationButton
+        onPress={handleMapPress}
+        accessibilityLabel="Interactive map"
       >
-        {/* Current location marker */}
         {currentLocation && (
           <Marker
             coordinate={currentLocation}
-            title="You are here"
+            title="Your Location"
             pinColor="blue"
           />
         )}
-        {/* Selected location marker */}
         {selectedLocation && (
           <Marker
             coordinate={selectedLocation}
-            title="Selected location"
+            title="Selected Location"
             pinColor="red"
           />
         )}
       </MapView>
 
       <TouchableOpacity
-        style={styles.button}
+        style={themedStyles.button}
         onPress={handleConfirmLocation}
+        accessibilityLabel="Confirm selected location"
       >
-        <Text style={styles.buttonText}>Confirm Location</Text>
+        <Text style={themedStyles.buttonText}>Confirm Location</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 40,
-    width: '90%',
-    alignSelf: 'center',
-    zIndex: 1,
-  },
-  searchInput: {
-    backgroundColor: '#fff',
-    height: 50,
-    borderRadius: 10,
-    paddingLeft: 15,
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const styles = (isDarkMode) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  map: {
-    flex: 1,
-  },
-  button: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 10,
-    width: '90%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    searchContainer: {
+      position: 'absolute',
+      top: 40,
+      width: '90%',
+      alignSelf: 'center',
+      zIndex: 1,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-});
+    searchInput: {
+      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
+      height: 50,
+      borderRadius: 10,
+      paddingLeft: 15,
+      fontSize: 16,
+      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#444' : COLORS.GRAY,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    map: {
+      flex: 1,
+    },
+    button: {
+      position: 'absolute',
+      bottom: 20,
+      alignSelf: 'center',
+      backgroundColor: COLORS.PRIMARY,
+      paddingVertical: 15,
+      paddingHorizontal: 30,
+      borderRadius: 10,
+      width: '90%',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    buttonText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 16,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
+    },
+    loadingText: {
+      marginTop: 10,
+      fontSize: 16,
+      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+    },
+  });
 
-export default MapScreen;
+export default React.memo(MapScreen);

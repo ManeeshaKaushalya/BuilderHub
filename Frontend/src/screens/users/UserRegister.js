@@ -1,23 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
-import { useRoute } from '@react-navigation/native'; // Add this import
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker';
-import LocationScreen from '../LocationScreen';
 import { useTheme } from '../../hooks/ThemeContext';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { createUserWithEmailAndPassword } from '@firebase/auth';
-import { doc, setDoc, getFirestore } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
 
+// Constants
+const COLORS = {
+  LIGHT_BG: '#fff',
+  DARK_BG: '#1a1a1a',
+  LIGHT_TEXT: '#333',
+  DARK_TEXT: '#ddd',
+  PRIMARY: '#007BFF',
+  GRAY: '#666',
+  LIGHT_GRAY: '#f9f9f9',
+  DARK_GRAY: '#333',
+  SUCCESS: '#4CAF50',
+};
 
 const UserRegister = ({ navigation }) => {
-  const route = useRoute(); // Add this line
   const { isDarkMode } = useTheme();
+  const route = useRoute();
 
-  // Add missing state declarations
-  const [accountType, setAccountType] = useState('Person');
+  // State declarations
   const [profileImage, setProfileImage] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,8 +47,7 @@ const UserRegister = ({ navigation }) => {
   const [skills, setSkills] = useState('');
   const [location, setLocation] = useState(route?.params?.location || '');
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Handle location updates from MapScreen
   useEffect(() => {
@@ -37,392 +56,270 @@ const UserRegister = ({ navigation }) => {
     }
   }, [route.params?.location]);
 
+  // Request permissions on mount
   useEffect(() => {
     requestPermissions();
   }, []);
 
-  // Add useEffect to handle auto-navigation
+  // Auto-navigate after success modal
   useEffect(() => {
-    let navigationTimer;
+    let timer;
     if (showSuccessModal) {
-      navigationTimer = setTimeout(() => {
+      timer = setTimeout(() => {
         setShowSuccessModal(false);
         navigation.navigate('Login');
-      }, 2000); // Show success message for 2 seconds
+      }, 2000);
     }
-    return () => {
-      if (navigationTimer) {
-        clearTimeout(navigationTimer);
-      }
-    };
+    return () => clearTimeout(timer);
   }, [showSuccessModal, navigation]);
 
-
-  const requestPermissions = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'We need camera roll permissions to upload images.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('Error requesting permissions:', error);
-      Alert.alert('Error', 'Failed to request permissions');
+  const requestPermissions = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Camera roll access is needed to upload profile images. Please enable it in settings.',
+        [{ text: 'OK' }]
+      );
     }
-  };
+  }, []);
 
-
-
-  const handleImageUpload = async () => {
+  const handleImageUpload = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1,
+        quality: 0.8, // Slightly reduced for faster uploads
       });
 
       if (!result.canceled) {
         const uri = result.assets[0].uri;
         setProfileImage(uri);
 
-        // Upload image to Firebase Storage
         const storage = getStorage();
-        const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
+        const imageRef = ref(storage, `profileImages/${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`);
         const response = await fetch(uri);
         const blob = await response.blob();
 
-        const uploadTask = uploadBytesResumable(storageRef, blob);
-        uploadTask.on(
-          'state_changed',
-          snapshot => { },
-          error => {
-            console.error('Image upload failed:', error);
-          },
-          async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            setProfileImage(downloadURL);
-          }
-        );
+        const uploadTask = uploadBytesResumable(imageRef, blob);
+        return new Promise((resolve, reject) => {
+          uploadTask.on(
+            'state_changed',
+            null,
+            (error) => {
+              console.error('Image upload error:', error);
+              Alert.alert('Error', 'Failed to upload image.');
+              reject(error);
+            },
+            async () => {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              setProfileImage(downloadURL);
+              resolve(downloadURL);
+            }
+          );
+        });
       }
     } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image');
+      console.error('Image upload failed:', error);
+      Alert.alert('Error', 'Unable to upload image.');
     }
-  };
+  }, []);
 
-
-  // Success Modal Component
-  const SuccessModal = () => (
-    <Modal
-      transparent={true}
-      visible={showSuccessModal}
-      animationType="fade"
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-          <Icon name="check-circle" size={50} color="#4CAF50" />
-          <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-            Registration Successful!
-          </Text>
-          <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
-            Your account has been created successfully.
-          </Text>
-          {/* Removed the button since we're auto-navigating */}
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const errors = [];
-
-    if (!name.trim()) errors.push('Name is required');
-    if (!email.trim()) errors.push('Email is required');
-    if (!password.trim()) errors.push('Password is required');
-    if (!location.trim()) errors.push('Location is required');
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      errors.push('Please enter a valid email address');
-    }
-
-    if (password.length < 6) {
-      errors.push('Password must be at least 6 characters long');
-    }
-
+    if (!name.trim()) errors.push('Full name is required.');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('A valid email is required.');
+    if (!password.trim() || password.length < 6) errors.push('Password must be at least 6 characters.');
+    if (!location.trim()) errors.push('Location is required.');
+    if (experience && isNaN(experience)) errors.push('Experience must be a number.');
     return errors;
-  };
+  }, [name, email, password, location, experience]);
 
-  const handleRegister = async () => {
+  const handleRegister = useCallback(async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      // Validate form
-      const validationErrors = validateForm();
-      if (validationErrors.length > 0) {
-        Alert.alert('Validation Error', validationErrors.join('\n'));
-        return;
-      }
-
-      setIsLoading(true);
-      console.log('Starting registration process...');
-
-      // Create authentication user
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('User authenticated successfully');
-
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
+      const imageUrl = profileImage?.startsWith('http') ? profileImage : await handleImageUpload();
 
-      // Prepare user data
       const userData = {
         uid: user.uid,
-        name,
-        email,
-        accountType,
-        profession: profession || '',
-        experience: experience || '',
-        skills: skills || '',
-        location,
-        profileImage: profileImage || '',
+        name: name.trim(),
+        email: email.trim(),
+        accountType: 'Person',
+        profession: profession.trim() || '',
+        experience: experience.trim() || '',
+        skills: skills.trim() || '',
+        location: location.trim(),
+        profileImage: imageUrl || '',
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
-      console.log('Prepared user data:', userData);
-
-      // Create document reference
-      const userRef = doc(firestore, 'users', user.uid);
-
-      // Store user data in Firestore
-      await setDoc(userRef, userData);
-      console.log('User data stored successfully');
-
-      setIsLoading(false);
+      await setDoc(doc(firestore, 'users', user.uid), userData);
       setShowSuccessModal(true);
-
     } catch (error) {
-      setIsLoading(false);
-      console.error('Registration error:', error);
-
-      // Provide specific error messages
-      let errorMessage = 'Failed to register';
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please use a different email.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password should be at least 6 characters long.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your internet connection.';
+      let errorMessage = 'Registration failed.';
+      switch (error.code) {
+        case 'auth/email-already-in-use': errorMessage = 'Email already in use.'; break;
+        case 'auth/invalid-email': errorMessage = 'Invalid email format.'; break;
+        case 'auth/weak-password': errorMessage = 'Password too weak.'; break;
+        case 'auth/network-request-failed': errorMessage = 'Network error.'; break;
+        default: errorMessage = error.message;
       }
-
       Alert.alert('Registration Error', errorMessage);
+      if (__DEV__) console.error('Registration error:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [name, email, password, profession, experience, skills, location, profileImage, handleImageUpload]);
 
-  const handleLocationSelect = () => {
-    navigation.navigate('MapScreen', {
-      registrationType: 'user',
-      previousLocation: location
-    });
-  };
+  const handleLocationSelect = useCallback(() => {
+    navigation.navigate('MapScreen', { registrationType: 'user', previousLocation: location });
+  }, [navigation, location]);
 
-  // Dynamic styles based on theme
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      ...styles.container,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff'
-    },
-    title: {
-      ...styles.title,
-      color: isDarkMode ? '#fff' : '#000'
-    },
-    inputContainer: {
-      ...styles.inputContainer,
-      backgroundColor: isDarkMode ? '#333' : '#f9f9f9',
-      borderColor: isDarkMode ? '#444' : '#ccc'
-    },
-    input: {
-      ...styles.input,
-      color: isDarkMode ? '#fff' : '#000'
-    },
-    uploadText: {
-      ...styles.uploadText,
-      color: isDarkMode ? '#ddd' : '#666'
-    },
-    link: {
-      ...styles.link,
-      color: isDarkMode ? '#66b0ff' : '#007BFF'
-    }
-  });
+  const themedStyles = styles(isDarkMode);
 
   return (
     <>
       {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007BFF" />
-          <Text style={{ color: '#fff', marginTop: 10 }}>
-            Creating your account...
-          </Text>
+        <View style={themedStyles.loadingOverlay}>
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          <Text style={themedStyles.loadingText}>Creating your account...</Text>
         </View>
       )}
 
-      <SuccessModal />
-      <ScrollView
-        contentContainerStyle={dynamicStyles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={dynamicStyles.title}>Create Your Account</Text>
+      <Modal transparent visible={showSuccessModal} animationType="fade">
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <Icon name="check-circle" size={50} color={COLORS.SUCCESS} />
+            <Text style={themedStyles.modalTitle}>Registration Successful!</Text>
+            <Text style={themedStyles.modalText}>Redirecting to login...</Text>
+          </View>
+        </View>
+      </Modal>
 
-        <TouchableOpacity
-          style={styles.imageUploadContainer}
-          onPress={handleImageUpload}
-        >
+      <ScrollView contentContainerStyle={themedStyles.container} keyboardShouldPersistTaps="handled">
+        <Text style={themedStyles.title} accessibilityLabel="Create Your Account">
+          Create Your Account
+        </Text>
+
+        <TouchableOpacity style={themedStyles.imageUploadContainer} onPress={handleImageUpload}>
           {profileImage ? (
-            <Image
-              source={{ uri: profileImage }}
-              style={styles.profileImage}
-            />
+            <Image source={{ uri: profileImage }} style={themedStyles.profileImage} />
           ) : (
-            <Icon
-              name="camera"
-              size={50}
-              color={isDarkMode ? '#444' : '#ccc'}
-            />
+            <Icon name="camera" size={50} color={isDarkMode ? '#444' : COLORS.GRAY} />
           )}
         </TouchableOpacity>
-        <Text style={dynamicStyles.uploadText}>Upload Profile Picture</Text>
+        <Text style={themedStyles.uploadText}>Upload Profile Picture</Text>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon
-            name="user"
-            size={20}
-            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-          />
+        <View style={themedStyles.inputContainer}>
+          <Icon name="user" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
           <TextInput
-            style={dynamicStyles.input}
+            style={themedStyles.input}
             placeholder="Full Name"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={name}
             onChangeText={setName}
+            accessibilityLabel="Full name input"
           />
         </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon
-            name="envelope"
-            size={20}
-            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-          />
+        <View style={themedStyles.inputContainer}>
+          <Icon name="envelope" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
           <TextInput
-            style={dynamicStyles.input}
+            style={themedStyles.input}
             placeholder="Email"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            accessibilityLabel="Email input"
           />
         </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon
-            name="lock"
-            size={20}
-            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-          />
+        <View style={themedStyles.inputContainer}>
+          <Icon name="lock" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
           <TextInput
-            style={dynamicStyles.input}
+            style={themedStyles.input}
             placeholder="Password"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            accessibilityLabel="Password input"
           />
         </View>
 
-        {accountType === 'Person' && (
-          <>
-            <View style={dynamicStyles.inputContainer}>
-              <Icon
-                name="briefcase"
-                size={20}
-                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-              />
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Profession"
-                placeholderTextColor={isDarkMode ? '#888' : '#666'}
-                value={profession}
-                onChangeText={setProfession}
-              />
-            </View>
-
-            <View style={dynamicStyles.inputContainer}>
-              <Icon
-                name="clock-o"
-                size={20}
-                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-              />
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Years of Experience"
-                placeholderTextColor={isDarkMode ? '#888' : '#666'}
-                value={experience}
-                onChangeText={setExperience}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={dynamicStyles.inputContainer}>
-              <Icon
-                name="tags"
-                size={20}
-                style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-              />
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Skills (comma separated)"
-                placeholderTextColor={isDarkMode ? '#888' : '#666'}
-                value={skills}
-                onChangeText={setSkills}
-              />
-            </View>
-          </>
-        )}
-
-        {/* Location Picker */}
-
-        <View style={dynamicStyles.inputContainer}>
-          <Icon
-            name="map-marker"
-            size={20}
-            style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]}
-          />
+        <View style={themedStyles.inputContainer}>
+          <Icon name="briefcase" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
           <TextInput
-            style={[dynamicStyles.input, { flex: 1 }]}
+            style={themedStyles.input}
+            placeholder="Profession (optional)"
+            value={profession}
+            onChangeText={setProfession}
+            accessibilityLabel="Profession input"
+          />
+        </View>
+
+        <View style={themedStyles.inputContainer}>
+          <Icon name="clock-o" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+          <TextInput
+            style={themedStyles.input}
+            placeholder="Years of Experience (optional)"
+            value={experience}
+            onChangeText={setExperience}
+            keyboardType="numeric"
+            accessibilityLabel="Experience input"
+          />
+        </View>
+
+        <View style={themedStyles.inputContainer}>
+          <Icon name="tags" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+          <TextInput
+            style={themedStyles.input}
+            placeholder="Skills (comma separated, optional)"
+            value={skills}
+            onChangeText={setSkills}
+            accessibilityLabel="Skills input"
+          />
+        </View>
+
+        <View style={themedStyles.inputContainer}>
+          <Icon name="map-marker" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+          <TextInput
+            style={[themedStyles.input, { flex: 1 }]}
             placeholder="Location"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={location}
             editable={false}
+            accessibilityLabel="Location display"
           />
           <TouchableOpacity
+            style={themedStyles.locationButton}
             onPress={handleLocationSelect}
-            style={styles.locationButton}
+            accessibilityLabel="Select location"
           >
-            <Text style={styles.locationButtonText}>Select Location</Text>
+            <Text style={themedStyles.locationButtonText}>Select</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Register</Text>
+        <TouchableOpacity
+          style={[themedStyles.button, isLoading && { opacity: 0.7 }]}
+          onPress={handleRegister}
+          disabled={isLoading}
+          accessibilityLabel="Register button"
+        >
+          <Text style={themedStyles.buttonText}>Register</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={dynamicStyles.link}>
-            Already have an account? <Text style={styles.linkBold}>Login here</Text>
+          <Text style={themedStyles.link}>
+            Already have an account? <Text style={themedStyles.linkBold}>Login here</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -430,153 +327,132 @@ const UserRegister = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  imageUploadContainer: {
-    width: 120, // Adjust width
-    height: 120, // Adjust height
-    borderRadius: 60, // To keep the image circular
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20, // Add more margin if needed for spacing
-    borderWidth: 1, // Optional: Add border to make it look defined
-    borderColor: '#ddd', // Optional: Add a border color
-  },
-  profileImage: {
-    width: 100, // Slightly reduce the size of the image
-    height: 100, // Keep it a circle
-    borderRadius: 50, // Circular image
-  },
-  uploadText: {
-    marginBottom: 20,
-    textAlign: 'center',
-    fontSize: 16, // Optional: Adjust font size for the upload text
-    color: '#555',
-  },
-  inputContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-    height: 50,
-  },
-  icon: {
-    padding: 10,
-  },
-  input: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 5,
-    height: 50,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 15,
-    fontWeight: '500',
-  },
-  linkBold: {
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const styles = (isDarkMode) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      alignItems: 'center',
+      padding: 20,
+      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    width: '80%',
-  },
-  modalContentDark: {
-    backgroundColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#000',
-  },
-  modalTitleDark: {
-    color: '#fff',
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-  },
-  modalTextDark: {
-    color: '#ccc',
-  },
-  modalButton: {
-    backgroundColor: '#007BFF',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
-    elevation: 2,
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  locationButton: {
-    backgroundColor: '#007BFF',
-    padding: 8,
-    borderRadius: 5,
-    marginLeft: 10,
-  },
-  locationButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-});
+    title: {
+      fontSize: 24,
+      fontWeight: '700',
+      marginBottom: 20,
+      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+    },
+    imageUploadContainer: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : '#f0f0f0',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#444' : '#ddd',
+    },
+    profileImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+    },
+    uploadText: {
+      marginBottom: 20,
+      fontSize: 16,
+      color: isDarkMode ? '#888' : COLORS.GRAY,
+    },
+    inputContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#444' : COLORS.GRAY,
+      borderRadius: 8,
+      marginBottom: 15,
+      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_GRAY,
+    },
+    icon: {
+      padding: 10,
+    },
+    input: {
+      flex: 1,
+      height: 50,
+      paddingHorizontal: 10,
+      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+      fontSize: 16,
+    },
+    button: {
+      backgroundColor: COLORS.PRIMARY,
+      paddingVertical: 15,
+      borderRadius: 8,
+      alignItems: 'center',
+      width: '100%',
+      marginTop: 10,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    link: {
+      marginTop: 15,
+      color: isDarkMode ? '#aaa' : COLORS.GRAY,
+      fontSize: 14,
+    },
+    linkBold: {
+      fontWeight: '600',
+      color: COLORS.PRIMARY,
+    },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+    },
+    loadingText: {
+      color: '#fff',
+      marginTop: 10,
+      fontSize: 16,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
+      borderRadius: 20,
+      padding: 30,
+      alignItems: 'center',
+      width: '80%',
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      marginTop: 15,
+      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+    },
+    modalText: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: isDarkMode ? '#ccc' : COLORS.GRAY,
+      marginVertical: 10,
+    },
+    locationButton: {
+      backgroundColor: COLORS.PRIMARY,
+      padding: 8,
+      borderRadius: 5,
+      marginHorizontal: 10,
+    },
+    locationButtonText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+  });
 
-
-export default UserRegister;
+export default React.memo(UserRegister);
