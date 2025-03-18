@@ -47,6 +47,7 @@ import BuyItem from './src/screens/MarketScreens/BuyItem';
 import ChatScreen from './src/screens/MarketScreens/ChatBox';
 import ChatList from './src/screens/MarketScreens/ChatList';
 import UploaderProfile from './src/screens/UploaderProfile';
+import ContactProfessional from './src/screens/ContactProfessional';
 
 
 const Stack = createStackNavigator();
@@ -90,6 +91,7 @@ export default function App() {
                 <Stack.Screen name="ChatScreen" component={ChatScreen} />
                 <Stack.Screen name="ChatList" component={ChatList} />
                 <Stack.Screen name="UploaderProfile" component={UploaderProfile} />
+                <Stack.Screen name="ContactProfessional" component={ContactProfessional} />
               </Stack.Navigator>
             </NavigationContainer>
           </UserProvider>

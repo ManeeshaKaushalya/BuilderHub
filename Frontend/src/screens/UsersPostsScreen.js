@@ -4,6 +4,7 @@ import { useTheme } from '../hooks/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 import ImageUpload from './ImageUpload';
 import Post from './Posts';
 
@@ -11,6 +12,7 @@ function UsersPostsScreen() {
     const auth = getAuth();
     const user = auth.currentUser;
     const { isDarkMode } = useTheme();
+    const navigation = useNavigation(); // Get navigation object
     const [search, setSearch] = useState('');
     const [users, setUsers] = useState([]);
     const [filteredUsers, setFilteredUsers] = useState([]);
@@ -60,9 +62,22 @@ function UsersPostsScreen() {
                     }
 
                     return {
-                        ...postData,
-                        ownerName: ownerData.name,
+                        postId: postData.id,
+                        username: ownerData.name,
+                        caption: postData.caption,
+                        imageList: postData.imageList || [],
+                        videoUrl: postData.videoUrl || null,
                         userImage: ownerData.profileImage,
+                        uploadDate: postData.timestamp,
+                        initialLikes: postData.likes || 0,
+                        ownerId: postData.uid,
+                        categories: postData.categories || [],
+                        isVerified: postData.isVerified || false,
+                        beforeAfterImages: postData.beforeAfterImages || null,
+                        projectTimeline: postData.projectTimeline || null,
+                        projectCost: postData.projectCost || null,
+                        documentUrls: postData.documentUrls || [],
+                        certificates: postData.certificates || [],
                     };
                 })
             );
@@ -117,12 +132,12 @@ function UsersPostsScreen() {
     const combinedData = [
         { type: 'imageUpload', id: 'imageUpload' },
         ...filteredUsers.map(user => ({ type: 'user', id: user.id, user })),
-        ...posts.map(post => ({ type: 'post', id: post.id, post })),
+        ...posts.map(post => ({ type: 'post', id: post.postId, post })),
     ];
 
     const renderItem = ({ item }) => {
         if (item.type === 'imageUpload') {
-            return <ImageUpload />;
+            return <ImageUpload navigation={navigation} />; // Pass navigation prop
         } else if (item.type === 'user') {
             return (
                 <View style={[styles.userCard, isDarkMode ? styles.darkCard : styles.lightCard]}>
@@ -132,20 +147,29 @@ function UsersPostsScreen() {
                 </View>
             );
         } else if (item.type === 'post') {
-            console.log("Rendering post:", item.post.id);
+            console.log("Rendering post:", item.post.postId);
             return (
                 <Post
-                    postId={item.post.id}
-                    username={item.post.ownerName}
+                    postId={item.post.postId}
+                    username={item.post.username}
                     caption={item.post.caption}
-                    imageList={item.post.imageUrls}
-                    ownerId={item.post.uid}
+                    imageList={item.post.imageList}
+                    videoUrl={item.post.videoUrl}
                     userImage={item.post.userImage}
-                    uploadDate={item.post.timestamp}
-                    initialLikes={item.post.likes || 0}
+                    uploadDate={item.post.uploadDate}
+                    initialLikes={item.post.initialLikes}
+                    ownerId={item.post.ownerId}
+                    categories={item.post.categories}
+                    isVerified={item.post.isVerified}
+                    beforeAfterImages={item.post.beforeAfterImages}
+                    projectTimeline={item.post.projectTimeline}
+                    projectCost={item.post.projectCost}
+                    documentUrls={item.post.documentUrls}
+                    certificates={item.post.certificates}
                 />
             );
         }
+        return null;
     };
 
     return (
