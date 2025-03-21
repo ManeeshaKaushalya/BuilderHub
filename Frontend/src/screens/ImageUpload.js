@@ -23,7 +23,6 @@ import PropTypes from 'prop-types';
 const { width } = Dimensions.get('window');
 
 const ImageUpload = ({ navigation }) => {
-  // General state
   const [media, setMedia] = useState([]);
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -32,7 +31,6 @@ const ImageUpload = ({ navigation }) => {
   const { user } = useUser();
   const videoRef = useRef(null);
 
-  // Advanced features state
   const [beforeAfterMode, setBeforeAfterMode] = useState(false);
   const [beforeImage, setBeforeImage] = useState(null);
   const [afterImage, setAfterImage] = useState(null);
@@ -55,14 +53,12 @@ const ImageUpload = ({ navigation }) => {
   const [newCategory, setNewCategory] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Common categories for AI suggestions
   const commonCategories = [
     'Interior Design', 'Plumbing', 'Electrical', 'Carpentry', 
     'Landscaping', 'Painting', 'Renovation', 'Flooring',
     'Kitchen', 'Bathroom', 'Roofing', 'HVAC', 'Furniture'
   ];
 
-  // Request permissions on component mount
   useEffect(() => {
     let isMounted = true;
 
@@ -83,7 +79,6 @@ const ImageUpload = ({ navigation }) => {
     };
   }, []);
 
-  // Simulate AI tag suggestions when media is added
   useEffect(() => {
     let isMounted = true;
     let timeoutId;
@@ -105,13 +100,11 @@ const ImageUpload = ({ navigation }) => {
     };
   }, [media]);
 
-  // Helper function to simulate AI tag suggestions
   const getRandomSuggestedTags = (count) => {
     const shuffled = [...commonCategories].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
   };
 
-  // Get current location
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -147,7 +140,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Camera capture
   const handleCameraCapture = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
@@ -171,7 +163,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Gallery pick for images and videos
   const handleGalleryPick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -198,7 +189,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Document pick
   const handleDocumentPick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -222,7 +212,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Certificate pick
   const handleCertificatePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -244,7 +233,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Before image selection
   const handleBeforeImagePick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -263,7 +251,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // After image selection
   const handleAfterImagePick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -282,22 +269,18 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Remove media item
   const removeMediaItem = (indexToRemove) => {
     setMedia(prevMedia => prevMedia.filter((_, index) => index !== indexToRemove));
   };
 
-  // Remove document
   const removeDocument = (indexToRemove) => {
     setDocuments(prevDocs => prevDocs.filter((_, index) => index !== indexToRemove));
   };
 
-  // Remove certificate
   const removeCertificate = (indexToRemove) => {
     setCertificates(prevCerts => prevCerts.filter((_, index) => index !== indexToRemove));
   };
 
-  // Open image editor
   const openImageEditor = (uri, index) => {
     setCurrentEditingImage(uri);
     setCurrentEditingIndex(index);
@@ -307,7 +290,6 @@ const ImageUpload = ({ navigation }) => {
     setIsEditModalVisible(true);
   };
 
-  // Apply image edits
   const applyImageEdits = async () => {
     if (!currentEditingImage) return;
 
@@ -358,7 +340,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Add category
   const addCategory = (category) => {
     if (categories.includes(category)) {
       setCategories(prev => prev.filter(c => c !== category));
@@ -367,7 +348,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Add custom category
   const addCustomCategory = () => {
     if (newCategory.trim() && !categories.includes(newCategory.trim())) {
       setCategories(prev => [...prev, newCategory.trim()]);
@@ -375,7 +355,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Upload function
   const handleUpload = async () => {
     if (!caption && media.length === 0 && !beforeImage && !afterImage) {
       Alert.alert('Error', 'Please add a description or select at least one media item.');
@@ -405,7 +384,6 @@ const ImageUpload = ({ navigation }) => {
         setUploadProgress(Math.round((uploadCount / totalUploads) * 100));
       };
 
-      // Upload media files
       await Promise.all(media.map(async (item, index) => {
         const response = await fetch(item.uri);
         const blob = await response.blob();
@@ -421,7 +399,6 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }));
 
-      // Upload before/after images if in that mode
       if (beforeAfterMode && beforeImage && afterImage) {
         const beforeResponse = await fetch(beforeImage);
         const beforeBlob = await beforeResponse.blob();
@@ -444,7 +421,6 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }
 
-      // Upload documents
       await Promise.all(documents.map(async (doc) => {
         const response = await fetch(doc.uri);
         const blob = await response.blob();
@@ -462,7 +438,6 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }));
 
-      // Upload certificates
       await Promise.all(certificates.map(async (cert) => {
         const response = await fetch(cert.uri);
         const blob = await response.blob();
@@ -507,8 +482,15 @@ const ImageUpload = ({ navigation }) => {
         likedBy: []
       });
 
-      Alert.alert('Success', 'Your project has been posted successfully!');
-      resetForm();
+      Alert.alert('Success', 'Your project has been posted successfully!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            resetForm();
+            navigation.navigate('PostsScreen');
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Upload Error:', error);
       Alert.alert('Error', error.message === 'User not authenticated' 
@@ -519,7 +501,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  // Reset form
   const resetForm = () => {
     setCaption('');
     setMedia([]);
@@ -536,7 +517,6 @@ const ImageUpload = ({ navigation }) => {
     setUseCurrentLocation(false);
   };
 
-  // Render media item
   const renderMediaItem = ({ item, index }) => (
     <View style={styles.mediaItemContainer}>
       {item.type === 'video' ? (
@@ -575,7 +555,6 @@ const ImageUpload = ({ navigation }) => {
     </View>
   );
 
-  // Render documents
   const renderDocument = ({ item, index }) => (
     <View style={styles.documentItemContainer}>
       <MaterialIcons name="description" size={24} color={isDarkMode ? "#aaa" : "#666"} />
@@ -591,7 +570,6 @@ const ImageUpload = ({ navigation }) => {
     </View>
   );
 
-  // Render certificates
   const renderCertificate = ({ item, index }) => (
     <View style={styles.documentItemContainer}>
       <MaterialIcons name="verified" size={24} color={isDarkMode ? "#aaa" : "#666"} />
@@ -615,7 +593,6 @@ const ImageUpload = ({ navigation }) => {
       <View style={[styles.postContainer, isDarkMode ? styles.darkPostContainer : styles.lightPostContainer]}>
         <Text style={[styles.title, isDarkMode ? styles.darkTitle : styles.lightTitle]}>Create Project Post</Text>
 
-        {/* Caption Input */}
         <TextInput
           style={[styles.input, isDarkMode ? styles.darkInput : styles.lightInput]}
           placeholder="Describe your project or update..."
@@ -625,7 +602,6 @@ const ImageUpload = ({ navigation }) => {
           onChangeText={setCaption}
         />
 
-        {/* Before & After Mode Toggle */}
         <View style={styles.toggleContainer}>
           <Text style={[styles.toggleLabel, isDarkMode ? styles.darkText : styles.lightText]}>
             Before & After Mode
@@ -638,7 +614,6 @@ const ImageUpload = ({ navigation }) => {
           />
         </View>
 
-        {/* Before & After Image Selection */}
         {beforeAfterMode && (
           <View style={styles.beforeAfterContainer}>
             <View style={styles.beforeAfterColumn}>
@@ -693,7 +668,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         )}
 
-        {/* Regular Media Display */}
         {!beforeAfterMode && media.length > 0 && (
           <FlatList
             data={media}
@@ -705,7 +679,6 @@ const ImageUpload = ({ navigation }) => {
           />
         )}
 
-        {/* Media Selection Buttons */}
         {!beforeAfterMode && (
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
@@ -750,7 +723,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         )}
 
-        {/* Project Details */}
         <View style={styles.detailSection}>
           <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
             Project Details
@@ -800,7 +772,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Categories/Tags */}
         <View style={styles.detailSection}>
           <View style={styles.sectionTitleRow}>
             <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
@@ -860,7 +831,6 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
-        {/* Verification and Professional Details */}
         <View style={styles.detailSection}>
           <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
             Professional Details
@@ -889,7 +859,6 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
-        {/* Upload buttons for documents */}
         <View style={styles.detailSection}>
           <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
             Additional Documents
@@ -914,7 +883,6 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
-        {/* Social Features */}
         <View style={styles.detailSection}>
           <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
             Interaction Settings
@@ -954,7 +922,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Upload & Cancel Buttons */}
         <View style={styles.uploadButtonsContainer}>
           {uploading ? (
             <View style={styles.uploadingContainer}>
@@ -981,7 +948,6 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
-        {/* Image Editor Modal */}
         <Modal
           visible={isEditModalVisible}
           transparent={true}
@@ -1066,7 +1032,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </Modal>
 
-        {/* Documents Modal */}
         <Modal
           visible={documentsModalVisible}
           transparent={true}
@@ -1107,7 +1072,6 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </Modal>
 
-        {/* Category Modal */}
         <Modal
           visible={categoryModalVisible}
           transparent={true}
