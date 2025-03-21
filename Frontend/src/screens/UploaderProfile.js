@@ -28,9 +28,9 @@ function UploaderProfile() {
     const auth = getAuth();
     const currentUser = auth.currentUser;
     
-    // Get userId from route params or use current user id if not provided
+    // Get userId from route params (no default to currentUser.uid unless explicitly intended)
     const { userId } = route.params || {};
-    const profileId = userId || currentUser?.uid;
+    const profileId = userId; // Use the passed userId directly; no fallback to currentUser.uid
     
     const [userProfile, setUserProfile] = useState(null);
     const [userPosts, setUserPosts] = useState([]);
@@ -39,7 +39,7 @@ function UploaderProfile() {
     const [userRating, setUserRating] = useState(0);
     const [averageRating, setAverageRating] = useState(0);
     const [totalRatings, setTotalRatings] = useState(0);
-    const [ratingAnimation] = useState(new Animated.Value(1)); // Initialize to 1 to show by default
+    const [ratingAnimation] = useState(new Animated.Value(1));
     const [stats, setStats] = useState({
         postsCount: 0,
         followersCount: 0,
@@ -51,9 +51,12 @@ function UploaderProfile() {
         const fetchUserProfile = async () => {
             try {
                 if (!profileId) {
+                    console.log('No profileId provided');
                     setLoading(false);
                     return;
                 }
+
+                console.log('Fetching profile for userId:', profileId); // Debug log
 
                 const userDocRef = doc(firestore, 'users', profileId);
                 const userDocSnap = await getDoc(userDocRef);
@@ -100,6 +103,8 @@ function UploaderProfile() {
                         followersCount: userData.followers?.length || 0,
                         followingCount: userData.following?.length || 0
                     });
+                } else {
+                    console.log('User document does not exist for ID:', profileId);
                 }
             } catch (error) {
                 console.error('Error fetching user profile:', error);
@@ -155,7 +160,6 @@ function UploaderProfile() {
 
     // Animate rating stars when component mounts
     useEffect(() => {
-        // Start animation regardless of rating value
         Animated.timing(ratingAnimation, {
             toValue: 1,
             duration: 800,
@@ -170,7 +174,6 @@ function UploaderProfile() {
             const userRef = doc(firestore, 'users', profileId);
             const currentUserRef = doc(firestore, 'users', currentUser.uid);
             
-            // Get user docs
             const userDoc = await getDoc(userRef);
             const currentUserDoc = await getDoc(currentUserRef);
             
@@ -178,9 +181,7 @@ function UploaderProfile() {
                 const userData = userDoc.data();
                 const currentUserData = currentUserDoc.data();
                 
-                // Update followers/following lists
                 if (isFollowing) {
-                    // Unfollow
                     const updatedFollowers = (userData.followers || []).filter(
                         id => id !== currentUser.uid
                     );
@@ -191,7 +192,6 @@ function UploaderProfile() {
                     await updateDoc(userRef, { followers: updatedFollowers });
                     await updateDoc(currentUserRef, { following: updatedFollowing });
                 } else {
-                    // Follow
                     const updatedFollowers = [...(userData.followers || []), currentUser.uid];
                     const updatedFollowing = [...(currentUserData.following || []), profileId];
                     
@@ -199,7 +199,6 @@ function UploaderProfile() {
                     await updateDoc(currentUserRef, { following: updatedFollowing });
                 }
                 
-                // Update UI state
                 setIsFollowing(!isFollowing);
                 setStats(prev => ({
                     ...prev,
@@ -222,31 +221,25 @@ function UploaderProfile() {
             
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                // Initialize ratings object if it doesn't exist
                 const ratings = userData.ratings || { users: {} };
                 
-                // Update the user's rating
                 ratings.users = {
                     ...ratings.users,
                     [currentUser.uid]: rating
                 };
                 
-                // Calculate new average
                 const ratingValues = Object.values(ratings.users);
                 const newAverage = ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length;
                 
-                // Update in Firestore
                 await updateDoc(userRef, { 
                     ratings: ratings,
                     averageRating: newAverage 
                 });
                 
-                // Update local state
                 setUserRating(rating);
                 setAverageRating(newAverage);
                 setTotalRatings(ratingValues.length);
                 
-                // Animate rating change
                 Animated.sequence([
                     Animated.timing(ratingAnimation, {
                         toValue: 0.8,
@@ -368,7 +361,7 @@ function UploaderProfile() {
                         ) : null}
                     </View>
 
-                    {/* Rating Card - now shown regardless of whether there are ratings */}
+                    {/* Rating Card */}
                     <Animated.View 
                         style={[
                             styles.ratingCard,
@@ -406,7 +399,6 @@ function UploaderProfile() {
                                 </View>
                             </View>
                             
-                            {/* User can rate if not viewing their own profile */}
                             {currentUser && currentUser.uid !== profileId && (
                                 <View style={styles.userRatingContainer}>
                                     <Text style={styles.userRatingTitle}>

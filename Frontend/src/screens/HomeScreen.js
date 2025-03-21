@@ -4,8 +4,9 @@ import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-
 import * as Location from 'expo-location';
 import { useTheme } from '../hooks/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
-import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { MaterialIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 // Constants
 const GOOGLE_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE';
@@ -14,6 +15,7 @@ const DEFAULT_PROFILE_IMAGE = require('../../assets/default-profile.png');
 // Component
 const HomeScreen = () => {
   const { isDarkMode } = useTheme();
+  const navigation = useNavigation();
   const mapRef = useRef(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [userLocations, setUserLocations] = useState([]);
@@ -31,10 +33,8 @@ const HomeScreen = () => {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyType, setEmergencyType] = useState('');
 
-  // List of professions for filter
   const professions = ['All', 'Constructor', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason'];
-  
-  // Utility Functions
+
   const parseLocation = (locationString) => {
     try {
       const [latitude, longitude] = locationString.split(',').map(coord => parseFloat(coord.trim()));
@@ -49,7 +49,7 @@ const HomeScreen = () => {
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the Earth in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -57,16 +57,14 @@ const HomeScreen = () => {
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in km
+    return R * c;
   };
 
-  // Generate random availability status for demo purposes
   const getRandomAvailability = () => {
     const statuses = ['Available Now', 'Busy', 'Offline'];
     return statuses[Math.floor(Math.random() * statuses.length)];
   };
 
-  // Fetch user locations from Firestore
   const fetchUserLocations = () => {
     return onSnapshot(collection(firestore, 'users'), (snapshot) => {
       const locations = snapshot.docs
@@ -76,7 +74,6 @@ const HomeScreen = () => {
           
           if (!locationObj) return null;
           
-          // Calculate distance if we have current location
           let distance = null;
           if (currentLocation) {
             distance = calculateDistance(
@@ -87,11 +84,10 @@ const HomeScreen = () => {
             );
           }
           
-          // Include availability status (random for demo)
           const availability = getRandomAvailability();
           
           return {
-            id: doc.id,
+            id: doc.id, // This should be the Firestore document ID (uid)
             ...locationObj,
             name: data.name || 'Anonymous',
             profession: data.profession || 'Unknown',
@@ -113,13 +109,11 @@ const HomeScreen = () => {
     });
   };
 
-  // Apply filters to the user locations
   const applyFilters = (locations = userLocations) => {
     if (!currentLocation) return;
     
     let filtered = [...locations];
     
-    // Filter by search text
     if (searchText) {
       filtered = filtered.filter(user => 
         user.name.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -128,28 +122,23 @@ const HomeScreen = () => {
       );
     }
     
-    // Filter by distance
     filtered = filtered.filter(user => 
       user.distance !== null && user.distance <= searchRadius
     );
     
-    // Filter by profession
     if (selectedProfession !== 'All') {
       filtered = filtered.filter(user => 
         user.profession === selectedProfession
       );
     }
     
-    // Filter by rating
     filtered = filtered.filter(user => user.averageRating >= minRating);
     
-    // Filter by availability
     if (availabilityFilter !== 'all') {
       const status = availabilityFilter === 'available' ? 'Available Now' : 'Busy';
       filtered = filtered.filter(user => user.availability === status);
     }
     
-    // Sort results
     switch (sortBy) {
       case 'distance':
         filtered.sort((a, b) => a.distance - b.distance);
@@ -165,7 +154,6 @@ const HomeScreen = () => {
     setFilteredLocations(filtered);
   };
 
-  // Request and watch device location
   const setupDeviceLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -203,7 +191,6 @@ const HomeScreen = () => {
 
   const handleEmergencyRequest = (type) => {
     setEmergencyType(type);
-    // In a real app, you would send this emergency request to your backend
     Alert.alert(
       'Emergency Request Sent',
       `We're notifying nearby ${type} professionals. Someone will contact you shortly.`,
@@ -245,13 +232,34 @@ const HomeScreen = () => {
     );
   };
 
-  // Setup effect
+  const handleMarkerPress = (user) => {
+    console.log('Clicked user ID:', user.id); // Debug: Check the uid being passed
+    Alert.alert(
+        'Visit Profile',
+        `Would you want to visit ${user.name}'s profile?`,
+        [
+            {
+                text: 'No',
+                style: 'cancel',
+                onPress: () => console.log('Profile visit canceled'),
+            },
+            {
+                text: 'Yes',
+                onPress: () => {
+                    console.log('Navigating to profile with userId:', user.id); // Debug: Confirm userId before navigation
+                    navigation.navigate('UploaderProfile', { userId: user.id }); // Changed uid to userId
+                },
+            },
+        ],
+        { cancelable: true }
+    );
+};
+
   useEffect(() => {
     let mounted = true;
     const unsubscribeFirestore = fetchUserLocations();
     setupDeviceLocation();
 
-    // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: false }),
@@ -266,12 +274,10 @@ const HomeScreen = () => {
     };
   }, []);
 
-  // Apply filters when dependencies change
   useEffect(() => {
     applyFilters();
   }, [searchText, searchRadius, selectedProfession, minRating, sortBy, availabilityFilter, currentLocation]);
 
-  // Recalculate distances when current location changes
   useEffect(() => {
     if (!currentLocation) return;
     
@@ -289,16 +295,13 @@ const HomeScreen = () => {
     applyFilters(updatedLocations);
   }, [currentLocation]);
 
-  // Map animations
   const radius1 = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1000, 3000] });
   const radius2 = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 500] });
   const opacity1 = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] });
   const opacity2 = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] });
 
-  // Animated components
   const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-  // Get color for availability status
   const getAvailabilityColor = (status) => {
     switch(status) {
       case 'Available Now': return '#4CAF50';
@@ -308,7 +311,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Loading state
   if (isLoading || !currentLocation) {
     return (
       <View style={styles.loadingContainer}>
@@ -320,7 +322,6 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -336,11 +337,9 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Filters Panel */}
       {showFilters && (
         <View style={styles.filtersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {/* Radius Filter */}
             <View style={styles.filterItem}>
               <Text style={styles.filterLabel}>Radius: {searchRadius} km</Text>
               <View style={styles.sliderContainer}>
@@ -356,7 +355,6 @@ const HomeScreen = () => {
               </View>
             </View>
 
-            {/* Profession Filter */}
             <View style={styles.filterItem}>
               <Text style={styles.filterLabel}>Profession</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -380,7 +378,6 @@ const HomeScreen = () => {
               </ScrollView>
             </View>
 
-            {/* Rating Filter */}
             <View style={styles.filterItem}>
               <Text style={styles.filterLabel}>Min Rating</Text>
               <View style={styles.ratingContainer}>
@@ -399,7 +396,6 @@ const HomeScreen = () => {
               </View>
             </View>
 
-            {/* Sort By Filter */}
             <View style={styles.filterItem}>
               <Text style={styles.filterLabel}>Sort By</Text>
               <View style={styles.sortButtonsContainer}>
@@ -430,7 +426,6 @@ const HomeScreen = () => {
               </View>
             </View>
 
-            {/* Availability Filter */}
             <View style={styles.filterItem}>
               <Text style={styles.filterLabel}>Availability</Text>
               <View style={styles.availabilityContainer}>
@@ -458,7 +453,6 @@ const HomeScreen = () => {
         </View>
       )}
 
-      {/* Map View */}
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -474,7 +468,6 @@ const HomeScreen = () => {
         rotateEnabled
         accessibilityLabel="Interactive map showing your location and nearby workers"
       >
-        {/* User's current location */}
         <Marker
           coordinate={currentLocation}
           title="My Location"
@@ -482,7 +475,6 @@ const HomeScreen = () => {
           pinColor="#007BFF"
         />
         
-        {/* Animated circles around user location */}
         <AnimatedCircle
           center={currentLocation}
           radius={radius1}
@@ -498,21 +490,20 @@ const HomeScreen = () => {
           fillColor={`rgba(65, 105, 225, ${opacity2})`}
         />
 
-        {/* Search radius circle */}
         <Circle
           center={currentLocation}
-          radius={searchRadius * 1000} // Convert km to meters
+          radius={searchRadius * 1000}
           strokeWidth={1}
           strokeColor="rgba(0, 123, 255, 0.5)"
           fillColor="rgba(0, 123, 255, 0.1)"
         />
         
-        {/* Other users */}
         {filteredLocations.map((user) => (
           <Marker
             key={user.id}
             coordinate={{ latitude: user.latitude, longitude: user.longitude }}
             title={user.name}
+            onPress={() => handleMarkerPress(user)}
           >
             <View style={styles.markerContainer}>
               <Image
@@ -573,7 +564,6 @@ const HomeScreen = () => {
         ))}
       </MapView>
 
-      {/* Location Input Button */}
       <TouchableOpacity 
         style={styles.locationInputButton}
         onPress={handleManualLocationInput}
@@ -581,7 +571,6 @@ const HomeScreen = () => {
         <MaterialIcons name="edit-location" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* Emergency Button */}
       <TouchableOpacity 
         style={styles.emergencyButton}
         onPress={() => setShowEmergencyModal(true)}
@@ -590,14 +579,12 @@ const HomeScreen = () => {
         <Text style={styles.emergencyButtonText}>Emergency</Text>
       </TouchableOpacity>
 
-      {/* Results Count */}
       <View style={styles.resultCountContainer}>
         <Text style={styles.resultCountText}>
           Found {filteredLocations.length} professionals within {searchRadius} km
         </Text>
       </View>
 
-      {/* Emergency Modal */}
       <Modal
         visible={showEmergencyModal}
         transparent={true}
@@ -646,6 +633,7 @@ const HomeScreen = () => {
   );
 };
 
+// Styles remain unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,
