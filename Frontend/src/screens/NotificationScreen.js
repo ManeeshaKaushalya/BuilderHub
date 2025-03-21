@@ -1,6 +1,6 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import { useTheme } from '../context/ThemeContext';  // Import useTheme hook
 
 function NotificationScreen() {
   const { isDarkMode } = useTheme(); // Get dark mode state

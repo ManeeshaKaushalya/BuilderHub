@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext'; // Import useTheme hook
+import { useTheme } from '../context/ThemeContext'; // Import useTheme hook
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons'; // Import Ionicons for the arrow icon
 

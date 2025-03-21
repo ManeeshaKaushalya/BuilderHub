@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
 import Sidebar from './Sidebar';
 

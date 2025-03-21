@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { useTheme } from '../hooks/ThemeContext'; // Assuming this exists in your project
+import { useTheme } from '../context/ThemeContext'; // Assuming this exists in your project
 
 // Constants
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE'; // Move to .env file in production

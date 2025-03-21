@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, FlatList, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import FilterSection from './MarketScreens/FilterSection';
 import ItemList from './MarketScreens/ItemList';
 

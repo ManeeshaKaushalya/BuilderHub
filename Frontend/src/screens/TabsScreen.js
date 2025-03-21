@@ -7,7 +7,7 @@ import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
 import ProfileScreen from './ProfileScreen';
-import { useTheme } from '../hooks/ThemeContext';  // Import useTheme hook
+import { useTheme } from '../context/ThemeContext';  // Import useTheme hook
 
 const Tab = createBottomTabNavigator();
 

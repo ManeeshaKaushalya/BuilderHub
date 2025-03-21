@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 import ChatList from './MarketScreens/ChatList';
 

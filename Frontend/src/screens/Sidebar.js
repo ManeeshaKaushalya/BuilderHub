@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUser } from '../context/UserContext';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import SidebarRow from './SidebarRow';
 import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
 

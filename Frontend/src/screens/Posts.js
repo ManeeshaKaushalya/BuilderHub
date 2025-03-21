@@ -10,7 +10,7 @@ import { firestore } from '../../firebase/firebaseConfig';
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, onSnapshot, collection } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Video } from 'expo-av';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 

@@ -12,7 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import CompanyRegister from './company/CompanyRegister';
 import ShopRegister from './shops/ShopRegister';
 import UserRegister from './users/UserRegister';
-import { useTheme } from '../hooks/ThemeContext'; // Assuming this exists in your project
+import { useTheme } from '../context/ThemeContext'; // Assuming this exists in your project
 
 // Constants
 const COLORS = {

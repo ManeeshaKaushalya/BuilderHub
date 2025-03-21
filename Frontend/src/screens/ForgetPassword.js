@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../firebase/firebaseConfig'; // ✅ Correct
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 
 const ForgetPassword = ({ navigation }) => {
   const [email, setEmail] = useState('');

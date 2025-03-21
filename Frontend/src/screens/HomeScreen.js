@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { useTheme } from '../hooks/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { MaterialIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
