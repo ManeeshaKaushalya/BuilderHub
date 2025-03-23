@@ -3,32 +3,35 @@ import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView, FlatLi
 import Slider from '@react-native-community/slider';
 import { debounce } from 'lodash';
 import { FontAwesome } from '@expo/vector-icons';
-import FormatPrice from './FormatPrice';
 import { Button } from 'react-native-paper';
+import FormatPrice from './FormatPrice';
 
 const categories = [
-  { id: 'all', label: 'All' },
-  { id: 'useritem', label: 'User Item' },
-  { id: 'paints', label: 'Paint Machine' },
+  { id: 'all', label: 'All Categories' },
+  { id: 'useritem', label: 'User Items' },
+  { id: 'paints', label: 'Paint Machines' },
   { id: 'machines', label: 'Machines' },
   { id: 'tools', label: 'Tools' },
-  { id: 'furniture', label: 'Furniture' }
+  { id: 'furniture', label: 'Furniture' },
 ];
 
-const colors = ['all', 'red', 'blue', 'green', 'yellow', 'black', 'white'];
+const colors = [
+  { id: 'all', value: '#ddd', label: 'All Colors' },
+  { id: 'red', value: 'red', label: 'Red' },
+  { id: 'blue', value: 'blue', label: 'Blue' },
+  { id: 'green', value: 'green', label: 'Green' },
+  { id: 'yellow', value: 'yellow', label: 'Yellow' },
+  { id: 'black', value: 'black', label: 'Black' },
+  { id: 'white', value: 'white', label: 'White' },
+];
 
-
-
-const FilterSection = ({ navigation,setSelectedCategory, setSelectedColor, onSearch , setPriceRange}) => {
+const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSearch, setPriceRange }) => {
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedColor, setSelectedColorState] = useState('all');
-  const [price, setPrice] = useState(1000); // Default price value
+  const [price, setPrice] = useState(50000); // Mid-range default for better UX
 
-  const debouncedSearch = useCallback(
-    debounce((text) => onSearch(text), 150),
-    [onSearch]
-  );
+  const debouncedSearch = useCallback(debounce((text) => onSearch(text), 300), [onSearch]);
 
   const handleSearch = (text) => {
     setSearchText(text);
@@ -40,217 +43,256 @@ const FilterSection = ({ navigation,setSelectedCategory, setSelectedColor, onSea
     setSelectedCategory(category.id);
   }, [setSelectedCategory]);
 
-  const handleColorPress = useCallback((color) => {
-    setSelectedColorState(color);
-    setSelectedColor(color);
+  const handleColorPress = useCallback((colorId) => {
+    setSelectedColorState(colorId);
+    setSelectedColor(colorId);
   }, [setSelectedColor]);
 
   const handlePriceChange = (value) => {
-    // You can pass an object with the selected min and max values of the price range
+    setPrice(value);
     setPriceRange(value);
   };
 
   return (
     <View style={styles.container}>
-      {/* Search Input */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          placeholder="Search products..."
-          value={searchText}
-          onChangeText={handleSearch}
-          style={styles.input}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {searchText.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearButton}
-            onPress={() => {
-              setSearchText('');
-              onSearch('');
-            }}
-          >
-            <Text style={styles.clearButtonText}>×</Text>
-          </TouchableOpacity>
-        )}
+      {/* Search Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Search Products</Text>
+        <View style={styles.searchContainer}>
+          <TextInput
+            placeholder="Enter product name..."
+            value={searchText}
+            onChangeText={handleSearch}
+            style={styles.input}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="Search products"
+          />
+          {searchText.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => {
+                setSearchText('');
+                onSearch('');
+              }}
+              accessibilityLabel="Clear search"
+            >
+              <Text style={styles.clearButtonText}>×</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Categories */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            onPress={() => handleCategoryPress(category)}
-            style={[styles.categoryButton, activeCategory === category.id && styles.activeCategoryButton]}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.categoryText, activeCategory === category.id && styles.activeCategoryText]}>
-              {category.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Color Selection */}
-      <Text style={styles.label}>Colors</Text>
-      <FlatList
-        horizontal
-        data={colors}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handleColorPress(item)}
-            style={[
-              styles.colorCircle,
-              { backgroundColor: item === "all" ? "#ddd" : item },
-              selectedColor === item && styles.selectedColorCircle
-            ]}
-            accessibilityRole="button"
-          >
-            {selectedColor === item && <FontAwesome name="check" size={12} color="white" />}
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-        contentContainerStyle={styles.colorContainer}
-      />
-
-      {/* Price Slider */}
-      <Text style={styles.label}>Price</Text>
-      <Slider
-        style={styles.slider}
-        minimumValue={10000}
-        maximumValue={100000}
-        step={100}
-        value={price}
-        onValueChange={setPrice}
-        minimumTrackTintColor="#007bff"
-        maximumTrackTintColor="#ccc"
-        thumbTintColor="#007bff"
-      />
-      <Text style={styles.priceText}>
-        <FormatPrice price={price} />
-      </Text>
-       {/* Add Items Button */}
-            <Button
-              mode="contained"
-              onPress={() => navigation.navigate("AddItem")} 
-              style={styles.addButton}
+      {/* Categories Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Categories</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        >
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              onPress={() => handleCategoryPress(category)}
+              style={[
+                styles.categoryButton,
+                activeCategory === category.id && styles.activeCategoryButton,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={category.label}
             >
-              Add Items
-            </Button>
+              <Text
+                style={[
+                  styles.categoryText,
+                  activeCategory === category.id && styles.activeCategoryText,
+                ]}
+              >
+                {category.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Colors Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Filter by Color</Text>
+        <FlatList
+          horizontal
+          data={colors}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => handleColorPress(item.id)}
+              style={[
+                styles.colorCircle,
+                { backgroundColor: item.value },
+                selectedColor === item.id && styles.selectedColorCircle,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+            >
+              {selectedColor === item.id && <FontAwesome name="check" size={14} color="#fff" />}
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.colorContainer}
+        />
+      </View>
+
+      {/* Price Range Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Price Range</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={10000}
+          maximumValue={100000}
+          step={550}
+          value={price}
+          onValueChange={handlePriceChange}
+          minimumTrackTintColor="#007AFF"
+          maximumTrackTintColor="#E5E7EB"
+          thumbTintColor="#007AFF"
+          accessibilityLabel="Price range slider"
+        />
+        <Text style={styles.priceText}>
+          Up to <FormatPrice price={price} />
+        </Text>
+      </View>
+
+     
+     
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
-    backgroundColor: '#fff',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#E5E7EB',
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
   },
   searchContainer: {
     position: 'relative',
-    marginBottom: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#dee2e6",
+    borderColor: '#D1D5DB',
     padding: 12,
     paddingRight: 40,
     borderRadius: 8,
     fontSize: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   clearButton: {
     position: 'absolute',
-    right: 12,
+    right: 10,
     top: '50%',
     transform: [{ translateY: -12 }],
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#dee2e6',
+    backgroundColor: '#D1D5DB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   clearButtonText: {
-    fontSize: 18,
-    color: '#495057',
+    fontSize: 16,
+    color: '#6B7280',
     fontWeight: 'bold',
-    lineHeight: 22,
   },
   categoriesContainer: {
     flexDirection: 'row',
-    paddingVertical: 8,
   },
   categoryButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
-    elevation: 2,
+    borderColor: '#D1D5DB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   activeCategoryButton: {
-    backgroundColor: '#007bff',
-    borderColor: '#0056b3',
+    backgroundColor: '#007AFF',
+    borderColor: '#0066CC',
   },
   categoryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#495057',
+    color: '#4B5563',
   },
   activeCategoryText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
-    color: '#343a40',
   },
   colorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   colorCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    marginRight: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#D1D5DB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   selectedColorCircle: {
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: '#1F2937',
   },
   slider: {
     width: '100%',
     height: 40,
   },
   priceText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
+    color: '#007AFF',
     textAlign: 'center',
-    marginTop: 4,
-    color: '#007bff',
+    marginTop: 8,
   },
   addButton: {
-    marginTop: 10,
-    backgroundColor: "#28a745",
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+  },
+  addButtonContent: {
+    height: 48,
+  },
+  addButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

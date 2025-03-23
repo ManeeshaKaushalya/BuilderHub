@@ -10,6 +10,8 @@ import {
   Alert,
   Platform,
   StyleSheet,
+  KeyboardAvoidingView,
+  StatusBar,
 } from "react-native";
 import { Button } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
@@ -22,7 +24,7 @@ import { useUser } from "../../context/UserContext";
 
 const categories = ["Paints", "Machines", "Tools", "Furniture"];
 const companies = ["Sakithma", "Gayara", "Jesi"];
-const colors = ["Red", "Blue", "Green", "Black"];
+const colors = ["Red", "Blue", "Green", "Black", "White", "Yellow", "Orange", "Purple", "Brown"];
 
 const AddItem = ({ navigation }) => {
   const [images, setImages] = useState([]);
@@ -37,6 +39,7 @@ const AddItem = ({ navigation }) => {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const { user } = useUser();
 
   const validateForm = () => {
@@ -140,18 +143,19 @@ const AddItem = ({ navigation }) => {
       throw error;
     }
   };
-  
-  
 
   const handleSubmit = async () => {
     if (!validateForm()) {
+      Alert.alert("Error", "Please fill all required fields correctly");
       return;
     }
 
     setLoading(true);
+    setUploading(true);
     try {
       // Upload all images to Firebase Storage
       const imageUrls = await Promise.all(images.map(uploadImage));
+      setUploading(false);
 
       const newItem = {
         itemOwnerId: user.uid,
@@ -178,6 +182,7 @@ const AddItem = ({ navigation }) => {
       );
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -228,7 +233,12 @@ const AddItem = ({ navigation }) => {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : null}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
@@ -240,114 +250,126 @@ const AddItem = ({ navigation }) => {
         <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.imageSection}>
-          <Text style={styles.label}>Item Images</Text>
-          <View style={styles.imageContainer}>
-            {images.map((uri, index) => (
-              <View key={index} style={styles.imageWrapper}>
-                <Image source={{ uri }} style={styles.image} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => removeImage(uri)}
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.content}>
+          <View style={styles.imageSection}>
+            <Text style={styles.sectionTitle}>Item Images</Text>
+            <Text style={styles.sectionSubtitle}>Add up to 5 images of your item</Text>
+            <View style={styles.imageContainer}>
+              {images.map((uri, index) => (
+                <View key={index} style={styles.imageWrapper}>
+                  <Image source={{ uri }} style={styles.image} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => removeImage(uri)}
+                  >
+                    <Ionicons name="close-circle" size={22} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {images.length < 5 && (
+                <TouchableOpacity 
+                  style={styles.addImageButton} 
+                  onPress={pickImages}
                 >
-                  <Ionicons name="trash" size={20} color="#fff" />
+                  <FontAwesome name="camera" size={24} color="#666" />
+                  <Text style={styles.addImageText}>Add Image</Text>
                 </TouchableOpacity>
+              )}
+            </View>
+            {errors.images && (
+              <Text style={styles.errorText}>{errors.images}</Text>
+            )}
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Item Details</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Item Name</Text>
+              <TextInput
+                placeholder="Enter item name"
+                value={formData.itemName}
+                onChangeText={(text) => updateFormData('itemName', text)}
+                style={[styles.input, errors.itemName && styles.inputError]}
+              />
+              {errors.itemName && (
+                <Text style={styles.errorText}>{errors.itemName}</Text>
+              )}
+            </View>
+
+            {renderDropdown('category', categories, 'Category')}
+            {renderDropdown('company', companies, 'Company')}
+            {renderDropdown('color', colors, 'Color')}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                placeholder="Enter item description"
+                value={formData.description}
+                onChangeText={(text) => updateFormData('description', text)}
+                style={[styles.textArea, errors.description && styles.inputError]}
+                multiline
+                numberOfLines={4}
+              />
+              {errors.description && (
+                <Text style={styles.errorText}>{errors.description}</Text>
+              )}
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.label}>Price (Rs.)</Text>
+                <TextInput
+                  placeholder="0.00"
+                  value={formData.price}
+                  onChangeText={(text) => updateFormData('price', text)}
+                  keyboardType="numeric"
+                  style={[styles.input, errors.price && styles.inputError]}
+                />
+                {errors.price && (
+                  <Text style={styles.errorText}>{errors.price}</Text>
+                )}
               </View>
-            ))}
-            {images.length < 5 && (
-              <TouchableOpacity 
-                style={styles.addImageButton} 
-                onPress={pickImages}
-              >
-                <FontAwesome name="plus" size={24} color="#666" />
-                <Text style={styles.addImageText}>Add Image</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {errors.images && (
-            <Text style={styles.errorText}>{errors.images}</Text>
-          )}
-        </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Item Name</Text>
-          <TextInput
-            placeholder="Enter item name"
-            value={formData.itemName}
-            onChangeText={(text) => updateFormData('itemName', text)}
-            style={[styles.input, errors.itemName && styles.inputError]}
-          />
-          {errors.itemName && (
-            <Text style={styles.errorText}>{errors.itemName}</Text>
-          )}
-        </View>
-
-        {renderDropdown('category', categories, 'Category')}
-        {renderDropdown('company', companies, 'Company')}
-        {renderDropdown('color', colors, 'Color')}
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Description</Text>
-          <TextInput
-            placeholder="Enter item description"
-            value={formData.description}
-            onChangeText={(text) => updateFormData('description', text)}
-            style={[styles.textArea, errors.description && styles.inputError]}
-            multiline
-            numberOfLines={4}
-          />
-          {errors.description && (
-            <Text style={styles.errorText}>{errors.description}</Text>
-          )}
-        </View>
-
-        <View style={styles.row}>
-          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.label}>Price (Rs.)</Text>
-            <TextInput
-              placeholder="0.00"
-              value={formData.price}
-              onChangeText={(text) => updateFormData('price', text)}
-              keyboardType="numeric"
-              style={[styles.input, errors.price && styles.inputError]}
-            />
-            {errors.price && (
-              <Text style={styles.errorText}>{errors.price}</Text>
-            )}
-          </View>
-
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.label}>Stock</Text>
-            <TextInput
-              placeholder="0"
-              value={formData.Stock}
-              onChangeText={(text) => updateFormData('Stock', text)}
-              keyboardType="numeric"
-              style={[styles.input, errors.Stock && styles.inputError]}
-            />
-            {errors.Stock && (
-              <Text style={styles.errorText}>{errors.Stock}</Text>
-            )}
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Stock</Text>
+                <TextInput
+                  placeholder="0"
+                  value={formData.Stock}
+                  onChangeText={(text) => updateFormData('Stock', text)}
+                  keyboardType="numeric"
+                  style={[styles.input, errors.Stock && styles.inputError]}
+                />
+                {errors.Stock && (
+                  <Text style={styles.errorText}>{errors.Stock}</Text>
+                )}
+              </View>
+            </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.bottomContainer}>
         <Button
           mode="contained"
           onPress={handleSubmit}
           style={styles.submitButton}
+          labelStyle={styles.submitButtonText}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={styles.loadingText}>
+                {uploading ? "Uploading images..." : "Adding item..."}
+              </Text>
+            </View>
           ) : (
             "Add Item"
           )}
         </Button>
       </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -356,36 +378,73 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  backButton: {
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
   headerRight: {
-    width: 24,
+    width: 40,
   },
   content: {
     padding: 16,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
   imageSection: {
-    marginBottom: 20,
+    marginBottom: 24,
+    backgroundColor: '#f9f9f9',
+    padding: 16,
+    borderRadius: 12,
+  },
+  formSection: {
+    marginBottom: 24,
   },
   imageContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
     marginTop: 8,
   },
   imageWrapper: {
     position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   image: {
     width: 100,
@@ -394,9 +453,9 @@ const styles = StyleSheet.create({
   },
   removeImageButton: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#ff4444',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 12,
     width: 24,
     height: 24,
@@ -412,39 +471,43 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f0f0f0',
   },
   addImageText: {
-    marginTop: 4,
+    marginTop: 8,
     fontSize: 12,
     color: '#666',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
-    color: '#333',
+    color: '#555',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    backgroundColor: '#f9f9f9',
   },
   inputError: {
     borderColor: '#ff4444',
+    backgroundColor: '#fff0f0',
   },
   textArea: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    height: 100,
+    height: 120,
     textAlignVertical: 'top',
+    backgroundColor: '#f9f9f9',
   },
   optionsContainer: {
     flexDirection: 'row',
@@ -452,19 +515,24 @@ const styles = StyleSheet.create({
   },
   option: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   selectedOption: {
     backgroundColor: '#007AFF',
+    borderColor: '#0056b3',
   },
   optionText: {
     color: '#333',
+    fontWeight: '500',
   },
   selectedOptionText: {
     color: '#fff',
+    fontWeight: '600',
   },
   row: {
     flexDirection: 'row',
@@ -474,16 +542,40 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     fontSize: 12,
     marginTop: 4,
+    fontWeight: '500',
   },
   bottomContainer: {
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#e1e1e1',
+    backgroundColor: '#fff',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   submitButton: {
     backgroundColor: '#28a745',
     height: 50,
     justifyContent: 'center',
+    borderRadius: 8,
+    elevation: 2,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 
