@@ -203,7 +203,7 @@ function Post({
     };
 
     const handleHireNow = () => {
-        navigation.navigate('ContactProfessional', { 
+        navigation.navigate('JobRequestForm', { 
             professionalId: ownerId,
             professionalName: username,
             postId: postId,

@@ -28,9 +28,8 @@ function UploaderProfile() {
     const auth = getAuth();
     const currentUser = auth.currentUser;
     
-    // Get userId from route params (no default to currentUser.uid unless explicitly intended)
     const { userId } = route.params || {};
-    const profileId = userId; // Use the passed userId directly; no fallback to currentUser.uid
+    const profileId = userId;
     
     const [userProfile, setUserProfile] = useState(null);
     const [userPosts, setUserPosts] = useState([]);
@@ -46,7 +45,6 @@ function UploaderProfile() {
         followingCount: 0
     });
 
-    // Fetch user profile data
     useEffect(() => {
         const fetchUserProfile = async () => {
             try {
@@ -56,7 +54,7 @@ function UploaderProfile() {
                     return;
                 }
 
-                console.log('Fetching profile for userId:', profileId); // Debug log
+                console.log('Fetching profile for userId:', profileId);
 
                 const userDocRef = doc(firestore, 'users', profileId);
                 const userDocSnap = await getDoc(userDocRef);
@@ -76,18 +74,14 @@ function UploaderProfile() {
                         website: userData.website || null,
                     });
 
-                    // Check if current user is following this profile
                     if (currentUser) {
                         setIsFollowing(userData.followers?.includes(currentUser.uid) || false);
-                        
-                        // Get user's rating if they've rated before
                         if (userData.ratings && userData.ratings.users && 
                             userData.ratings.users[currentUser.uid]) {
                             setUserRating(userData.ratings.users[currentUser.uid]);
                         }
                     }
 
-                    // Calculate average rating
                     if (userData.ratings && userData.ratings.users) {
                         const ratings = Object.values(userData.ratings.users);
                         if (ratings.length > 0) {
@@ -97,7 +91,6 @@ function UploaderProfile() {
                         }
                     }
 
-                    // Set stats
                     setStats({
                         postsCount: userData.postsCount || 0,
                         followersCount: userData.followers?.length || 0,
@@ -116,7 +109,6 @@ function UploaderProfile() {
         fetchUserProfile();
     }, [profileId, currentUser]);
 
-    // Fetch user posts
     useEffect(() => {
         const fetchUserPosts = async () => {
             try {
@@ -141,7 +133,6 @@ function UploaderProfile() {
                     })
                 );
 
-                // Sort posts by timestamp (newest first)
                 posts.sort((a, b) => {
                     if (!a.timestamp || !b.timestamp) return 0;
                     return b.timestamp.seconds - a.timestamp.seconds;
@@ -158,7 +149,6 @@ function UploaderProfile() {
         }
     }, [profileId, userProfile]);
 
-    // Animate rating stars when component mounts
     useEffect(() => {
         Animated.timing(ratingAnimation, {
             toValue: 1,
@@ -306,7 +296,6 @@ function UploaderProfile() {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header with back button */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonIcon}>
                     <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -318,7 +307,6 @@ function UploaderProfile() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Cover and Profile Image Section */}
                 <View style={styles.coverContainer}>
                     <LinearGradient
                         colors={['#4c669f', '#3b5998', '#192f6a']}
@@ -335,9 +323,7 @@ function UploaderProfile() {
                     </LinearGradient>
                 </View>
 
-                {/* Profile Info Card */}
                 <View style={styles.profileInfoCard}>
-                    {/* User Info */}
                     <View style={styles.userInfoSection}>
                         <Text style={styles.nameText}>{userProfile.name}</Text>
                         <Text style={styles.professionText}>{userProfile.profession}</Text>
@@ -361,7 +347,6 @@ function UploaderProfile() {
                         ) : null}
                     </View>
 
-                    {/* Rating Card */}
                     <Animated.View 
                         style={[
                             styles.ratingCard,
@@ -412,7 +397,6 @@ function UploaderProfile() {
                         </LinearGradient>
                     </Animated.View>
 
-                    {/* Stats Counters */}
                     <View style={styles.statsContainer}>
                         <View style={styles.statItem}>
                             <Text style={styles.statNumber}>{stats.postsCount}</Text>
@@ -428,7 +412,6 @@ function UploaderProfile() {
                         </View>
                     </View>
 
-                    {/* Action Buttons */}
                     {currentUser && currentUser.uid !== profileId && (
                         <View style={styles.actionButtonsContainer}>
                             <TouchableOpacity 
@@ -454,12 +437,12 @@ function UploaderProfile() {
                             
                             <TouchableOpacity 
                                 style={styles.messageButton}
-                                onPress={() => navigation.navigate('ChatScreen', { userId: profileId })}
+                                onPress={() => navigation.navigate('WorkerChatScreen', { userId: profileId })}
                             >
                                 <Ionicons 
                                     name="chatbubble-ellipses-outline" 
                                     size={18} 
-                                    color="#333" 
+                                    color="#fff" 
                                     style={styles.buttonIcon}
                                 />
                                 <Text style={styles.messageButtonText}>Message</Text>
@@ -468,7 +451,6 @@ function UploaderProfile() {
                     )}
                 </View>
 
-                {/* Posts Section */}
                 <View style={styles.postsSection}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Posts</Text>
@@ -735,6 +717,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 15,
+        marginBottom: 20,
     },
     followButton: {
         flex: 1,
@@ -761,17 +744,15 @@ const styles = StyleSheet.create({
     },
     messageButton: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: '#0095f6', // Changed to match follow button style
         borderRadius: 8,
         padding: 12,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#ddd',
         flexDirection: 'row',
         justifyContent: 'center',
     },
     messageButtonText: {
-        color: '#333',
+        color: '#fff', // Changed to white for consistency
         fontWeight: '600',
         fontSize: 15,
     },

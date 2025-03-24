@@ -27,13 +27,16 @@ const HomeScreen = () => {
   const [searchRadius, setSearchRadius] = useState(10); // km
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfession, setSelectedProfession] = useState('All');
+  const [selectedAccountType, setSelectedAccountType] = useState('All');
   const [minRating, setMinRating] = useState(0);
-  const [sortBy, setSortBy] = useState('distance'); // distance, rating, experience
-  const [availabilityFilter, setAvailabilityFilter] = useState('all'); // all, available, busy
+  const [sortBy, setSortBy] = useState('distance');
+  const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyType, setEmergencyType] = useState('');
+  const [expandedSection, setExpandedSection] = useState(null); // For accordion
 
   const professions = ['All', 'Constructor', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason'];
+  const accountTypes = ['All', 'Person', 'Company', 'Shop'];
 
   const parseLocation = (locationString) => {
     try {
@@ -87,10 +90,11 @@ const HomeScreen = () => {
           const availability = getRandomAvailability();
           
           return {
-            id: doc.id, // This should be the Firestore document ID (uid)
+            id: doc.id,
             ...locationObj,
             name: data.name || 'Anonymous',
             profession: data.profession || 'Unknown',
+            accountType: data.accountType || 'Person',
             profileImage: data.profileImage || null,
             averageRating: data.averageRating || 0,
             experience: data.experience || '0',
@@ -129,6 +133,12 @@ const HomeScreen = () => {
     if (selectedProfession !== 'All') {
       filtered = filtered.filter(user => 
         user.profession === selectedProfession
+      );
+    }
+    
+    if (selectedAccountType !== 'All') {
+      filtered = filtered.filter(user => 
+        user.accountType === selectedAccountType
       );
     }
     
@@ -233,27 +243,20 @@ const HomeScreen = () => {
   };
 
   const handleMarkerPress = (user) => {
-    console.log('Clicked user ID:', user.id); // Debug: Check the uid being passed
+    console.log('Clicked user ID:', user.id);
     Alert.alert(
-        'Visit Profile',
-        `Would you want to visit ${user.name}'s profile?`,
-        [
-            {
-                text: 'No',
-                style: 'cancel',
-                onPress: () => console.log('Profile visit canceled'),
-            },
-            {
-                text: 'Yes',
-                onPress: () => {
-                    console.log('Navigating to profile with userId:', user.id); // Debug: Confirm userId before navigation
-                    navigation.navigate('UploaderProfile', { userId: user.id }); // Changed uid to userId
-                },
-            },
-        ],
-        { cancelable: true }
+      'Visit Profile',
+      `Would you want to visit ${user.name}'s profile?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: () => navigation.navigate('UploaderProfile', { userId: user.id })
+        }
+      ],
+      { cancelable: true }
     );
-};
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -276,7 +279,7 @@ const HomeScreen = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [searchText, searchRadius, selectedProfession, minRating, sortBy, availabilityFilter, currentLocation]);
+  }, [searchText, searchRadius, selectedProfession, selectedAccountType, minRating, sortBy, availabilityFilter, currentLocation]);
 
   useEffect(() => {
     if (!currentLocation) return;
@@ -311,6 +314,19 @@ const HomeScreen = () => {
     }
   };
 
+  const getAccountTypeIcon = (type) => {
+    switch(type) {
+      case 'Person': return 'person';
+      case 'Company': return 'business';
+      case 'Shop': return 'storefront';
+      default: return 'account-circle';
+    }
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
   if (isLoading || !currentLocation) {
     return (
       <View style={styles.loadingContainer}>
@@ -338,25 +354,30 @@ const HomeScreen = () => {
       </View>
 
       {showFilters && (
-        <View style={styles.filtersContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Radius: {searchRadius} km</Text>
-              <View style={styles.sliderContainer}>
-                <TouchableOpacity onPress={() => setSearchRadius(Math.max(1, searchRadius - 1))}>
-                  <MaterialIcons name="remove" size={18} color="#007BFF" />
-                </TouchableOpacity>
-                <View style={styles.sliderTrack}>
-                  <View style={[styles.sliderFill, { width: `${(searchRadius / 50) * 100}%` }]} />
-                </View>
-                <TouchableOpacity onPress={() => setSearchRadius(Math.min(50, searchRadius + 1))}>
-                  <MaterialIcons name="add" size={18} color="#007BFF" />
-                </TouchableOpacity>
+        <ScrollView style={styles.filtersContainer}>
+          {/* Radius Filter */}
+          <View style={styles.filterItem}>
+            <Text style={styles.filterLabel}>Radius: {searchRadius} km</Text>
+            <View style={styles.sliderContainer}>
+              <TouchableOpacity onPress={() => setSearchRadius(Math.max(1, searchRadius - 1))}>
+                <MaterialIcons name="remove" size={18} color="#007BFF" />
+              </TouchableOpacity>
+              <View style={styles.sliderTrack}>
+                <View style={[styles.sliderFill, { width: `${(searchRadius / 50) * 100}%` }]} />
               </View>
+              <TouchableOpacity onPress={() => setSearchRadius(Math.min(50, searchRadius + 1))}>
+                <MaterialIcons name="add" size={18} color="#007BFF" />
+              </TouchableOpacity>
             </View>
+          </View>
 
-            <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Profession</Text>
+          {/* Profession Accordion */}
+          <TouchableOpacity onPress={() => toggleSection('profession')} style={styles.accordionHeader}>
+            <Text style={styles.accordionTitle}>Profession</Text>
+            <MaterialIcons name={expandedSection === 'profession' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
+          </TouchableOpacity>
+          {expandedSection === 'profession' && (
+            <View style={styles.accordionContent}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {professions.map((profession) => (
                   <TouchableOpacity
@@ -377,9 +398,50 @@ const HomeScreen = () => {
                 ))}
               </ScrollView>
             </View>
+          )}
 
-            <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Min Rating</Text>
+          {/* Account Type Accordion */}
+          <TouchableOpacity onPress={() => toggleSection('accountType')} style={styles.accordionHeader}>
+            <Text style={styles.accordionTitle}>Account Type</Text>
+            <MaterialIcons name={expandedSection === 'accountType' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
+          </TouchableOpacity>
+          {expandedSection === 'accountType' && (
+            <View style={styles.accordionContent}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {accountTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.accountTypeChip,
+                      selectedAccountType === type && styles.selectedAccountTypeChip
+                    ]}
+                    onPress={() => setSelectedAccountType(type)}
+                  >
+                    <MaterialIcons 
+                      name={getAccountTypeIcon(type)} 
+                      size={16} 
+                      color={selectedAccountType === type ? "#fff" : "#007BFF"} 
+                      style={styles.accountTypeIcon}
+                    />
+                    <Text style={[
+                      styles.accountTypeChipText,
+                      selectedAccountType === type && styles.selectedAccountTypeChipText
+                    ]}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Minimum Rating Accordion */}
+          <TouchableOpacity onPress={() => toggleSection('rating')} style={styles.accordionHeader}>
+            <Text style={styles.accordionTitle}>Minimum Rating</Text>
+            <MaterialIcons name={expandedSection === 'rating' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
+          </TouchableOpacity>
+          {expandedSection === 'rating' && (
+            <View style={styles.accordionContent}>
               <View style={styles.ratingContainer}>
                 {[0, 1, 2, 3, 4].map((rating) => (
                   <TouchableOpacity
@@ -395,62 +457,64 @@ const HomeScreen = () => {
                 ))}
               </View>
             </View>
+          )}
 
-            <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Sort By</Text>
-              <View style={styles.sortButtonsContainer}>
-                <TouchableOpacity
-                  style={[styles.sortButton, sortBy === 'distance' && styles.selectedSortButton]}
-                  onPress={() => setSortBy('distance')}
-                >
-                  <Text style={[styles.sortButtonText, sortBy === 'distance' && styles.selectedSortButtonText]}>
-                    Distance
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.sortButton, sortBy === 'rating' && styles.selectedSortButton]}
-                  onPress={() => setSortBy('rating')}
-                >
-                  <Text style={[styles.sortButtonText, sortBy === 'rating' && styles.selectedSortButtonText]}>
-                    Rating
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.sortButton, sortBy === 'experience' && styles.selectedSortButton]}
-                  onPress={() => setSortBy('experience')}
-                >
-                  <Text style={[styles.sortButtonText, sortBy === 'experience' && styles.selectedSortButtonText]}>
-                    Experience
-                  </Text>
-                </TouchableOpacity>
-              </View>
+          {/* Sort By */}
+          <View style={styles.filterItem}>
+            <Text style={styles.filterLabel}>Sort By</Text>
+            <View style={styles.sortButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.sortButton, sortBy === 'distance' && styles.selectedSortButton]}
+                onPress={() => setSortBy('distance')}
+              >
+                <Text style={[styles.sortButtonText, sortBy === 'distance' && styles.selectedSortButtonText]}>
+                  Distance
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sortButton, sortBy === 'rating' && styles.selectedSortButton]}
+                onPress={() => setSortBy('rating')}
+              >
+                <Text style={[styles.sortButtonText, sortBy === 'rating' && styles.selectedSortButtonText]}>
+                  Rating
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sortButton, sortBy === 'experience' && styles.selectedSortButton]}
+                onPress={() => setSortBy('experience')}
+              >
+                <Text style={[styles.sortButtonText, sortBy === 'experience' && styles.selectedSortButtonText]}>
+                  Experience
+                </Text>
+              </TouchableOpacity>
             </View>
+          </View>
 
-            <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Availability</Text>
-              <View style={styles.availabilityContainer}>
-                <TouchableOpacity
-                  style={[styles.availabilityButton, availabilityFilter === 'all' && styles.selectedAvailabilityButton]}
-                  onPress={() => setAvailabilityFilter('all')}
-                >
-                  <Text style={styles.availabilityButtonText}>All</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.availabilityButton, availabilityFilter === 'available' && styles.selectedAvailabilityButton]}
-                  onPress={() => setAvailabilityFilter('available')}
-                >
-                  <Text style={styles.availabilityButtonText}>Available</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.availabilityButton, availabilityFilter === 'busy' && styles.selectedAvailabilityButton]}
-                  onPress={() => setAvailabilityFilter('busy')}
-                >
-                  <Text style={styles.availabilityButtonText}>Busy</Text>
-                </TouchableOpacity>
-              </View>
+          {/* Availability */}
+          <View style={styles.filterItem}>
+            <Text style={styles.filterLabel}>Availability</Text>
+            <View style={styles.availabilityContainer}>
+              <TouchableOpacity
+                style={[styles.availabilityButton, availabilityFilter === 'all' && styles.selectedAvailabilityButton]}
+                onPress={() => setAvailabilityFilter('all')}
+              >
+                <Text style={styles.availabilityButtonText}>All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.availabilityButton, availabilityFilter === 'available' && styles.selectedAvailabilityButton]}
+                onPress={() => setAvailabilityFilter('available')}
+              >
+                <Text style={styles.availabilityButtonText}>Available</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.availabilityButton, availabilityFilter === 'busy' && styles.selectedAvailabilityButton]}
+                onPress={() => setAvailabilityFilter('busy')}
+              >
+                <Text style={styles.availabilityButtonText}>Busy</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-        </View>
+          </View>
+        </ScrollView>
       )}
 
       <MapView
@@ -466,7 +530,6 @@ const HomeScreen = () => {
         showsMyLocationButton
         showsCompass
         rotateEnabled
-        accessibilityLabel="Interactive map showing your location and nearby workers"
       >
         <Marker
           coordinate={currentLocation}
@@ -525,6 +588,10 @@ const HomeScreen = () => {
                 />
                 <Text style={styles.calloutName}>{user.name}</Text>
                 <Text style={styles.calloutProfession}>{user.profession}</Text>
+                <View style={styles.accountTypeRow}>
+                  <MaterialIcons name={getAccountTypeIcon(user.accountType)} size={14} color="#666" />
+                  <Text style={styles.accountTypeText}>{user.accountType}</Text>
+                </View>
                 <View style={styles.ratingRow}>
                   {Array(5).fill(0).map((_, i) => (
                     <FontAwesome
@@ -633,166 +700,206 @@ const HomeScreen = () => {
   );
 };
 
-// Styles remain unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F6FA',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F6FA',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
-    color: '#333333',
+    fontWeight: '500',
+    color: '#6B7280',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
   searchContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
     flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1,
+    padding: 15,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   searchInput: {
     flex: 1,
-    height: 50,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
     paddingHorizontal: 15,
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: '#FFFFFF',
+    fontSize: 15,
+    color: '#374151',
   },
   filterButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginLeft: 10,
+    marginLeft: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    width: 44,
+    height: 44,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
   },
   filtersContainer: {
-    position: 'absolute',
-    top: 70,
-    left: 10,
-    right: 10,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-    zIndex: 1,
-    maxHeight: 200,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    maxHeight: 300, // Limit height to avoid overwhelming the screen
   },
   filterItem: {
-    marginRight: 20,
-    minWidth: 150,
+    marginHorizontal: 10,
+    marginBottom: 15,
   },
   filterLabel: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 8,
-    color: '#333333',
+    color: '#1F2A44',
   },
   sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 5,
   },
   sliderTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#E0E0E0',
+    height: 6,
+    width: 120,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
     marginHorizontal: 10,
-    borderRadius: 2,
-    overflow: 'hidden',
   },
   sliderFill: {
-    height: '100%',
-    backgroundColor: '#007BFF',
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: '#3B82F6',
+    borderRadius: 3,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginHorizontal: 10,
+    marginBottom: 5,
+  },
+  accordionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2A44',
+  },
+  accordionContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginHorizontal: 10,
+    marginBottom: 15,
   },
   professionChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginRight: 8,
-    marginTop: 5,
   },
   selectedProfessionChip: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#3B82F6',
   },
   professionChipText: {
-    fontSize: 14,
-    color: '#333333',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
   },
   selectedProfessionChipText: {
     color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  accountTypeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 8,
+  },
+  selectedAccountTypeChip: {
+    backgroundColor: '#3B82F6',
+  },
+  accountTypeIcon: {
+    marginRight: 6,
+  },
+  accountTypeChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  selectedAccountTypeChipText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   ratingContainer: {
     flexDirection: 'row',
-    marginTop: 5,
+    alignItems: 'center',
   },
   sortButtonsContainer: {
     flexDirection: 'row',
-    marginTop: 5,
+    flexWrap: 'wrap',
   },
   sortButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginRight: 8,
+    marginBottom: 8,
   },
   selectedSortButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#3B82F6',
   },
   sortButtonText: {
-    fontSize: 12,
-    color: '#333333',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
   },
   selectedSortButtonText: {
     color: '#FFFFFF',
+    fontWeight: '600',
   },
   availabilityContainer: {
     flexDirection: 'row',
-    marginTop: 5,
+    flexWrap: 'wrap',
   },
   availabilityButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginRight: 8,
+    marginBottom: 8,
   },
   selectedAvailabilityButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#3B82F6',
   },
   availabilityButtonText: {
-    fontSize: 12,
-    color: '#333333',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
   },
   markerContainer: {
     alignItems: 'center',
@@ -804,195 +911,215 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    backgroundColor: '#F3F4F6',
   },
   statusIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
     width: 12,
     height: 12,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
   },
   calloutContainer: {
     width: 220,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
+    borderRadius: 12,
+    padding: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
   },
   calloutImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignSelf: 'center',
+    marginBottom: 12,
+    backgroundColor: '#F3F4F6',
   },
   calloutName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#1F2A44',
+    marginBottom: 4,
   },
   calloutProfession: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 5,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  accountTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  accountTypeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginLeft: 6,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
   starIcon: {
-    marginHorizontal: 1,
+    marginHorizontal: 2,
   },
   ratingText: {
-    fontSize: 14,
-    color: '#666666',
-    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginLeft: 6,
   },
   calloutDetail: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   calloutDetailText: {
-    fontSize: 14,
-    color: '#666666',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
     marginLeft: 6,
-    flex: 1,
   },
   availabilityBadge: {
-    paddingHorizontal: 10,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    marginVertical: 8,
+    marginTop: 8,
+    marginBottom: 12,
   },
   availabilityText: {
-    fontSize: 12,
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
   },
   contactButton: {
-    backgroundColor: '#007BFF',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 4,
-    width: '100%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    paddingVertical: 10,
     alignItems: 'center',
+    elevation: 2,
   },
   contactButtonText: {
     color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: 14,
-    fontWeight: 'bold',
   },
   locationInputButton: {
     position: 'absolute',
-    right: 10,
-    bottom: 120,
+    bottom: 90,
+    right: 20,
+    backgroundColor: '#3B82F6',
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#007BFF',
-    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    alignItems: 'center',
+    elevation: 6,
   },
   emergencyButton: {
     position: 'absolute',
-    left: 10,
     bottom: 20,
+    right: 20,
+    backgroundColor: '#EF4444',
     flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FF3B30',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    elevation: 6,
   },
   emergencyButtonText: {
-    marginLeft: 8,
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 6,
   },
   resultCountContainer: {
     position: 'absolute',
-    bottom: 80,
-    left: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 8,
-    padding: 8,
+    top: 70,
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
   resultCountText: {
-    fontSize: 14,
-    color: '#333333',
+    backgroundColor: 'rgba(31, 41, 68, 0.8)',
+    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
+    width: '85%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    alignItems: 'center',
+    elevation: 8,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 5,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#1F2A44',
+    marginBottom: 8,
   },
   modalSubtitle: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
     marginBottom: 20,
   },
   emergencyOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
-    width: '100%',
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
   },
   emergencyOptionText: {
-    fontSize: 16,
-    color: '#333333',
-    marginLeft: 15,
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 16,
+    color: '#1F2A44',
   },
   closeButton: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginTop: 10,
+    alignItems: 'center',
+    marginTop: 12,
   },
   closeButtonText: {
-    fontSize: 16,
-    color: '#333333',
-  }
+    color: '#1F2A44',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });
 
 export default HomeScreen;

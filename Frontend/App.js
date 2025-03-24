@@ -48,6 +48,9 @@ import ChatScreen from './src/screens/MarketScreens/ChatBox';
 import ChatList from './src/screens/MarketScreens/ChatList';
 import UploaderProfile from './src/screens/UploaderProfile';
 import ContactProfessional from './src/screens/ContactProfessional';
+import JobRequestForm from './src/screens/JobRequestForm';
+import WorkerChatScreen from './src/screens/WorkerChatScreen';
+import WorkerChatsList from './src/screens/WorkerChatList';
 
 
 const Stack = createStackNavigator();
@@ -92,6 +95,9 @@ export default function App() {
                 <Stack.Screen name="ChatList" component={ChatList} />
                 <Stack.Screen name="UploaderProfile" component={UploaderProfile} />
                 <Stack.Screen name="ContactProfessional" component={ContactProfessional} />
+                <Stack.Screen name="JobRequestForm" component={JobRequestForm} />
+                <Stack.Screen name="WorkerChatScreen" component={WorkerChatScreen} />
+                <Stack.Screen name="WorkerChatList" component={WorkerChatsList} />
               </Stack.Navigator>
             </NavigationContainer>
           </UserProvider>
