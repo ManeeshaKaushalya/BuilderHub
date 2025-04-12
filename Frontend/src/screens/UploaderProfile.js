@@ -19,8 +19,11 @@ import { firestore } from '../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import Post from './Posts';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE'; // Replace with your actual API key
 
 function UploaderProfile() {
     const route = useRoute();
@@ -44,6 +47,9 @@ function UploaderProfile() {
         followersCount: 0,
         followingCount: 0
     });
+    const [currentLocation, setCurrentLocation] = useState(null);
+    const [routeCoordinates, setRouteCoordinates] = useState([]);
+    const [mapError, setMapError] = useState(null);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -106,7 +112,26 @@ function UploaderProfile() {
             }
         };
 
+        const getCurrentLocation = async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                    setCurrentLocation({
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude
+                    });
+                } else {
+                    setMapError('Location permission denied');
+                }
+            } catch (error) {
+                console.error('Error getting current location:', error);
+                setMapError('Failed to get current location');
+            }
+        };
+
         fetchUserProfile();
+        getCurrentLocation();
     }, [profileId, currentUser]);
 
     useEffect(() => {
@@ -148,6 +173,45 @@ function UploaderProfile() {
             fetchUserPosts();
         }
     }, [profileId, userProfile]);
+
+    useEffect(() => {
+        const fetchRoute = async () => {
+            if (!currentLocation || !userProfile?.location) return;
+
+            const userLocation = parseLocationString(userProfile.location);
+            if (!userLocation) {
+                setMapError('Invalid user location');
+                setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+                return;
+            }
+
+            try {
+                const url = `https://maps.googleapis.com/maps/api/directions/json?` +
+                    `origin=${currentLocation.latitude},${currentLocation.longitude}` +
+                    `&destination=${userLocation.latitude},${userLocation.longitude}` +
+                    `&key=${GOOGLE_MAPS_API_KEY}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.status === 'OK' && data.routes.length) {
+                    const points = decodePolyline(data.routes[0].overview_polyline.points);
+                    setRouteCoordinates(points);
+                    setMapError(null);
+                } else {
+                    console.warn('No route found:', data.status);
+                    setMapError('No route found');
+                    setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+                }
+            } catch (error) {
+                console.error('Error fetching route:', error);
+                setMapError('Failed to fetch route');
+                setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+            }
+        };
+
+        fetchRoute();
+    }, [currentLocation, userProfile]);
 
     useEffect(() => {
         Animated.timing(ratingAnimation, {
@@ -248,6 +312,46 @@ function UploaderProfile() {
         }
     };
 
+    const parseLocationString = (locationString) => {
+        if (!locationString) return null;
+        const [latitude, longitude] = locationString.split(',').map(coord => parseFloat(coord.trim()));
+        if (isNaN(latitude) || isNaN(longitude)) return null;
+        return { latitude, longitude };
+    };
+
+    const decodePolyline = (encoded) => {
+        let points = [];
+        let index = 0, len = encoded.length;
+        let lat = 0, lng = 0;
+
+        while (index < len) {
+            let b, shift = 0, result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            points.push({
+                latitude: lat / 1e5,
+                longitude: lng / 1e5
+            });
+        }
+        return points;
+    };
+
     const renderStars = (rating, onRatingPress, size = 24) => {
         const stars = [];
         const maxStars = 5;
@@ -293,6 +397,8 @@ function UploaderProfile() {
             </View>
         );
     }
+
+    const userLocation = parseLocationString(userProfile.location);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -346,6 +452,44 @@ function UploaderProfile() {
                             <Text style={styles.bioText}>{userProfile.bio}</Text>
                         ) : null}
                     </View>
+
+                    {currentLocation && userLocation ? (
+                        <View style={styles.mapContainer}>
+                            <MapView
+                                provider={PROVIDER_GOOGLE}
+                                style={styles.map}
+                                initialRegion={{
+                                    latitude: (currentLocation.latitude + userLocation.latitude) / 2,
+                                    longitude: (currentLocation.longitude + userLocation.longitude) / 2,
+                                    latitudeDelta: Math.abs(currentLocation.latitude - userLocation.latitude) * 1.5,
+                                    longitudeDelta: Math.abs(currentLocation.longitude - userLocation.longitude) * 1.5,
+                                }}
+                            >
+                                <Marker
+                                    coordinate={currentLocation}
+                                    title="My Location"
+                                    pinColor="#007BFF"
+                                />
+                                <Marker
+                                    coordinate={userLocation}
+                                    title={userProfile.name}
+                                    pinColor="#FF0000"
+                                />
+                                {routeCoordinates.length > 0 && (
+                                    <Polyline
+                                        coordinates={routeCoordinates}
+                                        strokeColor="#007BFF"
+                                        strokeWidth={3}
+                                    />
+                                )}
+                            </MapView>
+                            {mapError && (
+                                <Text style={styles.mapErrorText}>{mapError}</Text>
+                            )}
+                        </View>
+                    ) : (
+                        <Text style={styles.mapErrorText}>Location data unavailable</Text>
+                    )}
 
                     <Animated.View 
                         style={[
@@ -612,6 +756,26 @@ const styles = StyleSheet.create({
         marginTop: 15,
         lineHeight: 20,
     },
+    mapContainer: {
+        marginHorizontal: 15,
+        marginBottom: 20,
+        width: width - 60,
+        height: width - 60,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+    },
+    map: {
+        width: '100%',
+        height: '100%',
+    },
+    mapErrorText: {
+        textAlign: 'center',
+        color: '#FF0000',
+        fontSize: 14,
+        marginTop: 5,
+    },
     ratingCard: {
         marginHorizontal: 15,
         marginBottom: 20,
@@ -744,7 +908,7 @@ const styles = StyleSheet.create({
     },
     messageButton: {
         flex: 1,
-        backgroundColor: '#0095f6', // Changed to match follow button style
+        backgroundColor: '#0095f6',
         borderRadius: 8,
         padding: 12,
         alignItems: 'center',
@@ -752,7 +916,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     messageButtonText: {
-        color: '#fff', // Changed to white for consistency
+        color: '#fff',
         fontWeight: '600',
         fontSize: 15,
     },

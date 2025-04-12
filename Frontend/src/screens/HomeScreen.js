@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal, Linking } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../context/ThemeContext';
@@ -245,13 +245,27 @@ const HomeScreen = () => {
   const handleMarkerPress = (user) => {
     console.log('Clicked user ID:', user.id);
     Alert.alert(
-      'Visit Profile',
-      `Would you want to visit ${user.name}'s profile?`,
+      `${user.name}'s Options`,
+      `Choose an action for ${user.name}`,
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes',
+          text: 'View Profile',
           onPress: () => navigation.navigate('UploaderProfile', { userId: user.id })
+        },
+        {
+          text: 'Get Directions',
+          onPress: () => {
+            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1` +
+              `&origin=${currentLocation.latitude},${currentLocation.longitude}` +
+              `&destination=${user.latitude},${user.longitude}` +
+              `&travelmode=driving`;
+            
+            Linking.openURL(googleMapsUrl).catch(err => {
+              console.error('Error opening Google Maps:', err);
+              Alert.alert('Error', 'Unable to open Google Maps');
+            });
+          }
         }
       ],
       { cancelable: true }
