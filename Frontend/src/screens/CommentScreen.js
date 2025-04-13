@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { firestore } from '../../firebase/firebaseConfig';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, Animated } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 const CommentScreen = () => {
   const route = useRoute();
@@ -25,7 +26,34 @@ const CommentScreen = () => {
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
-    fetchComments();
+    if (!postId) return;
+
+    const commentsRef = collection(firestore, 'posts', postId, 'comments');
+    const unsubscribe = onSnapshot(commentsRef, async (snapshot) => {
+      try {
+        const fetchedComments = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        const sortedComments = fetchedComments.sort(
+          (a, b) => (b.timestamp?.toDate() || new Date()) - (a.timestamp?.toDate() || new Date())
+        );
+        setComments(sortedComments);
+
+        const userIds = fetchedComments.map((comment) => comment.userId);
+        await fetchUserDetails(userIds);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        Toast.show({ type: 'error', text1: 'Failed to load comments' });
+      } finally {
+        setIsLoading(false);
+      }
+    }, (error) => {
+      console.error('Snapshot error:', error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [postId]);
 
   const fetchUserDetails = async (userIds) => {
@@ -47,39 +75,19 @@ const CommentScreen = () => {
     setUserDetails(details);
   };
 
-  const fetchComments = async () => {
-    try {
-      const postRef = doc(firestore, 'posts', postId);
-      const postSnap = await getDoc(postRef);
-
-      if (postSnap.exists()) {
-        const fetchedComments = postSnap.data().comments || [];
-        const sortedComments = fetchedComments.sort((a, b) => b.timestamp - a.timestamp);
-        setComments(sortedComments);
-
-        const userIds = fetchedComments.map(comment => comment.userId);
-        await fetchUserDetails(userIds);
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Just now';
 
     try {
-      const now = Date.now();
-      const diff = now - timestamp;
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
 
       if (diff < 60000) return 'Just now';
       if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
       if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
       if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
 
-      const date = new Date(timestamp);
       return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -89,27 +97,26 @@ const CommentScreen = () => {
     }
   };
 
-  const handleLike = async (commentIndex) => {
+  const handleLike = async (commentId) => {
     try {
-      const comment = comments[commentIndex];
+      const commentRef = doc(firestore, 'posts', postId, 'comments', commentId);
+      const comment = comments.find((c) => c.id === commentId);
       const hasLiked = comment.likes?.includes(userId);
 
-      const updatedComments = [...comments];
-      if (hasLiked) {
-        updatedComments[commentIndex].likes = comment.likes.filter(id => id !== userId);
-      } else {
-        updatedComments[commentIndex].likes = [...(comment.likes || []), userId];
-      }
+      const updatedLikes = hasLiked
+        ? comment.likes.filter((id) => id !== userId)
+        : [...(comment.likes || []), userId];
 
-      const postRef = doc(firestore, 'posts', postId);
-      await updateDoc(postRef, {
-        comments: updatedComments,
-      });
+      await updateDoc(commentRef, { likes: updatedLikes });
 
-      setComments(updatedComments);
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === commentId ? { ...c, likes: updatedLikes } : c
+        )
+      );
     } catch (error) {
-      console.error('Error updating like:', error.message, error.code);
-      Alert.alert('Error', 'Failed to update like. Please try again.');
+      console.error('Error updating like:', error);
+      Toast.show({ type: 'error', text1: 'Failed to update like' });
     }
   };
 
@@ -134,9 +141,8 @@ const CommentScreen = () => {
   };
 
   const handleDeleteComment = async (commentIndex) => {
-    const commentToDelete = comments[commentIndex];
-
-    if (commentToDelete.userId !== userId) return;
+    const comment = comments[commentIndex];
+    if (comment.userId !== userId) return;
 
     Alert.alert(
       'Delete Comment',
@@ -148,62 +154,53 @@ const CommentScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const postRef = doc(firestore, 'posts', postId);
-              const updatedComments = comments.filter((_, index) => index !== commentIndex);
-
-              await updateDoc(postRef, {
-                comments: updatedComments,
-              });
-
-              setComments(updatedComments);
+              const commentRef = doc(firestore, 'posts', postId, 'comments', comment.id);
+              await deleteDoc(commentRef);
+              // onSnapshot will automatically update the comments state
             } catch (error) {
-              console.error('Error deleting comment:', error.message, error.code);
-              Alert.alert('Error', 'Failed to delete comment. Please try again.');
+              console.error('Error deleting comment:', error);
+              Toast.show({ type: 'error', text1: 'Failed to delete comment' });
             }
           },
         },
-      ],
+      ]
     );
   };
 
   const handleAddComment = async () => {
-    if (!userId || newComment.trim() === '') return;
-
+    if (!userId || !newComment.trim()) return;
     setIsPosting(true);
     try {
+      const commentsRef = collection(firestore, 'posts', postId, 'comments');
       const commentData = {
         userId,
         text: newComment.trim(),
-        timestamp: Date.now(),
+        timestamp: new Date(),
         likes: [],
-        replyTo: replyTo,
+        replyTo: replyTo ? { userId: replyTo.userId, name: replyTo.name } : null,
       };
+      await addDoc(commentsRef, commentData);
 
+      // Send notification
       const postRef = doc(firestore, 'posts', postId);
-      const currentDoc = await getDoc(postRef);
-      const currentComments = currentDoc.data()?.comments || [];
-
-      await updateDoc(postRef, {
-        comments: [...currentComments, commentData],
-      });
-
-      if (!userDetails[userId]) {
-        const userRef = doc(firestore, 'users', userId);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          setUserDetails(prev => ({
-            ...prev,
-            [userId]: userSnap.data(),
-          }));
-        }
+      const postSnap = await getDoc(postRef);
+      if (postSnap.exists() && postSnap.data().uid !== userId) {
+        const notificationsRef = collection(firestore, 'users', postSnap.data().uid, 'notifications');
+        await addDoc(notificationsRef, {
+          type: 'comment',
+          postId,
+          actorId: userId,
+          message: newComment.trim().substring(0, 50),
+          timestamp: new Date(),
+          read: false,
+        });
       }
 
-      setComments(prevComments => [commentData, ...prevComments]);
       setNewComment('');
       setReplyTo(null);
     } catch (error) {
-      console.error('Error posting comment:', error.message, error.code);
-      Alert.alert('Error', 'Failed to post comment. Please try again.');
+      console.error('Error adding comment:', error);
+      Toast.show({ type: 'error', text1: 'Failed to post comment' });
     } finally {
       setIsPosting(false);
     }
@@ -243,7 +240,7 @@ const CommentScreen = () => {
                 <Text style={styles.commentText}>{item.text}</Text>
               </View>
               <View style={styles.commentActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleLike(index)}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => handleLike(item.id)}>
                   <Text style={[styles.actionText, hasLiked && styles.likedText]}>
                     Like {likeCount > 0 && `(${likeCount})`}
                   </Text>
@@ -293,7 +290,7 @@ const CommentScreen = () => {
     >
       <FlatList
         data={comments}
-        keyExtractor={(item, index) => `${item.userId}-${index}`}
+        keyExtractor={(item) => item.id}
         renderItem={renderComment}
         contentContainerStyle={styles.commentsList}
         ListEmptyComponent={<Text style={styles.emptyText}>No comments yet. Be the first to comment!</Text>}
@@ -310,7 +307,7 @@ const CommentScreen = () => {
 
       <View style={styles.commentInputContainer}>
         <Image
-          source={{ uri: userDetails[userId]?.profileImage || 'https://via.placeholder.com/40' }}
+          source={{ uri: user?.photoURL || userDetails[userId]?.profileImage || 'https://via.placeholder.com/40' }}
           style={styles.inputProfileImage}
         />
         <TextInput

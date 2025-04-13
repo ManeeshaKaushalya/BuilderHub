@@ -7,7 +7,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../firebase/firebaseConfig';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Video } from 'expo-av';
 import { useTheme } from '../context/ThemeContext';
@@ -140,31 +140,36 @@ function Post({
         }
     };
 
-    const handleLike = async () => {
-        if (!userId) {
-            console.log("Cannot like post: no user authenticated");
-            return;
+// In Post.js
+const handleLike = async () => {
+    if (!userId) return;
+    const postRef = doc(firestore, 'posts', postId);
+    try {
+      if (isLiked) {
+        await updateDoc(postRef, {
+          likes: likes - 1,
+          likedBy: arrayRemove(userId),
+        });
+      } else {
+        await updateDoc(postRef, {
+          likes: likes + 1,
+          likedBy: arrayUnion(userId),
+        });
+        if (ownerId !== userId) {
+          const notificationsRef = collection(firestore, 'users', ownerId, 'notifications');
+          await addDoc(notificationsRef, {
+            type: 'like',
+            postId,
+            actorId: userId,
+            timestamp: new Date(),
+            read: false,
+          });
         }
-
-        const postRef = doc(firestore, 'posts', postId);
-        try {
-            if (isLiked) {
-                await updateDoc(postRef, {
-                    likes: likes - 1,
-                    likedBy: arrayRemove(userId)
-                });
-                console.log("Unliked post:", postId);
-            } else {
-                await updateDoc(postRef, {
-                    likes: likes + 1,
-                    likedBy: arrayUnion(userId)
-                });
-                console.log("Liked post:", postId);
-            }
-        } catch (error) {
-            console.error('Error updating likes:', error);
-        }
-    };
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
 
     const handleSavePost = async () => {
         if (!userId) {

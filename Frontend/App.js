@@ -5,8 +5,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper'; // Import Paper Provider
 import { LogBox } from 'react-native';
+import Toast from 'react-native-toast-message';
 LogBox.ignoreLogs([
-  'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation'
+  'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation',
+'Text strings must be rendered within a <Text> component'
 ]);
 
 
@@ -51,6 +53,7 @@ import ContactProfessional from './src/screens/ContactProfessional';
 import JobRequestForm from './src/screens/JobRequestForm';
 import WorkerChatScreen from './src/screens/WorkerChatScreen';
 import WorkerChatsList from './src/screens/WorkerChatList';
+import PostDetails from './src/screens/PostDetails';
 
 
 const Stack = createStackNavigator();
@@ -98,11 +101,14 @@ export default function App() {
                 <Stack.Screen name="JobRequestForm" component={JobRequestForm} />
                 <Stack.Screen name="WorkerChatScreen" component={WorkerChatScreen} />
                 <Stack.Screen name="WorkerChatList" component={WorkerChatsList} />
+                <Stack.Screen name="PostDetails" component={PostDetails} />
               </Stack.Navigator>
             </NavigationContainer>
+            <Toast />
           </UserProvider>
         </ThemeProvider>
       </PaperProvider>
     </SafeAreaProvider>
+    
   );
 }

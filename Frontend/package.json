@@ -28,9 +28,11 @@
     "axios": "^1.7.9",
     "expo": "~52.0.28",
     "expo-asset": "~11.0.3",
+    "expo-av": "~15.0.2",
     "expo-blur": "~14.0.3",
     "expo-document-picker": "~13.0.3",
     "expo-font": "~13.0.3",
+    "expo-image-manipulator": "~13.0.6",
     "expo-image-picker": "^16.0.6",
     "expo-linear-gradient": "~14.0.2",
     "expo-location": "~18.0.8",
@@ -40,6 +42,7 @@
     "expo-status-bar": "~2.0.1",
     "firebase": "^11.3.0",
     "lucide-react-native": "^0.475.0",
+    "moment": "^2.30.1",
     "react": "18.3.1",
     "react-native": "0.76.6",
     "react-native-dotenv": "^3.4.11",
@@ -55,12 +58,11 @@
     "react-native-safe-area-context": "^5.2.0",
     "react-native-screens": "^4.9.0",
     "react-native-svg": "^15.11.1",
+    "react-native-toast-message": "^2.2.1",
     "react-native-vector-icons": "^10.2.0",
     "react-navigation": "^4.4.4",
     "react-navigation-stack": "^2.10.4",
-    "uuid": "^3.4.0",
-    "expo-av": "~15.0.2",
-    "expo-image-manipulator": "~13.0.6"
+    "uuid": "^3.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

@@ -13,7 +13,7 @@ import {
     Platform
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons, Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -50,6 +50,7 @@ function UploaderProfile() {
     const [currentLocation, setCurrentLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [mapError, setMapError] = useState(null);
+    const [showAllSkills, setShowAllSkills] = useState(false);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -75,9 +76,14 @@ function UploaderProfile() {
                         followers: userData.followers || [],
                         following: userData.following || [],
                         ratings: userData.ratings || {},
-                        profession: userData.profession || 'Creator',
+                        profession: userData.profession || 'Professional',
                         location: userData.location || null,
                         website: userData.website || null,
+                        skills: userData.skills ? (typeof userData.skills === 'string' ? [userData.skills] : userData.skills) : [],
+                        experience: userData.experience || [],
+                        education: userData.education || [],
+                        certifications: userData.certifications || [],
+                        yearsOfExperience: userData.yearsOfExperience || 0,
                     });
 
                     if (currentUser) {
@@ -376,6 +382,10 @@ function UploaderProfile() {
         return stars;
     };
 
+    const toggleShowAllSkills = () => {
+        setShowAllSkills(!showAllSkills);
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -432,7 +442,17 @@ function UploaderProfile() {
                 <View style={styles.profileInfoCard}>
                     <View style={styles.userInfoSection}>
                         <Text style={styles.nameText}>{userProfile.name}</Text>
-                        <Text style={styles.professionText}>{userProfile.profession}</Text>
+                        <View style={styles.professionContainer}>
+                            <MaterialCommunityIcons name="briefcase" size={16} color="#0095f6" />
+                            <Text style={styles.professionText}>{userProfile.profession}</Text>
+                            {userProfile.yearsOfExperience > 0 && (
+                                <View style={styles.experienceTag}>
+                                    <Text style={styles.experienceTagText}>
+                                        {userProfile.yearsOfExperience}+ yrs exp
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
                         
                         {userProfile.location && (
                             <View style={styles.infoRow}>
@@ -452,6 +472,119 @@ function UploaderProfile() {
                             <Text style={styles.bioText}>{userProfile.bio}</Text>
                         ) : null}
                     </View>
+
+                    {/* Professional Skills Section */}
+                    {userProfile.skills && Array.isArray(userProfile.skills) && userProfile.skills.length > 0 && (
+    <View style={styles.professionalSection}>
+        <View style={styles.sectionTitleRow}>
+            <MaterialCommunityIcons name="lightning-bolt" size={18} color="#0095f6" />
+            <Text style={styles.professionalSectionTitle}>Skills</Text>
+        </View>
+        <View style={styles.skillsContainer}>
+            {(showAllSkills ? userProfile.skills : userProfile.skills.slice(0, 5)).map((skill, index) => (
+                <View key={index} style={styles.skillBadge}>
+                    <Text style={styles.skillText}>{skill}</Text>
+                </View>
+            ))}
+        </View>
+        {userProfile.skills.length > 5 && (
+            <TouchableOpacity 
+                style={styles.showMoreButton} 
+                onPress={toggleShowAllSkills}
+            >
+                <Text style={styles.showMoreText}>
+                    {showAllSkills 
+                        ? "Show Less" 
+                        : `Show All (${userProfile.skills.length})`}
+                </Text>
+                <Ionicons 
+                    name={showAllSkills ? "chevron-up" : "chevron-down"} 
+                    size={16} 
+                    color="#0095f6" 
+                />
+            </TouchableOpacity>
+        )}
+    </View>
+)}
+
+                    {/* Experience Section */}
+                    {userProfile.experience && Array.isArray(userProfile.experience) && userProfile.experience.length > 0 && (
+    <View style={styles.professionalSection}>
+        <View style={styles.sectionTitleRow}>
+            <MaterialIcons name="work" size={18} color="#0095f6" />
+            <Text style={styles.professionalSectionTitle}>Work Experience</Text>
+        </View>
+        <View style={styles.experienceContainer}>
+            {userProfile.experience.map((exp, index) => (
+                <View key={index} style={styles.experienceItem}>
+                    {exp.companyLogo ? (
+                        <Image 
+                            source={{ uri: exp.companyLogo }} 
+                            style={styles.companyLogo} 
+                        />
+                    ) : (
+                        <View style={styles.companyLogoPlaceholder}>
+                            <MaterialIcons name="business" size={22} color="#666" />
+                        </View>
+                    )}
+                    <View style={styles.experienceDetails}>
+                        <Text style={styles.experienceRole}>{exp.role}</Text>
+                        <Text style={styles.experienceCompany}>{exp.company}</Text>
+                        <Text style={styles.experiencePeriod}>
+                            {exp.startDate} - {exp.endDate || 'Present'}
+                        </Text>
+                        {exp.description && (
+                            <Text style={styles.experienceDescription}>
+                                {exp.description}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+            ))}
+        </View>
+    </View>
+)}
+                    {/* Education & Certification Section */}
+                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) || 
+ (userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0)) ? (
+    <View style={styles.professionalSection}>
+        {userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0 && (
+            <>
+                <View style={styles.sectionTitleRow}>
+                    <Ionicons name="school" size={18} color="#0095f6" />
+                    <Text style={styles.professionalSectionTitle}>Education</Text>
+                </View>
+                <View style={styles.educationContainer}>
+                    {userProfile.education.map((edu, index) => (
+                        <View key={index} style={styles.educationItem}>
+                            <Text style={styles.educationDegree}>{edu.degree}</Text>
+                            <Text style={styles.educationInstitution}>{edu.institution}</Text>
+                            <Text style={styles.educationYear}>{edu.year}</Text>
+                        </View>
+                    ))}
+                </View>
+            </>
+        )}
+
+        {userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0 && (
+            <>
+                <View style={[styles.sectionTitleRow, {marginTop: 15}]}>
+                    <MaterialCommunityIcons name="certificate" size={18} color="#0095f6" />
+                    <Text style={styles.professionalSectionTitle}>Certifications</Text>
+                </View>
+                <View style={styles.certificationsContainer}>
+                    {userProfile.certifications.map((cert, index) => (
+                        <View key={index} style={styles.certificationItem}>
+                            <Text style={styles.certificationName}>{cert.name}</Text>
+                            <Text style={styles.certificationIssuer}>{cert.issuer}</Text>
+                            <Text style={styles.certificationDate}>{cert.date}</Text>
+                        </View>
+                    ))}
+                </View>
+            </>
+        )}
+    </View>
+) : null}
 
                     {currentLocation && userLocation ? (
                         <View style={styles.mapContainer}>
@@ -531,7 +664,7 @@ function UploaderProfile() {
                             {currentUser && currentUser.uid !== profileId && (
                                 <View style={styles.userRatingContainer}>
                                     <Text style={styles.userRatingTitle}>
-                                        {userRating > 0 ? 'Your Rating' : 'Rate This Profile'}
+                                        {userRating > 0 ? 'Your Rating' : 'Rate This Professional'}
                                     </Text>
                                     <View style={styles.userRatingStars}>
                                         {renderStars(userRating, handleRating, 26)}
@@ -628,279 +761,413 @@ function UploaderProfile() {
         </SafeAreaView>
     );
 }
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: '#f5f5f5',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        padding: 20,
+    },
+    errorText: {
+        fontSize: 18,
+        color: '#ff3b30',
+        marginBottom: 20,
+    },
+    backButtonFallback: {
+        backgroundColor: '#0095f6',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+    },
+    backButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
     },
     header: {
+        backgroundColor: '#0095f6',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 15,
         paddingVertical: 12,
-        backgroundColor: '#192f6a',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    headerIconButton: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
+        paddingHorizontal: 16,
     },
     backButtonIcon: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
+        padding: 5,
+    },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    headerIconButton: {
+        padding: 5,
     },
     coverContainer: {
+        height: 160,
         width: '100%',
-        height: 200,
     },
     coverGradient: {
-        width: '100%',
         height: '100%',
-        justifyContent: 'flex-end',
+        width: '100%',
         alignItems: 'center',
+        justifyContent: 'flex-end',
     },
     profileImageContainer: {
-        width: 120,
-        height: 120,
-        marginBottom: -60,
-        borderRadius: 60,
-        borderWidth: 4,
-        borderColor: '#fff',
-        overflow: 'hidden',
-        backgroundColor: '#fff',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.2,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 5,
-            },
-        }),
+        position: 'absolute',
+        bottom: -50,
+        alignItems: 'center',
     },
     profileImage: {
-        width: '100%',
-        height: '100%',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 4,
+        borderColor: '#fff',
     },
     onlineIndicator: {
         position: 'absolute',
-        width: 20,
-        height: 20,
-        backgroundColor: '#4CAF50',
-        borderRadius: 10,
-        bottom: 0,
-        right: 0,
-        borderWidth: 3,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#4CD964',
+        borderWidth: 2,
         borderColor: '#fff',
+        bottom: 12,
+        right: 6,
     },
     profileInfoCard: {
         backgroundColor: '#fff',
-        borderRadius: 15,
-        marginTop: 70,
-        marginHorizontal: 15,
-        paddingTop: 60,
-        paddingBottom: 20,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 5,
-            },
-            android: {
-                elevation: 3,
-            },
-        }),
+        marginTop: 60,
+        marginHorizontal: 12,
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     userInfoSection: {
-        paddingHorizontal: 15,
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     nameText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 4,
+    },
+    professionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
     },
     professionText: {
+        color: '#0095f6',
         fontSize: 16,
-        color: '#666',
-        marginTop: 4,
+        fontWeight: '500',
+        marginLeft: 5,
+    },
+    experienceTag: {
+        backgroundColor: '#e4f2ff',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        marginLeft: 8,
+    },
+    experienceTagText: {
+        color: '#0095f6',
+        fontSize: 12,
+        fontWeight: '500',
     },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 8,
+        marginBottom: 6,
     },
     infoText: {
-        marginLeft: 5,
-        fontSize: 14,
         color: '#666',
+        fontSize: 14,
+        marginLeft: 6,
     },
     bioText: {
-        fontSize: 14,
         color: '#333',
+        fontSize: 15,
         textAlign: 'center',
-        marginTop: 15,
-        lineHeight: 20,
+        marginTop: 8,
+        lineHeight: 22,
     },
-    mapContainer: {
-        marginHorizontal: 15,
-        marginBottom: 20,
-        width: width - 60,
-        height: width - 60,
-        borderRadius: 12,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
+    professionalSection: {
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
     },
-    map: {
-        width: '100%',
-        height: '100%',
-    },
-    mapErrorText: {
-        textAlign: 'center',
-        color: '#FF0000',
-        fontSize: 14,
-        marginTop: 5,
-    },
-    ratingCard: {
-        marginHorizontal: 15,
-        marginBottom: 20,
-        borderRadius: 12,
-        overflow: 'hidden',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 2,
-            },
-            android: {
-                elevation: 2,
-            },
-        }),
-    },
-    ratingGradient: {
-        padding: 15,
-        borderRadius: 12,
-    },
-    ratingHeader: {
+    sectionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
     },
+    professionalSectionTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#333',
+        marginLeft: 6,
+    },
+    skillsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    skillBadge: {
+        backgroundColor: '#e4f2ff',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginRight: 8,
+        marginBottom: 8,
+    },
+    skillText: {
+        color: '#0095f6',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    showMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+    },
+    showMoreText: {
+        color: '#0095f6',
+        fontSize: 14,
+        fontWeight: '500',
+        marginRight: 4,
+    },
+    experienceContainer: {
+        marginTop: 4,
+    },
+    experienceItem: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    companyLogo: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+    },
+    companyLogoPlaceholder: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        backgroundColor: '#e4e8f0',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    experienceDetails: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    experienceRole: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+    },
+    experienceCompany: {
+        fontSize: 14,
+        color: '#444',
+        marginTop: 2,
+    },
+    experiencePeriod: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 2,
+    },
+    experienceDescription: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 4,
+        lineHeight: 18,
+    },
+    educationContainer: {
+        marginTop: 4,
+    },
+    educationItem: {
+        marginBottom: 12,
+    },
+    educationDegree: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+    },
+    educationInstitution: {
+        fontSize: 14,
+        color: '#444',
+        marginTop: 2,
+    },
+    educationYear: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 2,
+    },
+    certificationsContainer: {
+        marginTop: 4,
+    },
+    certificationItem: {
+        marginBottom: 12,
+    },
+    certificationName: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+    },
+    certificationIssuer: {
+        fontSize: 14,
+        color: '#444',
+        marginTop: 2,
+    },
+    certificationDate: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 2,
+    },
+    mapContainer: {
+        height: 200,
+        marginTop: 20,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    map: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    mapErrorText: {
+        color: '#ff3b30',
+        textAlign: 'center',
+        marginTop: 20,
+        fontSize: 14,
+    },
+    ratingCard: {
+        marginTop: 20,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    ratingGradient: {
+        padding: 16,
+    },
+    ratingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     ratingTitle: {
         fontSize: 16,
         fontWeight: '600',
-        marginLeft: 8,
         color: '#333',
+        marginLeft: 6,
     },
     ratingValue: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+        marginTop: 10,
     },
     ratingNumber: {
-        fontSize: 36,
-        fontWeight: 'bold',
-        marginRight: 15,
+        fontSize: 30,
+        fontWeight: '700',
         color: '#333',
+        marginRight: 12,
     },
     ratingStarsContainer: {
         flex: 1,
     },
     ratingStarsRow: {
         flexDirection: 'row',
-        marginBottom: 5,
     },
     ratingCount: {
-        fontSize: 12,
         color: '#666',
+        fontSize: 12,
+        marginTop: 2,
     },
     userRatingContainer: {
-        marginTop: 15,
-        paddingTop: 15,
+        marginTop: 16,
+        paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
+        borderTopColor: 'rgba(0,0,0,0.1)',
     },
     userRatingTitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#444',
         marginBottom: 8,
-        color: '#555',
     },
     userRatingStars: {
         flexDirection: 'row',
-        justifyContent: 'center',
     },
     starContainer: {
-        padding: 3,
+        marginRight: 6,
     },
     statsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        paddingVertical: 15,
-        marginBottom: 20,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: '#f0f0f0',
+        marginTop: 20,
+        padding: 12,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 12,
     },
     statItem: {
-        flex: 1,
         alignItems: 'center',
+        flex: 1,
     },
     statDivider: {
         borderLeftWidth: 1,
         borderRightWidth: 1,
-        borderColor: '#f0f0f0',
+        borderColor: '#eee',
     },
     statNumber: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '700',
         color: '#333',
     },
     statLabel: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#666',
         marginTop: 4,
     },
     actionButtonsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 15,
-        marginBottom: 20,
+        marginTop: 16,
     },
     followButton: {
         flex: 1,
-        backgroundColor: '#0095f6',
-        borderRadius: 8,
-        padding: 12,
-        alignItems: 'center',
-        marginRight: 10,
         flexDirection: 'row',
+        backgroundColor: '#0095f6',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
         justifyContent: 'center',
+        marginRight: 8,
     },
     followingButton: {
-        backgroundColor: '#f8f9fa',
+        backgroundColor: '#e4f2ff',
         borderWidth: 1,
         borderColor: '#0095f6',
     },
     followButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontWeight: '600',
         fontSize: 15,
     },
     followingButtonText: {
@@ -908,12 +1175,13 @@ const styles = StyleSheet.create({
     },
     messageButton: {
         flex: 1,
-        backgroundColor: '#0095f6',
-        borderRadius: 8,
-        padding: 12,
-        alignItems: 'center',
         flexDirection: 'row',
+        backgroundColor: '#333',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
         justifyContent: 'center',
+        marginLeft: 8,
     },
     messageButtonText: {
         color: '#fff',
@@ -925,77 +1193,39 @@ const styles = StyleSheet.create({
     },
     postsSection: {
         marginTop: 20,
-        marginBottom: 30,
-        backgroundColor: '#fff',
-        borderRadius: 15,
-        paddingVertical: 15,
-        marginHorizontal: 15,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 5,
-            },
-            android: {
-                elevation: 2,
-            },
-        }),
+        paddingHorizontal: 12,
+        paddingBottom: 20,
     },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        marginBottom: 15,
+        marginBottom: 16,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '600',
         color: '#333',
     },
     seeAllButton: {
-        padding: 5,
+        padding: 4,
     },
     seeAllText: {
         color: '#0095f6',
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
     },
     emptyPostsContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 40,
+        paddingVertical: 60,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 12,
     },
     emptyPostsText: {
-        marginTop: 10,
+        fontSize: 16,
         color: '#999',
-        fontSize: 16,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 18,
-        marginBottom: 20,
-    },
-    backButtonFallback: {
-        backgroundColor: '#0095f6',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-    },
-    backButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
+        marginTop: 12,
     },
 });
 
