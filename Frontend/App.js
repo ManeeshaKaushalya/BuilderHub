@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper'; // Import Paper Provider
 import { LogBox } from 'react-native';
+import 'react-native-get-random-values';
 import Toast from 'react-native-toast-message';
 LogBox.ignoreLogs([
   'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation',

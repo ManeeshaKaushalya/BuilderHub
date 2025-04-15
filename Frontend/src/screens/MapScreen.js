@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { useTheme } from '../context/ThemeContext'; // Assuming this exists in your project
+import { useTheme } from '../context/ThemeContext'; // Custom hook
 
-// Constants
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE'; // Move to .env file in production
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 const COLORS = {
   LIGHT_BG: '#fff',
   DARK_BG: '#1a1a1a',
@@ -26,9 +25,9 @@ const MapScreen = ({ navigation, route }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [watchSubscription, setWatchSubscription] = useState(null);
+  const autocompleteRef = useRef();
   const registrationType = route?.params?.registrationType || 'user';
 
-  // Validate registrationType
   useEffect(() => {
     if (!REGISTRATION_TYPES.includes(registrationType)) {
       console.warn('Invalid registration type:', registrationType);
@@ -36,7 +35,6 @@ const MapScreen = ({ navigation, route }) => {
     }
   }, [registrationType, navigation]);
 
-  // Handle location permissions and updates
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -98,6 +96,9 @@ const MapScreen = ({ navigation, route }) => {
   const handleLocationSelect = useCallback((data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({ latitude: lat, longitude: lng });
+
+    // Hide suggestions
+    autocompleteRef.current?.blur();
   }, []);
 
   const handleMapPress = useCallback((event) => {
@@ -115,7 +116,7 @@ const MapScreen = ({ navigation, route }) => {
       user: 'UserRegister',
       shop: 'ShopRegister',
       company: 'CompanyRegister',
-    }[registrationType] || 'UserRegister'; // Fallback to UserRegister
+    }[registrationType] || 'UserRegister';
 
     navigation.navigate(targetScreen, { location: locationString });
   }, [selectedLocation, registrationType, navigation]);
@@ -135,12 +136,24 @@ const MapScreen = ({ navigation, route }) => {
     <View style={themedStyles.container}>
       <View style={themedStyles.searchContainer}>
         <GooglePlacesAutocomplete
-          placeholder="Search for a location"
+          ref={autocompleteRef}
+          placeholder="Search for a place"
+          fetchDetails={true}
           onPress={handleLocationSelect}
-          query={{ key: GOOGLE_API_KEY, language: 'en' }}
+          onFail={(error) => console.log('GooglePlacesAutocomplete error:', error)}
+          query={{
+            key: GOOGLE_API_KEY,
+            language: 'en',
+          }}
           styles={{
+            container: {
+              zIndex: 9999,
+            },
             textInput: themedStyles.searchInput,
-            container: { flex: 0 },
+            listView: {
+              backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
+              zIndex: 9999,
+            },
           }}
           textInputProps={{
             accessibilityLabel: 'Search location',
@@ -194,10 +207,10 @@ const styles = (isDarkMode) =>
     },
     searchContainer: {
       position: 'absolute',
-      top: 40,
+      top: Platform.OS === 'ios' ? 60 : 40,
       width: '90%',
       alignSelf: 'center',
-      zIndex: 1,
+      zIndex: 9999,
     },
     searchInput: {
       backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
@@ -216,6 +229,7 @@ const styles = (isDarkMode) =>
     },
     map: {
       flex: 1,
+      zIndex: 0,
     },
     button: {
       position: 'absolute',
@@ -232,6 +246,7 @@ const styles = (isDarkMode) =>
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 5,
+      zIndex: 0,
     },
     buttonText: {
       color: '#fff',
