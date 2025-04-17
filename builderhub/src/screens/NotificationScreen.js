@@ -93,6 +93,8 @@ function NotificationScreen() {
         return `${actorName} liked your project post`;
       case 'comment':
         return `${actorName} commented on your project: "${notification.message || ''}"`;
+      case 'order_status':
+        return notification.message || `${actorName} updated your order status`;
       default:
         return `${actorName} interacted with your content`;
     }
@@ -125,7 +127,9 @@ function NotificationScreen() {
         onPress={() => {
           if (!item.read) markAsRead(item.id);
           if (item.postId) {
-            navigation.navigate('PostDetails', { postId: item.postId });
+            navigation.navigate('PostCards', { postId: item.postId });
+          } else if (item.orderId) {
+            navigation.navigate('OrderDetailsScreen', { orderId: item.orderId });
           }
         }}
       >
@@ -155,6 +159,14 @@ function NotificationScreen() {
             name="comment"
             size={20}
             color={isDarkMode ? '#4fc3f7' : '#1877f2'}
+            style={styles.icon}
+          />
+        )}
+        {item.type === 'order_status' && (
+          <MaterialIcons
+            name="shopping-cart"
+            size={20}
+            color={isDarkMode ? '#81c784' : '#28a745'}
             style={styles.icon}
           />
         )}

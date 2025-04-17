@@ -174,7 +174,7 @@ const ShopRegister = ({ navigation }) => {
       // Prepare shop data
       const shopData = {
         uid,
-        shopName,
+        name:shopName,
         email: shopEmail,
         accountType,
         description: shopDescription,

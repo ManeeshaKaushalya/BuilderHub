@@ -55,6 +55,9 @@ import JobRequestForm from './src/screens/JobRequestForm';
 import WorkerChatScreen from './src/screens/WorkerChatScreen';
 import WorkerChatsList from './src/screens/WorkerChatList';
 import PostDetails from './src/screens/PostDetails';
+import MakeOrderScreen from './src/screens/MakeOrderScreen';
+import ShopOrdersScreen from './src/screens/ShopOrdersScreen';
+import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 
 
 const Stack = createStackNavigator();
@@ -103,6 +106,9 @@ export default function App() {
                 <Stack.Screen name="WorkerChatScreen" component={WorkerChatScreen} />
                 <Stack.Screen name="WorkerChatList" component={WorkerChatsList} />
                 <Stack.Screen name="PostDetails" component={PostDetails} />
+                <Stack.Screen name="MakeOrderScreen" component={MakeOrderScreen} />
+                <Stack.Screen name="ShopOrdersScreen" component={ShopOrdersScreen} />
+                <Stack.Screen name="OrderDetailsScreen" component={OrderDetailsScreen} />
               </Stack.Navigator>
             </NavigationContainer>
             <Toast />

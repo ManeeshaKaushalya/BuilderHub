@@ -23,7 +23,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE'; // Replace with your actual API key
+const GOOGLE_MAPS_API_KEY = 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0'; // Replace with your actual API key
 
 function UploaderProfile() {
     const route = useRoute();
@@ -84,6 +84,7 @@ function UploaderProfile() {
                         education: userData.education || [],
                         certifications: userData.certifications || [],
                         yearsOfExperience: userData.yearsOfExperience || 0,
+                        accountType: userData.accountType || 'Person' // Added accountType
                     });
 
                     if (currentUser) {
@@ -316,6 +317,11 @@ function UploaderProfile() {
         } catch (error) {
             console.error('Error updating rating:', error);
         }
+    };
+
+    const handleMakeOrder = () => {
+        // Navigate to a screen or perform an action for making orders
+        navigation.navigate('MakeOrderScreen', { userId: profileId });
     };
 
     const parseLocationString = (locationString) => {
@@ -690,7 +696,11 @@ function UploaderProfile() {
                     </View>
 
                     {currentUser && currentUser.uid !== profileId && (
-                        <View style={styles.actionButtonsContainer}>
+                        <View style={
+                            userProfile.accountType === 'Shop' 
+                                ? styles.actionButtonsContainerShop 
+                                : styles.actionButtonsContainer
+                        }>
                             <TouchableOpacity 
                                 style={[
                                     styles.followButton, 
@@ -724,6 +734,21 @@ function UploaderProfile() {
                                 />
                                 <Text style={styles.messageButtonText}>Message</Text>
                             </TouchableOpacity>
+
+                            {userProfile.accountType === 'Shop' && (
+                                <TouchableOpacity 
+                                    style={styles.orderButton}
+                                    onPress={handleMakeOrder}
+                                >
+                                    <MaterialCommunityIcons 
+                                        name="cart-outline" 
+                                        size={18} 
+                                        color="#fff" 
+                                        style={styles.buttonIcon}
+                                    />
+                                    <Text style={styles.orderButtonText}>Make Orders</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )}
                 </View>
@@ -761,6 +786,7 @@ function UploaderProfile() {
         </SafeAreaView>
     );
 }
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -1150,6 +1176,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginTop: 16,
     },
+    actionButtonsContainerShop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 16,
+        flexWrap: 'wrap',
+    },
     followButton: {
         flex: 1,
         flexDirection: 'row',
@@ -1184,6 +1216,22 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     messageButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    orderButton: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: '#28a745',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 8,
+        marginTop: 8,
+    },
+    orderButtonText: {
         color: '#fff',
         fontWeight: '600',
         fontSize: 15,

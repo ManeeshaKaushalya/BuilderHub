@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import HomeScreen from './HomeScreen';
@@ -7,12 +7,50 @@ import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
 import ProfileScreen from './ProfileScreen';
-import { useTheme } from '../context/ThemeContext';  // Import useTheme hook
+import ShopOrdersScreen from './ShopOrdersScreen'; // Import ShopOrdersScreen
+import { useTheme } from '../context/ThemeContext';
+import { getAuth } from 'firebase/auth';
+import { firestore } from '../../firebase/firebaseConfig'; // Adjust path as needed
+import { doc, getDoc } from 'firebase/firestore';
 
 const Tab = createBottomTabNavigator();
 
 const TabsScreen = () => {
-  const { isDarkMode } = useTheme(); // Get dark mode state
+  const { isDarkMode } = useTheme();
+  const auth = getAuth();
+  const [accountType, setAccountType] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAccountType = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setAccountType(userData.accountType || 'Person');
+          } else {
+            console.log('User document does not exist');
+            setAccountType('Person');
+          }
+        } catch (error) {
+          console.error('Error fetching account type:', error);
+          setAccountType('Person');
+        }
+      } else {
+        setAccountType('Person');
+      }
+      setLoading(false);
+    };
+
+    fetchAccountType();
+  }, []);
+
+  if (loading) {
+    return null; // Optionally render a loading indicator
+  }
 
   return (
     <Tab.Navigator
@@ -22,7 +60,7 @@ const TabsScreen = () => {
         tabBarStyle: {
           height: 60,
           padding: 5,
-          backgroundColor: isDarkMode ? '#121212' : '#ffffff', // Dark or Light mode
+          backgroundColor: isDarkMode ? '#121212' : '#ffffff',
           borderTopWidth: 1,
           borderTopColor: isDarkMode ? '#333' : '#f0f0f0',
         },
@@ -71,6 +109,15 @@ const TabsScreen = () => {
           tabBarIcon: ({ color, size }) => <Icon name="user" size={size} color={color} />,
         }}
       />
+      {accountType === 'Shop' && (
+        <Tab.Screen
+          name="Orders"
+          component={ShopOrdersScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => <Icon name="list-alt" size={size} color={color} />,
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 };
