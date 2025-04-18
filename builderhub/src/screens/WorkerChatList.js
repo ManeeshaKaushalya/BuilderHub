@@ -11,7 +11,6 @@ import {
     TextInput,
     Alert
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { 
     collection, 
@@ -144,6 +143,10 @@ const WorkerChatsList = ({ navigation }) => {
         navigation.navigate('ContactsScreen');
     };
     
+    const navigateToConstructionAssistant = () => {
+        navigation.navigate('ChatBot');
+    };
+    
     const renderChatItem = ({ item }) => (
         <TouchableOpacity 
             style={styles.chatItem}
@@ -201,6 +204,38 @@ const WorkerChatsList = ({ navigation }) => {
         </TouchableOpacity>
     );
     
+    // Construction Assistant component
+    const ConstructionAssistantItem = () => (
+        <TouchableOpacity 
+            style={[styles.chatItem, styles.assistantItem]}
+            onPress={navigateToConstructionAssistant}
+        >
+            <View style={styles.avatarContainer}>
+                <View style={[styles.avatarPlaceholder, styles.assistantAvatar]}>
+                    <Ionicons name="construct-outline" size={28} color="#fff" />
+                </View>
+                <View style={[styles.onlineStatusIndicator, styles.alwaysOnline]} />
+            </View>
+            
+            <View style={styles.chatInfo}>
+                <View style={styles.chatHeader}>
+                    <Text style={[styles.chatName, styles.assistantName]} numberOfLines={1}>
+                        Construction Assistant
+                    </Text>
+                    <Text style={styles.chatTime}>
+                        Always available
+                    </Text>
+                </View>
+                
+                <View style={styles.messagePreviewContainer}>
+                    <Text style={styles.messagePreview} numberOfLines={1}>
+                        Get expert construction advice instantly
+                    </Text>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+    
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -241,17 +276,29 @@ const WorkerChatsList = ({ navigation }) => {
                     renderItem={renderChatItem}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.chatsList}
+                    ListHeaderComponent={
+                        // Only show Construction Assistant if not searching or if search includes "construction"
+                        searchText.trim() === '' || 
+                        'construction assistant'.includes(searchText.toLowerCase()) ? 
+                        <ConstructionAssistantItem /> : null
+                    }
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="chatbubbles-outline" size={60} color="#ccc" />
-                            <Text style={styles.emptyText}>No worker conversations yet</Text>
-                            <TouchableOpacity 
-                                style={styles.startChatButton}
-                                onPress={navigateToNewChat}
-                            >
-                                <Text style={styles.startChatButtonText}>Start a new chat</Text>
-                            </TouchableOpacity>
-                        </View>
+                        searchText.length > 0 ? (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No results found</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Ionicons name="chatbubbles-outline" size={60} color="#ccc" />
+                                <Text style={styles.emptyText}>No worker conversations yet</Text>
+                                <TouchableOpacity 
+                                    style={styles.startChatButton}
+                                    onPress={navigateToNewChat}
+                                >
+                                    <Text style={styles.startChatButtonText}>Start a new chat</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )
                     }
                 />
             )}
@@ -313,6 +360,11 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
+    assistantItem: {
+        backgroundColor: '#f9f9f9',
+        borderLeftWidth: 4,
+        borderLeftColor: '#FF6600',
+    },
     avatarContainer: {
         position: 'relative',
         marginRight: 12,
@@ -330,6 +382,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    assistantAvatar: {
+        backgroundColor: '#FF6600',
+    },
     avatarPlaceholderText: {
         fontSize: 22,
         fontWeight: 'bold',
@@ -346,6 +401,9 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#fff',
     },
+    alwaysOnline: {
+        backgroundColor: '#FF6600',
+    },
     chatInfo: {
         flex: 1,
         justifyContent: 'center',
@@ -361,6 +419,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         flex: 1,
         marginRight: 8,
+    },
+    assistantName: {
+        color: '#333',
     },
     chatTime: {
         fontSize: 12,

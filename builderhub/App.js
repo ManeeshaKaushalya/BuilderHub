@@ -58,6 +58,7 @@ import PostDetails from './src/screens/PostDetails';
 import MakeOrderScreen from './src/screens/MakeOrderScreen';
 import ShopOrdersScreen from './src/screens/ShopOrdersScreen';
 import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
+import ChatBot from './src/screens/ChatBot';
 
 
 const Stack = createStackNavigator();
@@ -109,6 +110,9 @@ export default function App() {
                 <Stack.Screen name="MakeOrderScreen" component={MakeOrderScreen} />
                 <Stack.Screen name="ShopOrdersScreen" component={ShopOrdersScreen} />
                 <Stack.Screen name="OrderDetailsScreen" component={OrderDetailsScreen} />
+                <Stack.Screen name="ChatBot" component={ChatBot} />
+
+                
               </Stack.Navigator>
             </NavigationContainer>
             <Toast />
