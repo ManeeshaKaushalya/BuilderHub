@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 48) / 2;
 
-const ItemList = ({ navigation, selectedCategory, searchText, selectedColor, priceRange }) => {
+const ItemList = ({ navigation, selectedCategory, searchText, selectedColor }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,7 +29,7 @@ const ItemList = ({ navigation, selectedCategory, searchText, selectedColor, pri
     setLoading(true);
     const unsubscribe = fetchItems();
     return () => unsubscribe && unsubscribe();
-  }, [selectedCategory, searchText, selectedColor, priceRange]);
+  }, [selectedCategory, searchText, selectedColor]);
 
   const fetchItems = () => {
     setError(null);
@@ -66,10 +66,6 @@ const ItemList = ({ navigation, selectedCategory, searchText, selectedColor, pri
             itemList = itemList.filter(
               (item) => item.color?.toLowerCase() === selectedColor.toLowerCase()
             );
-          }
-
-          if (priceRange) {
-            itemList = itemList.filter((item) => Number(item.price) <= Number(priceRange));
           }
 
           setItems(itemList);
@@ -166,8 +162,6 @@ const ItemList = ({ navigation, selectedCategory, searchText, selectedColor, pri
           </View>
         }
       />
-      
-      {/* Pinned Add Button that stays visible regardless of scrolling */}
       <View style={styles.pinnedButtonContainer}>
         <TouchableOpacity
           style={styles.circleButton}
@@ -279,9 +273,9 @@ const styles = StyleSheet.create({
   },
   pinnedButtonContainer: {
     position: 'absolute',
-    top: 100, // Position lower down from the top
+    top: 290,
     right: 20,
-    zIndex: 1000, // Ensure it stays on top of other elements
+    zIndex: 1000,
   },
   circleButton: {
     width: 56,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
@@ -16,6 +16,7 @@ function NotificationScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userDetails, setUserDetails] = useState({});
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     if (!user) {
@@ -42,7 +43,6 @@ function NotificationScreen() {
           ...doc.data(),
         }));
 
-        // Fetch user details
         const actorIds = [...new Set(notificationList.map((n) => n.actorId))];
         const details = {};
         for (const actorId of actorIds) {
@@ -58,9 +58,14 @@ function NotificationScreen() {
             console.error('Error fetching user details:', error);
           }
         }
+
         setUserDetails(details);
         setNotifications(notificationList);
         setLoading(false);
+
+        if (notificationList.length > 0) {
+          flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+        }
       } catch (error) {
         console.error('Error fetching notifications:', error);
         Toast.show({ type: 'error', text1: 'Failed to load notifications' });
@@ -68,6 +73,7 @@ function NotificationScreen() {
       }
     }, (error) => {
       console.error('Snapshot error:', error);
+      Toast.show({ type: 'error', text1: 'Notification listener failed' });
       setLoading(false);
     });
 
@@ -83,6 +89,7 @@ function NotificationScreen() {
       await updateDoc(notificationRef, { read: true });
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      Toast.show({ type: 'error', text1: 'Failed to mark as read' });
     }
   };
 
@@ -122,17 +129,41 @@ function NotificationScreen() {
         style={[
           styles.notificationItem,
           isDarkMode ? styles.darkNotificationItem : styles.lightNotificationItem,
-          item.read && styles.readNotification,
+          item.read ? styles.readNotification : styles.unreadNotification,
         ]}
         onPress={() => {
           if (!item.read) markAsRead(item.id);
-          if (item.postId) {
-            navigation.navigate('PostCards', { postId: item.postId });
-          } else if (item.orderId) {
-            navigation.navigate('OrderDetailsScreen', { orderId: item.orderId });
+
+          console.log('Notification clicked:', { type: item.type, postId: item.postId, orderId: item.orderId });
+
+          try {
+            if (['like', 'comment'].includes(item.type) && item.postId) {
+              navigation.navigate('PostCards', { postId: item.postId });
+            } else if (item.type === 'order_status' && item.orderId) {
+              navigation.navigate('OrderDetailsScreen', { orderId: item.orderId });
+            } else {
+              console.warn('No valid navigation target for notification:', item);
+              Toast.show({
+                type: 'info',
+                text1: 'Cannot open notification',
+                text2: item.postId ? 'Post not found.' : 'This notification is not linked to a post or order.',
+              });
+            }
+          } catch (error) {
+            console.error('Navigation error:', error);
+            Toast.show({
+              type: 'error',
+              text1: 'Navigation failed',
+              text2: 'Unable to open the post or order. Please try again.',
+            });
           }
         }}
       >
+        {!item.read && (
+          <View style={styles.newBadge}>
+            <Text style={styles.newBadgeText}>New</Text>
+          </View>
+        )}
         <Image
           source={{ uri: actor.profileImage || 'https://via.placeholder.com/40' }}
           style={styles.avatar}
@@ -188,6 +219,7 @@ function NotificationScreen() {
         Notifications
       </Text>
       <FlatList
+        ref={flatListRef}
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
@@ -197,6 +229,12 @@ function NotificationScreen() {
           </Text>
         }
         contentContainerStyle={styles.listContainer}
+        onScrollToIndexFailed={(info) => {
+          console.warn('Scroll to index failed:', info);
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+          }, 100);
+        }}
       />
       <Toast />
     </View>
@@ -230,6 +268,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
+    position: 'relative',
   },
   lightNotificationItem: {
     backgroundColor: '#fff',
@@ -246,6 +285,24 @@ const styles = StyleSheet.create({
   },
   readNotification: {
     opacity: 0.7,
+  },
+  unreadNotification: {
+    backgroundColor: '#e3f2fd',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#ff6b6b',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  newBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   avatar: {
     width: 40,

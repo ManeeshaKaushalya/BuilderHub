@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Alert, Animated, Image, Text
 import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../context/ThemeContext';
+import { useUser } from '../context/UserContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { MaterialIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -12,9 +13,9 @@ import { useNavigation } from '@react-navigation/native';
 const GOOGLE_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE';
 const DEFAULT_PROFILE_IMAGE = require('../../assets/default-profile.png');
 
-// Component
 const HomeScreen = () => {
   const { isDarkMode } = useTheme();
+  const { user } = useUser();
   const navigation = useNavigation();
   const mapRef = useRef(null);
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -24,7 +25,7 @@ const HomeScreen = () => {
   const [watchSubscription, setWatchSubscription] = useState(null);
   const [pulseAnim] = useState(new Animated.Value(0));
   const [searchText, setSearchText] = useState('');
-  const [searchRadius, setSearchRadius] = useState(10); // km
+  const [searchRadius, setSearchRadius] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfession, setSelectedProfession] = useState('All');
   const [selectedAccountType, setSelectedAccountType] = useState('All');
@@ -32,8 +33,10 @@ const HomeScreen = () => {
   const [sortBy, setSortBy] = useState('distance');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showEmergencyResultsModal, setShowEmergencyResultsModal] = useState(false); // New state for results modal
+  const [emergencyProfessionals, setEmergencyProfessionals] = useState([]); // New state for professionals
   const [emergencyType, setEmergencyType] = useState('');
-  const [expandedSection, setExpandedSection] = useState(null); // For accordion
+  const [expandedSection, setExpandedSection] = useState(null);
 
   const professions = ['All', 'Constructor', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason'];
   const accountTypes = ['All', 'Person', 'Company', 'Shop'];
@@ -71,6 +74,7 @@ const HomeScreen = () => {
   const fetchUserLocations = () => {
     return onSnapshot(collection(firestore, 'users'), (snapshot) => {
       const locations = snapshot.docs
+        .filter(doc => doc.id !== user?.uid)
         .map(doc => {
           const data = doc.data();
           const locationObj = data.location ? parseLocation(data.location) : null;
@@ -136,7 +140,11 @@ const HomeScreen = () => {
       );
     }
     
-    if (selectedAccountType !== 'All') {
+    if (selectedAccountType === 'All') {
+      filtered = filtered.filter(user => 
+        user.accountType === 'Person' || user.accountType === 'Shop'
+      );
+    } else {
       filtered = filtered.filter(user => 
         user.accountType === selectedAccountType
       );
@@ -201,11 +209,39 @@ const HomeScreen = () => {
 
   const handleEmergencyRequest = (type) => {
     setEmergencyType(type);
-    Alert.alert(
-      'Emergency Request Sent',
-      `We're notifying nearby ${type} professionals. Someone will contact you shortly.`,
-      [{ text: 'OK', onPress: () => setShowEmergencyModal(false) }]
-    );
+    let profession;
+    switch (type) {
+      case 'Plumbing':
+        profession = 'Plumber';
+        break;
+      case 'Electrical':
+        profession = 'Electrician';
+        break;
+      case 'Construction':
+        profession = 'Constructor';
+        break;
+      default:
+        profession = 'All';
+    }
+
+    // Filter users by profession and sort by distance
+    const filteredProfessionals = userLocations
+      .filter(user => user.profession === profession)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 5); // Take top 5
+
+    if (filteredProfessionals.length === 0) {
+      Alert.alert(
+        'No Professionals Found',
+        `No ${profession}s found nearby. Try increasing the search radius or checking other professions.`,
+        [{ text: 'OK', onPress: () => setShowEmergencyModal(false) }]
+      );
+      return;
+    }
+
+    setEmergencyProfessionals(filteredProfessionals);
+    setShowEmergencyModal(false);
+    setShowEmergencyResultsModal(true); // Show results modal
   };
 
   const handleManualLocationInput = () => {
@@ -289,7 +325,7 @@ const HomeScreen = () => {
       if (watchSubscription) watchSubscription.remove();
       unsubscribeFirestore();
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     applyFilters();
@@ -369,7 +405,6 @@ const HomeScreen = () => {
 
       {showFilters && (
         <ScrollView style={styles.filtersContainer}>
-          {/* Radius Filter */}
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Radius: {searchRadius} km</Text>
             <View style={styles.sliderContainer}>
@@ -385,7 +420,6 @@ const HomeScreen = () => {
             </View>
           </View>
 
-          {/* Profession Accordion */}
           <TouchableOpacity onPress={() => toggleSection('profession')} style={styles.accordionHeader}>
             <Text style={styles.accordionTitle}>Profession</Text>
             <MaterialIcons name={expandedSection === 'profession' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
@@ -414,7 +448,6 @@ const HomeScreen = () => {
             </View>
           )}
 
-          {/* Account Type Accordion */}
           <TouchableOpacity onPress={() => toggleSection('accountType')} style={styles.accordionHeader}>
             <Text style={styles.accordionTitle}>Account Type</Text>
             <MaterialIcons name={expandedSection === 'accountType' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
@@ -449,7 +482,6 @@ const HomeScreen = () => {
             </View>
           )}
 
-          {/* Minimum Rating Accordion */}
           <TouchableOpacity onPress={() => toggleSection('rating')} style={styles.accordionHeader}>
             <Text style={styles.accordionTitle}>Minimum Rating</Text>
             <MaterialIcons name={expandedSection === 'rating' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
@@ -473,7 +505,6 @@ const HomeScreen = () => {
             </View>
           )}
 
-          {/* Sort By */}
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Sort By</Text>
             <View style={styles.sortButtonsContainer}>
@@ -504,7 +535,6 @@ const HomeScreen = () => {
             </View>
           </View>
 
-          {/* Availability */}
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Availability</Text>
             <View style={styles.availabilityContainer}>
@@ -666,6 +696,7 @@ const HomeScreen = () => {
         </Text>
       </View>
 
+      {/* Emergency Selection Modal */}
       <Modal
         visible={showEmergencyModal}
         transparent={true}
@@ -706,6 +737,73 @@ const HomeScreen = () => {
               onPress={() => setShowEmergencyModal(false)}
             >
               <Text style={styles.closeButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Emergency Results Modal */}
+      <Modal
+        visible={showEmergencyResultsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEmergencyResultsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { width: '90%' }]}>
+            <Text style={styles.modalTitle}>
+              Nearest {emergencyType} Professionals
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Found {emergencyProfessionals.length} nearby professionals
+            </Text>
+
+            <ScrollView style={styles.resultsContainer}>
+              {emergencyProfessionals.map((professional) => (
+                <View key={professional.id} style={styles.professionalItem}>
+                  <Image
+                    source={professional.profileImage ? { uri: professional.profileImage } : DEFAULT_PROFILE_IMAGE}
+                    style={styles.professionalImage}
+                  />
+                  <View style={styles.professionalDetails}>
+                    <Text style={styles.professionalName}>{professional.name}</Text>
+                    <Text style={styles.professionalInfo}>
+                      {professional.distance.toFixed(1)} km away
+                    </Text>
+                    <View style={styles.ratingRow}>
+                      {Array(5).fill(0).map((_, i) => (
+                        <FontAwesome
+                          key={i}
+                          name={i < Math.floor(professional.averageRating) ? "star" : (i < professional.averageRating ? "star-half-o" : "star-o")}
+                          size={14}
+                          color="#FFC107"
+                          style={styles.starIcon}
+                        />
+                      ))}
+                      <Text style={styles.ratingText}>({professional.averageRating})</Text>
+                    </View>
+                    <Text style={styles.professionalInfo}>
+                      Availability: {professional.availability}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={() => {
+                      setShowEmergencyResultsModal(false);
+                      navigation.navigate('UploaderProfile', { userId: professional.id });
+                    }}
+                  >
+                    <Text style={styles.contactButtonText}>Contact</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowEmergencyResultsModal(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -771,7 +869,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    maxHeight: 300, // Limit height to avoid overwhelming the screen
+    maxHeight: 300,
   },
   filterItem: {
     marginHorizontal: 10,
@@ -1133,6 +1231,40 @@ const styles = StyleSheet.create({
     color: '#1F2A44',
     fontWeight: '600',
     fontSize: 14,
+  },
+  resultsContainer: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  professionalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    elevation: 2,
+  },
+  professionalImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  professionalDetails: {
+    flex: 1,
+  },
+  professionalName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2A44',
+    marginBottom: 4,
+  },
+  professionalInfo: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 4,
   },
 });
 

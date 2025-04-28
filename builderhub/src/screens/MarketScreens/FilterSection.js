@@ -1,10 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView, FlatList } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { View, TouchableOpacity, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { debounce } from 'lodash';
 import { FontAwesome } from '@expo/vector-icons';
-import { Button } from 'react-native-paper';
-import FormatPrice from './FormatPrice';
 
 const categories = [
   { id: 'all', label: 'All Categories' },
@@ -25,11 +22,16 @@ const colors = [
   { id: 'white', value: 'white', label: 'White' },
 ];
 
-const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSearch, setPriceRange }) => {
+const FilterSection = ({
+  navigation,
+  setSelectedCategory,
+  setSelectedColor,
+  onSearch,
+  isDarkMode,
+}) => {
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedColor, setSelectedColorState] = useState('all');
-  const [price, setPrice] = useState(50000); // Mid-range default for better UX
 
   const debouncedSearch = useCallback(debounce((text) => onSearch(text), 300), [onSearch]);
 
@@ -38,32 +40,34 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
     debouncedSearch(text);
   };
 
-  const handleCategoryPress = useCallback((category) => {
-    setActiveCategory(category.id);
-    setSelectedCategory(category.id);
-  }, [setSelectedCategory]);
+  const handleCategoryPress = useCallback(
+    (category) => {
+      setActiveCategory(category.id);
+      setSelectedCategory(category.id);
+    },
+    [setSelectedCategory]
+  );
 
-  const handleColorPress = useCallback((colorId) => {
-    setSelectedColorState(colorId);
-    setSelectedColor(colorId);
-  }, [setSelectedColor]);
-
-  const handlePriceChange = (value) => {
-    setPrice(value);
-    setPriceRange(value);
-  };
+  const handleColorPress = useCallback(
+    (colorId) => {
+      setSelectedColorState(colorId);
+      setSelectedColor(colorId);
+    },
+    [setSelectedColor]
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDarkMode && styles.darkContainer]}>
       {/* Search Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Search Products</Text>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Search Products</Text>
         <View style={styles.searchContainer}>
           <TextInput
             placeholder="Enter product name..."
+            placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
             value={searchText}
             onChangeText={handleSearch}
-            style={styles.input}
+            style={[styles.input, isDarkMode && styles.darkInput]}
             returnKeyType="search"
             clearButtonMode="while-editing"
             autoCapitalize="none"
@@ -72,7 +76,7 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
           />
           {searchText.length > 0 && (
             <TouchableOpacity
-              style={styles.clearButton}
+              style={[styles.clearButton, isDarkMode && styles.darkClearButton]}
               onPress={() => {
                 setSearchText('');
                 onSearch('');
@@ -87,7 +91,7 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
 
       {/* Categories Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Categories</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -100,6 +104,7 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
               style={[
                 styles.categoryButton,
                 activeCategory === category.id && styles.activeCategoryButton,
+                isDarkMode && styles.darkCategoryButton,
               ]}
               accessibilityRole="button"
               accessibilityLabel={category.label}
@@ -108,6 +113,7 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
                 style={[
                   styles.categoryText,
                   activeCategory === category.id && styles.activeCategoryText,
+                  isDarkMode && styles.darkCategoryText,
                 ]}
               >
                 {category.label}
@@ -119,51 +125,26 @@ const FilterSection = ({ navigation, setSelectedCategory, setSelectedColor, onSe
 
       {/* Colors Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Filter by Color</Text>
-        <FlatList
-          horizontal
-          data={colors}
-          renderItem={({ item }) => (
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Filter by Color</Text>
+        <View style={styles.colorContainer}>
+          {colors.map((item) => (
             <TouchableOpacity
+              key={item.id}
               onPress={() => handleColorPress(item.id)}
               style={[
                 styles.colorCircle,
                 { backgroundColor: item.value },
                 selectedColor === item.id && styles.selectedColorCircle,
+                isDarkMode && styles.darkColorCircle,
               ]}
               accessibilityRole="button"
               accessibilityLabel={item.label}
             >
               {selectedColor === item.id && <FontAwesome name="check" size={14} color="#fff" />}
             </TouchableOpacity>
-          )}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.colorContainer}
-        />
+          ))}
+        </View>
       </View>
-
-      {/* Price Range Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Price Range</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={10000}
-          maximumValue={100000}
-          step={550}
-          value={price}
-          onValueChange={handlePriceChange}
-          minimumTrackTintColor="#007AFF"
-          maximumTrackTintColor="#E5E7EB"
-          thumbTintColor="#007AFF"
-          accessibilityLabel="Price range slider"
-        />
-        <Text style={styles.priceText}>
-          Up to <FormatPrice price={price} />
-        </Text>
-      </View>
-
-     
-     
     </View>
   );
 };
@@ -175,6 +156,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  darkContainer: {
+    backgroundColor: '#1F2937',
+    borderBottomColor: '#374151',
+  },
   section: {
     marginBottom: 20,
   },
@@ -183,6 +168,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
+  },
+  darkText: {
+    color: '#F9FAFB',
   },
   searchContainer: {
     position: 'relative',
@@ -201,6 +189,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  darkInput: {
+    borderColor: '#4B5563',
+    backgroundColor: '#374151',
+    color: '#F9FAFB',
+  },
   clearButton: {
     position: 'absolute',
     right: 10,
@@ -212,6 +205,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  darkClearButton: {
+    backgroundColor: '#4B5563',
   },
   clearButtonText: {
     fontSize: 16,
@@ -235,6 +231,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  darkCategoryButton: {
+    backgroundColor: '#374151',
+    borderColor: '#4B5563',
+  },
   activeCategoryButton: {
     backgroundColor: '#007AFF',
     borderColor: '#0066CC',
@@ -243,6 +243,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#4B5563',
+  },
+  darkCategoryText: {
+    color: '#D1D5DB',
   },
   activeCategoryText: {
     color: '#FFFFFF',
@@ -267,32 +270,12 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  darkColorCircle: {
+    borderColor: '#4B5563',
+  },
   selectedColorCircle: {
     borderWidth: 2,
     borderColor: '#1F2937',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  priceText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#007AFF',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  addButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 8,
-  },
-  addButtonContent: {
-    height: 48,
-  },
-  addButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
 

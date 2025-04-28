@@ -8,7 +8,7 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
-  Platform
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,9 +25,18 @@ const MakeOrderScreen = () => {
   const { userId } = route.params || {}; // Shop userId from UploaderProfile
 
   const [items, setItems] = useState([{ name: '', quantity: '' }]);
-  const [address, setAddress] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+  const [location, setLocation] = useState(''); // Store location as "lat, lng"
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handle navigation to OrderAddressMap for location selection
+  const handleSelectLocation = () => {
+    navigation.navigate('OrderAddressMap', {
+      onLocationSelected: (selectedLocation) => {
+        setLocation(selectedLocation);
+      },
+    });
+  };
 
   const addItem = () => {
     setItems([...items, { name: '', quantity: '' }]);
@@ -56,9 +65,9 @@ const MakeOrderScreen = () => {
         return { valid: false, message: 'All items must have a valid quantity greater than 0.' };
       }
     }
-    // Check address
-    if (!address.trim()) {
-      return { valid: false, message: 'Address is required.' };
+    // Check location
+    if (!location.trim()) {
+      return { valid: false, message: 'Please select a delivery location.' };
     }
     // Check contact number (basic validation for digits and length)
     if (!contactNumber.trim() || !/^\d{10}$/.test(contactNumber)) {
@@ -85,15 +94,15 @@ const MakeOrderScreen = () => {
       const orderData = {
         userId: currentUser.uid, // Customer's user ID
         shopId: userId, // Shop's user ID
-        items: items.map(item => ({
+        items: items.map((item) => ({
           name: item.name.trim(),
-          quantity: parseInt(item.quantity)
+          quantity: parseInt(item.quantity),
         })),
-        address: address.trim(),
+        location: location.trim(), // Store location as "lat, lng"
         contactNumber: contactNumber.trim(),
         status: 'pending',
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       };
 
       const ordersRef = collection(firestore, 'orders');
@@ -107,15 +116,11 @@ const MakeOrderScreen = () => {
 
       // Reset form
       setItems([{ name: '', quantity: '' }]);
-      setAddress('');
+      setLocation('');
       setContactNumber('');
     } catch (error) {
       console.error('Error submitting order:', error);
-      Alert.alert(
-        'Error',
-        `Failed to place order: ${error.message}`,
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', `Failed to place order: ${error.message}`, [{ text: 'OK' }]);
     } finally {
       setIsSubmitting(false);
     }
@@ -165,15 +170,16 @@ const MakeOrderScreen = () => {
         </TouchableOpacity>
 
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Delivery Details</Text>
-        <TextInput
-          style={[styles.input, { height: 80 }]}
-          placeholder="Delivery Address"
-          value={address}
-          onChangeText={setAddress}
-          multiline
-          numberOfLines={3}
-          editable={!isSubmitting}
-        />
+        <TouchableOpacity
+          style={styles.locationButton}
+          onPress={handleSelectLocation}
+          disabled={isSubmitting}
+        >
+          <MaterialCommunityIcons name="map-marker" size={18} color="#0095f6" style={styles.buttonIcon} />
+          <Text style={styles.locationButtonText}>
+            {location ? `Location: ${location}` : 'Select Delivery Location'}
+          </Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           placeholder="Contact Number"
@@ -263,6 +269,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
     marginBottom: 12,
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  locationButtonText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 6,
   },
   addButton: {
     flexDirection: 'row',

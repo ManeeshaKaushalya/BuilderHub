@@ -343,7 +343,7 @@ const ShopRegister = ({ navigation }) => {
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={shopDescription}
             onChangeText={setShopDescription}
-            secureTextEntry
+           
           />
         </View>
 

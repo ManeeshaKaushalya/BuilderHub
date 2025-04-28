@@ -54,11 +54,13 @@ import ContactProfessional from './src/screens/ContactProfessional';
 import JobRequestForm from './src/screens/JobRequestForm';
 import WorkerChatScreen from './src/screens/WorkerChatScreen';
 import WorkerChatsList from './src/screens/WorkerChatList';
-import PostDetails from './src/screens/PostDetails';
+import PostDetailsScreen from './src/screens/PostDetailsScreen';
 import MakeOrderScreen from './src/screens/MakeOrderScreen';
 import ShopOrdersScreen from './src/screens/ShopOrdersScreen';
 import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 import ChatBot from './src/screens/ChatBot';
+import PostCards from './src/screens/PostCards';
+import OrderAddressMap from './src/screens/OrderAddressMap';
 
 
 const Stack = createStackNavigator();
@@ -106,11 +108,13 @@ export default function App() {
                 <Stack.Screen name="JobRequestForm" component={JobRequestForm} />
                 <Stack.Screen name="WorkerChatScreen" component={WorkerChatScreen} />
                 <Stack.Screen name="WorkerChatList" component={WorkerChatsList} />
-                <Stack.Screen name="PostDetails" component={PostDetails} />
+                <Stack.Screen name="PostDetails" component={PostDetailsScreen} />
+                <Stack.Screen name="OrderAddressMap" component={OrderAddressMap} />
                 <Stack.Screen name="MakeOrderScreen" component={MakeOrderScreen} />
                 <Stack.Screen name="ShopOrdersScreen" component={ShopOrdersScreen} />
                 <Stack.Screen name="OrderDetailsScreen" component={OrderDetailsScreen} />
                 <Stack.Screen name="ChatBot" component={ChatBot} />
+                <Stack.Screen name="PostCards" component={PostCards} />
 
                 
               </Stack.Navigator>

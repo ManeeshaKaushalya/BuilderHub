@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Share, Dimensions, FlatList, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { firestore } from '../../../firebase/firebaseConfig';
-import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, orderBy } from 'firebase/firestore';
 import { useUser } from '../../context/UserContext';
 
 const { width } = Dimensions.get('window');
@@ -11,42 +11,41 @@ const ItemDetails = ({ route, navigation }) => {
   const { item: initialItem } = route.params;
   const [item, setItem] = useState(initialItem);
   const [sellerData, setSellerData] = useState(null);
+  const [sellerReviews, setSellerReviews] = useState([]);
+  const [averageSellerRating, setAverageSellerRating] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingSellerReviews, setLoadingSellerReviews] = useState(true);
+  const [showReviews, setShowReviews] = useState(false); // Toggle reviews visibility
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const flatListRef = useRef(null);
-  const { user } = useUser(); // Get current user from context
+  const { user } = useUser();
 
   const isOwner = user?.uid === item.itemOwnerId;
 
   const handleBuyNow = () => {
-    // Navigate to checkout or payment screen
     navigation.navigate('BuyItem', { item });
   };
 
   const handleDelete = async () => {
     Alert.alert(
-      "Delete Item",
-      "Are you sure you want to delete this item? This action cannot be undone.",
+      'Delete Item',
+      'Are you sure you want to delete this item? This action cannot be undone.',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
-              // Delete the item document
               await deleteDoc(doc(firestore, 'items', item.id));
-              Alert.alert("Success", "Item deleted successfully");
+              Alert.alert('Success', 'Item deleted successfully');
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting item:', error);
-              Alert.alert("Error", "Failed to delete item. Please try again.");
+              Alert.alert('Error', 'Failed to delete item. Please try again.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -64,26 +63,18 @@ const ItemDetails = ({ route, navigation }) => {
 
   const renderImageItem = ({ item: imageUrl, index }) => (
     <View style={styles.imageSlide}>
-      <Image
-        source={{ uri: imageUrl }}
-        style={styles.slideImage}
-        resizeMode="cover"
-      />
+      <Image source={{ uri: imageUrl }} style={styles.slideImage} resizeMode="cover" />
     </View>
   );
 
   const renderImagePagination = () => {
     if (!item.images || item.images.length <= 1) return null;
-
     return (
       <View style={styles.paginationContainer}>
         {item.images.map((_, index) => (
           <View
             key={index}
-            style={[
-              styles.paginationDot,
-              index === activeImageIndex && styles.paginationDotActive
-            ]}
+            style={[styles.paginationDot, index === activeImageIndex && styles.paginationDotActive]}
           />
         ))}
       </View>
@@ -96,47 +87,124 @@ const ItemDetails = ({ route, navigation }) => {
     setActiveImageIndex(index);
   };
 
-  useEffect(() => {
-    // Listen for real-time updates to the item
-    const itemRef = doc(firestore, 'items', item.id); // Assuming you have an id field
-    const unsubscribeItem = onSnapshot(itemRef, (doc) => {
-      if (doc.exists()) {
-        setItem({ id: doc.id, ...doc.data() });
-      }
-    }, (error) => {
-      console.error('Error listening to item updates:', error);
-    });
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Just now'; // Invalid date
+      const now = new Date();
+      const diff = now - date;
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+      return date.toLocaleDateString();
+    } catch (error) {
+      return 'Just now';
+    }
+  };
 
-    // Listen for real-time updates to seller data
+  const renderSellerReview = ({ item }) => (
+    <View style={styles.reviewContainer}>
+      <View style={styles.reviewHeader}>
+        {item.reviewerProfileImage ? (
+          <Image source={{ uri: item.reviewerProfileImage }} style={styles.reviewerImage} />
+        ) : (
+          <View style={styles.reviewerImagePlaceholder}>
+            <Icon name="account-circle" size={40} color="#6c757d" />
+          </View>
+        )}
+        <View style={styles.reviewHeaderText}>
+          <Text style={styles.reviewerName}>{item.reviewerName || 'Anonymous'}</Text>
+          <View style={styles.ratingContainer}>
+            {[...Array(5)].map((_, index) => (
+              <Icon
+                key={index}
+                name={index < item.rating ? 'star' : 'star-border'}
+                size={16}
+                color="#ffc107"
+              />
+            ))}
+            <Text style={styles.reviewTimestamp}>{formatTimestamp(item.timestamp)}</Text>
+          </View>
+        </View>
+      </View>
+      {item.comment && <Text style={styles.reviewComment}>{item.comment}</Text>}
+    </View>
+  );
+
+  useEffect(() => {
+    // Listen for item updates
+    const itemRef = doc(firestore, 'items', item.id);
+    const unsubscribeItem = onSnapshot(
+      itemRef,
+      (doc) => {
+        if (doc.exists()) {
+          setItem({ id: doc.id, ...doc.data() });
+        }
+      },
+      (error) => {
+        console.error('Error listening to item updates:', error);
+      }
+    );
+
+    // Listen for seller data
     const setupSellerListener = () => {
       if (!item.itemOwnerId) return null;
-
       const usersRef = collection(firestore, 'users');
       const q = query(usersRef, where('uid', '==', item.itemOwnerId));
-
-      return onSnapshot(q, (querySnapshot) => {
-        setLoading(false);
-        if (!querySnapshot.empty) {
-          const sellerDoc = querySnapshot.docs[0];
-          setSellerData(sellerDoc.data());
-        } else {
-          console.log('No seller found with ID:', item.itemOwnerId);
-          setSellerData(null);
+      return onSnapshot(
+        q,
+        (querySnapshot) => {
+          setLoading(false);
+          if (!querySnapshot.empty) {
+            const sellerDoc = querySnapshot.docs[0];
+            setSellerData(sellerDoc.data());
+          } else {
+            console.log('No seller found with ID:', item.itemOwnerId);
+            setSellerData(null);
+          }
+        },
+        (error) => {
+          console.error('Error listening to seller updates:', error);
+          setLoading(false);
         }
-      }, (error) => {
-        console.error('Error listening to seller updates:', error);
-        setLoading(false);
-      });
+      );
+    };
+
+    // Listen for seller reviews
+    const setupSellerReviewsListener = () => {
+      if (!item.itemOwnerId) return null;
+      const reviewsRef = collection(firestore, 'users', item.itemOwnerId, 'reviews');
+      const reviewsQuery = query(reviewsRef, orderBy('timestamp', 'desc'));
+      return onSnapshot(
+        reviewsQuery,
+        (snapshot) => {
+          const reviewList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setSellerReviews(reviewList);
+          const totalRating = reviewList.reduce((sum, review) => sum + (review.rating || 0), 0);
+          const avgRating = reviewList.length > 0 ? (totalRating / reviewList.length).toFixed(1) : 0;
+          setAverageSellerRating(avgRating);
+          setLoadingSellerReviews(false);
+        },
+        (error) => {
+          console.error('Error fetching seller reviews:', error);
+          setLoadingSellerReviews(false);
+        }
+      );
     };
 
     const unsubscribeSeller = setupSellerListener();
+    const unsubscribeSellerReviews = setupSellerReviewsListener();
 
-    // Cleanup listeners when component unmounts
     return () => {
       unsubscribeItem();
       if (unsubscribeSeller) unsubscribeSeller();
+      if (unsubscribeSellerReviews) unsubscribeSellerReviews();
     };
-  }, [item.itemOwnerId]); // Only re-run if itemOwnerId changes
+  }, [item.itemOwnerId, item.id]);
 
   const renderStockStatus = () => {
     if (item.Stock == 0) {
@@ -167,7 +235,6 @@ const ItemDetails = ({ route, navigation }) => {
     );
   };
 
-  // Rest of the component remains the same...
   return (
     <View style={styles.mainContainer}>
       <ScrollView style={styles.container}>
@@ -193,7 +260,6 @@ const ItemDetails = ({ route, navigation }) => {
           </View>
         </View>
 
-
         {/* Image Slider Section */}
         {item.images && item.images.length > 0 ? (
           <View style={styles.imageSliderContainer}>
@@ -216,6 +282,7 @@ const ItemDetails = ({ route, navigation }) => {
             <Text style={styles.noImageText}>No Image Available</Text>
           </View>
         )}
+
         {/* Item Details Section */}
         <View style={styles.detailsContainer}>
           <Text style={styles.itemName}>{item.itemName}</Text>
@@ -223,9 +290,7 @@ const ItemDetails = ({ route, navigation }) => {
           {/* Price Section */}
           <View style={styles.priceContainer}>
             <Icon name="attach-money" size={24} color="#28a745" />
-            <Text style={styles.price}>
-              Rs. {Number(item.price).toLocaleString()}
-            </Text>
+            <Text style={styles.price}>Rs. {Number(item.price).toLocaleString()}</Text>
           </View>
 
           {/* Stock Status Section */}
@@ -262,10 +327,7 @@ const ItemDetails = ({ route, navigation }) => {
                 </View>
               ) : sellerData ? (
                 sellerData.profileImage ? (
-                  <Image
-                    source={{ uri: sellerData.profileImage }}
-                    style={styles.sellerImage}
-                  />
+                  <Image source={{ uri: sellerData.profileImage }} style={styles.sellerImage} />
                 ) : (
                   <View style={styles.sellerImagePlaceholder}>
                     <Icon name="account-circle" size={40} color="#6c757d" />
@@ -282,19 +344,47 @@ const ItemDetails = ({ route, navigation }) => {
                 ) : sellerData ? (
                   <>
                     <Text style={styles.sellerName}>{sellerData.name}</Text>
-                    <Text style={styles.sellerRating}>
-                      <Icon name="star" size={16} color="#ffc107" /> 4.5 (120 reviews)
-                    </Text>
+                    {loadingSellerReviews ? (
+                      <Text style={styles.sellerRating}>Loading reviews...</Text>
+                    ) : (
+                      <TouchableOpacity onPress={() => setShowReviews(!showReviews)}>
+                        <Text style={styles.sellerRating}>
+                          <Icon name="star" size={16} color="#ffc107" /> {averageSellerRating}{' '}
+                          ({sellerReviews.length}{' '}
+                          {sellerReviews.length === 1 ? 'review' : 'reviews'})
+                          <Icon
+                            name={showReviews ? 'expand-less' : 'expand-more'}
+                            size={16}
+                            color="#6c757d"
+                          />
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 ) : (
                   <Text style={styles.sellerName}>Seller not found</Text>
                 )}
               </View>
             </View>
+            {showReviews && !loadingSellerReviews && (
+              <View style={styles.sellerReviewsContainer}>
+                {sellerReviews.length === 0 ? (
+                  <Text style={styles.noReviewsText}>No reviews yet</Text>
+                ) : (
+                  <FlatList
+                    data={sellerReviews}
+                    renderItem={renderSellerReview}
+                    keyExtractor={(item) => item.id}
+                    scrollEnabled={false}
+                    style={styles.reviewsList}
+                  />
+                )}
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Add Edit Button for Owner in Item Details Section */}
+        {/* Owner Actions */}
         {isOwner && (
           <View style={styles.ownerActionsContainer}>
             <TouchableOpacity
@@ -306,52 +396,49 @@ const ItemDetails = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Modified Bottom Action Button */}
-        <View style={styles.bottomContainer}>
-          {!isOwner ? (
-            <View style={styles.buyActionsContainer}>
-              <TouchableOpacity
-                  style={[
-                    styles.contactButton,
-                    { flex: 1, marginRight: 8 },
-                    item.Stock === 0 && styles.disabledButton
-                  ]}
-                  disabled={item.Stock === 0}
-                  onPress={() => navigation.navigate('ChatScreen', { item, sellerData })}
-                >
-                  <Icon name="chat" size={24} color="#fff" />
-                  <Text style={styles.contactButtonText}>
-                    {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
-                  </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.buyButton,
-                  { flex: 1 },
-                  item.Stock === 0 && styles.disabledButton
-                ]}
-                onPress={handleBuyNow}
-                disabled={item.Stock === 0}
-              >
-                <Icon name="shopping-cart" size={24} color="#fff" />
-                <Text style={styles.buyButtonText}>
-                  {item.Stock === 0 ? 'Out of Stock' : 'Buy Now'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.ownerBottomContainer}>
-              <Text style={styles.ownerItemText}>You are the owner of this item</Text>
-            </View>
-          )}
-        </View>
       </ScrollView>
+
+      {/* Bottom Action Button */}
+      <View style={styles.bottomContainer}>
+        {!isOwner ? (
+          <View style={styles.buyActionsContainer}>
+            <TouchableOpacity
+              style={[
+                styles.contactButton,
+                { flex: 1, marginRight: 8 },
+                item.Stock === 0 && styles.disabledButton,
+              ]}
+              disabled={item.Stock === 0}
+              onPress={() => navigation.navigate('ChatScreen', { item, sellerData })}
+            >
+              <Icon name="chat" size={24} color="#fff" />
+              <Text style={styles.contactButtonText}>
+                {item.Stock === 0 ? 'Out of Stock' : 'Contact Seller'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.buyButton, { flex: 1 }, item.Stock === 0 && styles.disabledButton]}
+              onPress={handleBuyNow}
+              disabled={item.Stock === 0}
+            >
+              <Icon name="shopping-cart" size={24} color="#fff" />
+              <Text style={styles.buyButtonText}>
+                {item.Stock === 0 ? 'Out of Stock' : 'Buy Now'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.ownerBottomContainer}>
+            <Text style={styles.ownerItemText}>You are the owner of this item</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Existing styles (unchanged)
   mainContainer: {
     flex: 1,
     backgroundColor: '#fff',
@@ -381,24 +468,37 @@ const styles = StyleSheet.create({
   deleteButton: {
     marginLeft: 8,
   },
-  imageContainer: {
-    position: 'relative',
+  imageSliderContainer: {
+    height: 300,
+    width: width,
+    backgroundColor: '#f8f9fa',
   },
-  image: {
-    width: '100%',
+  imageSlide: {
+    width: width,
     height: 300,
   },
-  imageCounter: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 8,
-    borderRadius: 20,
+  slideImage: {
+    width: '100%',
+    height: '100%',
   },
-  imageCounterText: {
-    color: '#fff',
-    fontSize: 12,
+  paginationContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 16,
+    alignSelf: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#fff',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   noImageContainer: {
     width: '100%',
@@ -421,126 +521,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#333',
   },
-  priceStockContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  price: {
-    fontSize: 22,
-    color: '#28a745',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  outOfStockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffebee',
-    padding: 8,
-    borderRadius: 16,
-  },
-  outOfStockText: {
-    color: '#dc3545',
-    marginLeft: 4,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    marginLeft: 8,
-    color: '#495057',
-  },
-  descriptionContainer: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#212529',
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#495057',
-  },
-  sellerContainer: {
-    marginBottom: 16,
-  },
-  sellerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-  },
-  sellerDetails: {
-    marginLeft: 12,
-  },
-  sellerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212529',
-  },
-  sellerRating: {
-    fontSize: 14,
-    color: '#6c757d',
-    marginTop: 4,
-  },
-  bottomContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  contactButton: {
-    backgroundColor: '#007bff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-  },
-  disabledButton: {
-    backgroundColor: '#6c757d',
-    opacity: 0.7,
-  },
-  contactButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  sellerImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  sellerImagePlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -552,56 +532,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  stockInfoContainer: {
-    marginBottom: 16,
-  },
-  stockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  stockText: {
-    color: '#28a745',
-    marginLeft: 6,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  stockCountWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stockCount: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  outOfStockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffebee',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-  outOfStockText: {
-    color: '#dc3545',
-    marginLeft: 6,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e9ecef',
-    marginBottom: 16,
-  },
-
   stockInfoContainer: {
     marginBottom: 16,
     backgroundColor: '#f8f9fa',
@@ -664,37 +594,78 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  imageSliderContainer: {
-    height: 300,
-    width: width,
-    backgroundColor: '#f8f9fa',
+  divider: {
+    height: 1,
+    backgroundColor: '#e9ecef',
+    marginBottom: 16,
   },
-  imageSlide: {
-    width: width,
-    height: 300,
-  },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-  },
-  paginationContainer: {
+  statusContainer: {
     flexDirection: 'row',
-    position: 'absolute',
-    bottom: 16,
-    alignSelf: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e9ecef',
   },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 4,
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  paginationDotActive: {
-    backgroundColor: '#fff',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  statusText: {
+    marginLeft: 8,
+    color: '#495057',
+  },
+  descriptionContainer: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#212529',
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#495057',
+  },
+  sellerContainer: {
+    marginBottom: 16,
+  },
+  sellerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+  },
+  sellerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  sellerImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sellerDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  sellerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+  },
+  sellerRating: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginTop: 4,
   },
   ownerActionsContainer: {
     padding: 16,
@@ -716,15 +687,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  ownerBottomContainer: {
+  bottomContainer: {
     padding: 16,
-    backgroundColor: '#f8f9fa',
-    alignItems: 'center',
-  },
-  ownerItemText: {
-    fontSize: 16,
-    color: '#6c757d',
-    fontStyle: 'italic',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderColor: '#e9ecef',
   },
   buyActionsContainer: {
     flexDirection: 'row',
@@ -764,6 +731,81 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: '#6c757d',
     opacity: 0.7,
+  },
+  ownerBottomContainer: {
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+  },
+  ownerItemText: {
+    fontSize: 16,
+    color: '#6c757d',
+    fontStyle: 'italic',
+  },
+  // New styles for seller reviews
+  sellerReviewsContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  noReviewsText: {
+    fontSize: 16,
+    color: '#6c757d',
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  reviewsList: {
+    marginTop: 8,
+  },
+  reviewContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  reviewerImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reviewHeaderText: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  reviewTimestamp: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginLeft: 8,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#495057',
+    lineHeight: 20,
   },
 });
 

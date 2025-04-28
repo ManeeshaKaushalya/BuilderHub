@@ -13,7 +13,7 @@ import {
     Platform
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons, Entypo } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -37,15 +37,12 @@ function UploaderProfile() {
     const [userProfile, setUserProfile] = useState(null);
     const [userPosts, setUserPosts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isFollowing, setIsFollowing] = useState(false);
     const [userRating, setUserRating] = useState(0);
     const [averageRating, setAverageRating] = useState(0);
     const [totalRatings, setTotalRatings] = useState(0);
     const [ratingAnimation] = useState(new Animated.Value(1));
     const [stats, setStats] = useState({
-        postsCount: 0,
-        followersCount: 0,
-        followingCount: 0
+        postsCount: 0
     });
     const [currentLocation, setCurrentLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -73,8 +70,6 @@ function UploaderProfile() {
                         name: userData.name || 'Unknown User',
                         bio: userData.bio || '',
                         profileImage: userData.profileImage || null,
-                        followers: userData.followers || [],
-                        following: userData.following || [],
                         ratings: userData.ratings || {},
                         profession: userData.profession || 'Professional',
                         location: userData.location || null,
@@ -84,15 +79,12 @@ function UploaderProfile() {
                         education: userData.education || [],
                         certifications: userData.certifications || [],
                         yearsOfExperience: userData.yearsOfExperience || 0,
-                        accountType: userData.accountType || 'Person' // Added accountType
+                        accountType: userData.accountType || 'Person'
                     });
 
-                    if (currentUser) {
-                        setIsFollowing(userData.followers?.includes(currentUser.uid) || false);
-                        if (userData.ratings && userData.ratings.users && 
-                            userData.ratings.users[currentUser.uid]) {
-                            setUserRating(userData.ratings.users[currentUser.uid]);
-                        }
+                    if (userData.ratings && userData.ratings.users && 
+                        currentUser && userData.ratings.users[currentUser.uid]) {
+                        setUserRating(userData.ratings.users[currentUser.uid]);
                     }
 
                     if (userData.ratings && userData.ratings.users) {
@@ -103,12 +95,6 @@ function UploaderProfile() {
                             setTotalRatings(ratings.length);
                         }
                     }
-
-                    setStats({
-                        postsCount: userData.postsCount || 0,
-                        followersCount: userData.followers?.length || 0,
-                        followingCount: userData.following?.length || 0
-                    });
                 } else {
                     console.log('User document does not exist for ID:', profileId);
                 }
@@ -161,6 +147,8 @@ function UploaderProfile() {
                             ...postData,
                             ownerName: userProfile?.name || 'Unknown User',
                             userImage: userProfile?.profileImage || null,
+                            imageList: postData.imageList || [],
+                            videoUrl: postData.videoUrl || null
                         };
                     })
                 );
@@ -171,8 +159,16 @@ function UploaderProfile() {
                 });
 
                 setUserPosts(posts);
+                setStats((prevStats) => ({
+                    ...prevStats,
+                    postsCount: posts.length // Update postsCount based on fetched posts
+                }));
             } catch (error) {
                 console.error('Error fetching user posts:', error);
+                setStats((prevStats) => ({
+                    ...prevStats,
+                    postsCount: 0 // Fallback to 0 on error
+                }));
             }
         };
 
@@ -188,7 +184,7 @@ function UploaderProfile() {
             const userLocation = parseLocationString(userProfile.location);
             if (!userLocation) {
                 setMapError('Invalid user location');
-                setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+                setRouteCoordinates([currentLocation, userLocation]);
                 return;
             }
 
@@ -208,12 +204,12 @@ function UploaderProfile() {
                 } else {
                     console.warn('No route found:', data.status);
                     setMapError('No route found');
-                    setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+                    setRouteCoordinates([currentLocation, userLocation]);
                 }
             } catch (error) {
                 console.error('Error fetching route:', error);
                 setMapError('Failed to fetch route');
-                setRouteCoordinates([currentLocation, userLocation]); // Straight line fallback
+                setRouteCoordinates([currentLocation, userLocation]);
             }
         };
 
@@ -227,51 +223,6 @@ function UploaderProfile() {
             useNativeDriver: true,
         }).start();
     }, [ratingAnimation]);
-
-    const handleFollow = async () => {
-        if (!currentUser || !profileId || currentUser.uid === profileId) return;
-
-        try {
-            const userRef = doc(firestore, 'users', profileId);
-            const currentUserRef = doc(firestore, 'users', currentUser.uid);
-            
-            const userDoc = await getDoc(userRef);
-            const currentUserDoc = await getDoc(currentUserRef);
-            
-            if (userDoc.exists() && currentUserDoc.exists()) {
-                const userData = userDoc.data();
-                const currentUserData = currentUserDoc.data();
-                
-                if (isFollowing) {
-                    const updatedFollowers = (userData.followers || []).filter(
-                        id => id !== currentUser.uid
-                    );
-                    const updatedFollowing = (currentUserData.following || []).filter(
-                        id => id !== profileId
-                    );
-                    
-                    await updateDoc(userRef, { followers: updatedFollowers });
-                    await updateDoc(currentUserRef, { following: updatedFollowing });
-                } else {
-                    const updatedFollowers = [...(userData.followers || []), currentUser.uid];
-                    const updatedFollowing = [...(currentUserData.following || []), profileId];
-                    
-                    await updateDoc(userRef, { followers: updatedFollowers });
-                    await updateDoc(currentUserRef, { following: updatedFollowing });
-                }
-                
-                setIsFollowing(!isFollowing);
-                setStats(prev => ({
-                    ...prev,
-                    followersCount: isFollowing 
-                        ? prev.followersCount - 1 
-                        : prev.followersCount + 1
-                }));
-            }
-        } catch (error) {
-            console.error('Error updating follow status:', error);
-        }
-    };
 
     const handleRating = async (rating) => {
         if (!currentUser || !profileId || currentUser.uid === profileId) return;
@@ -320,7 +271,6 @@ function UploaderProfile() {
     };
 
     const handleMakeOrder = () => {
-        // Navigate to a screen or perform an action for making orders
         navigation.navigate('MakeOrderScreen', { userId: profileId });
     };
 
@@ -479,118 +429,116 @@ function UploaderProfile() {
                         ) : null}
                     </View>
 
-                    {/* Professional Skills Section */}
                     {userProfile.skills && Array.isArray(userProfile.skills) && userProfile.skills.length > 0 && (
-    <View style={styles.professionalSection}>
-        <View style={styles.sectionTitleRow}>
-            <MaterialCommunityIcons name="lightning-bolt" size={18} color="#0095f6" />
-            <Text style={styles.professionalSectionTitle}>Skills</Text>
-        </View>
-        <View style={styles.skillsContainer}>
-            {(showAllSkills ? userProfile.skills : userProfile.skills.slice(0, 5)).map((skill, index) => (
-                <View key={index} style={styles.skillBadge}>
-                    <Text style={styles.skillText}>{skill}</Text>
-                </View>
-            ))}
-        </View>
-        {userProfile.skills.length > 5 && (
-            <TouchableOpacity 
-                style={styles.showMoreButton} 
-                onPress={toggleShowAllSkills}
-            >
-                <Text style={styles.showMoreText}>
-                    {showAllSkills 
-                        ? "Show Less" 
-                        : `Show All (${userProfile.skills.length})`}
-                </Text>
-                <Ionicons 
-                    name={showAllSkills ? "chevron-up" : "chevron-down"} 
-                    size={16} 
-                    color="#0095f6" 
-                />
-            </TouchableOpacity>
-        )}
-    </View>
-)}
-
-                    {/* Experience Section */}
-                    {userProfile.experience && Array.isArray(userProfile.experience) && userProfile.experience.length > 0 && (
-    <View style={styles.professionalSection}>
-        <View style={styles.sectionTitleRow}>
-            <MaterialIcons name="work" size={18} color="#0095f6" />
-            <Text style={styles.professionalSectionTitle}>Work Experience</Text>
-        </View>
-        <View style={styles.experienceContainer}>
-            {userProfile.experience.map((exp, index) => (
-                <View key={index} style={styles.experienceItem}>
-                    {exp.companyLogo ? (
-                        <Image 
-                            source={{ uri: exp.companyLogo }} 
-                            style={styles.companyLogo} 
-                        />
-                    ) : (
-                        <View style={styles.companyLogoPlaceholder}>
-                            <MaterialIcons name="business" size={22} color="#666" />
+                        <View style={styles.professionalSection}>
+                            <View style={styles.sectionTitleRow}>
+                                <MaterialCommunityIcons name="lightning-bolt" size={18} color="#0095f6" />
+                                <Text style={styles.professionalSectionTitle}>Skills</Text>
+                            </View>
+                            <View style={styles.skillsContainer}>
+                                {(showAllSkills ? userProfile.skills : userProfile.skills.slice(0, 5)).map((skill, index) => (
+                                    <View key={index} style={styles.skillBadge}>
+                                        <Text style={styles.skillText}>{skill}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                            {userProfile.skills.length > 5 && (
+                                <TouchableOpacity 
+                                    style={styles.showMoreButton} 
+                                    onPress={toggleShowAllSkills}
+                                >
+                                    <Text style={styles.showMoreText}>
+                                        {showAllSkills 
+                                            ? "Show Less" 
+                                            : `Show All (${userProfile.skills.length})`}
+                                    </Text>
+                                    <Ionicons 
+                                        name={showAllSkills ? "chevron-up" : "chevron-down"} 
+                                        size={16} 
+                                        color="#0095f6" 
+                                    />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )}
-                    <View style={styles.experienceDetails}>
-                        <Text style={styles.experienceRole}>{exp.role}</Text>
-                        <Text style={styles.experienceCompany}>{exp.company}</Text>
-                        <Text style={styles.experiencePeriod}>
-                            {exp.startDate} - {exp.endDate || 'Present'}
-                        </Text>
-                        {exp.description && (
-                            <Text style={styles.experienceDescription}>
-                                {exp.description}
-                            </Text>
-                        )}
-                    </View>
-                </View>
-            ))}
-        </View>
-    </View>
-)}
-                    {/* Education & Certification Section */}
-                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) || 
- (userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0)) ? (
-    <View style={styles.professionalSection}>
-        {userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0 && (
-            <>
-                <View style={styles.sectionTitleRow}>
-                    <Ionicons name="school" size={18} color="#0095f6" />
-                    <Text style={styles.professionalSectionTitle}>Education</Text>
-                </View>
-                <View style={styles.educationContainer}>
-                    {userProfile.education.map((edu, index) => (
-                        <View key={index} style={styles.educationItem}>
-                            <Text style={styles.educationDegree}>{edu.degree}</Text>
-                            <Text style={styles.educationInstitution}>{edu.institution}</Text>
-                            <Text style={styles.educationYear}>{edu.year}</Text>
-                        </View>
-                    ))}
-                </View>
-            </>
-        )}
 
-        {userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0 && (
-            <>
-                <View style={[styles.sectionTitleRow, {marginTop: 15}]}>
-                    <MaterialCommunityIcons name="certificate" size={18} color="#0095f6" />
-                    <Text style={styles.professionalSectionTitle}>Certifications</Text>
-                </View>
-                <View style={styles.certificationsContainer}>
-                    {userProfile.certifications.map((cert, index) => (
-                        <View key={index} style={styles.certificationItem}>
-                            <Text style={styles.certificationName}>{cert.name}</Text>
-                            <Text style={styles.certificationIssuer}>{cert.issuer}</Text>
-                            <Text style={styles.certificationDate}>{cert.date}</Text>
+                    {userProfile.experience && Array.isArray(userProfile.experience) && userProfile.experience.length > 0 && (
+                        <View style={styles.professionalSection}>
+                            <View style={styles.sectionTitleRow}>
+                                <MaterialIcons name="work" size={18} color="#0095f6" />
+                                <Text style={styles.professionalSectionTitle}>Work Experience</Text>
+                            </View>
+                            <View style={styles.experienceContainer}>
+                                {userProfile.experience.map((exp, index) => (
+                                    <View key={index} style={styles.experienceItem}>
+                                        {exp.companyLogo ? (
+                                            <Image 
+                                                source={{ uri: exp.companyLogo }} 
+                                                style={styles.companyLogo} 
+                                            />
+                                        ) : (
+                                            <View style={styles.companyLogoPlaceholder}>
+                                                <MaterialIcons name="business" size={22} color="#666" />
+                                            </View>
+                                        )}
+                                        <View style={styles.experienceDetails}>
+                                            <Text style={styles.experienceRole}>{exp.role}</Text>
+                                            <Text style={styles.experienceCompany}>{exp.company}</Text>
+                                            <Text style={styles.experiencePeriod}>
+                                                {exp.startDate} - {exp.endDate || 'Present'}
+                                            </Text>
+                                            {exp.description && (
+                                                <Text style={styles.experienceDescription}>
+                                                    {exp.description}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    ))}
-                </View>
-            </>
-        )}
-    </View>
-) : null}
+                    )}
+
+                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) || 
+                      (userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0)) ? (
+                        <View style={styles.professionalSection}>
+                            {userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0 && (
+                                <>
+                                    <View style={styles.sectionTitleRow}>
+                                        <Ionicons name="school" size={18} color="#0095f6" />
+                                        <Text style={styles.professionalSectionTitle}>Education</Text>
+                                    </View>
+                                    <View style={styles.educationContainer}>
+                                        {userProfile.education.map((edu, index) => (
+                                            <View key={index} style={styles.educationItem}>
+                                                <Text style={styles.educationDegree}>{edu.degree}</Text>
+                                                <Text style={styles.educationInstitution}>{edu.institution}</Text>
+                                                <Text style={styles.educationYear}>{edu.year}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0 && (
+                                <>
+                                    <View style={[styles.sectionTitleRow, {marginTop: 15}]}>
+                                        <MaterialCommunityIcons name="certificate" size={18} color="#0095f6" />
+                                        <Text style={styles.professionalSectionTitle}>Certifications</Text>
+                                    </View>
+                                    <View style={styles.certificationsContainer}>
+                                        {userProfile.certifications.map((cert, index) => (
+                                            <View key={index} style={styles.certificationItem}>
+                                                <Text style={styles.certificationName}>{cert.name}</Text>
+                                                <Text style={styles.certificationIssuer}>{cert.issuer}</Text>
+                                                <Text style={styles.certificationDate}>{cert.date}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    ) : null}
 
                     {currentLocation && userLocation ? (
                         <View style={styles.mapContainer}>
@@ -685,14 +633,6 @@ function UploaderProfile() {
                             <Text style={styles.statNumber}>{stats.postsCount}</Text>
                             <Text style={styles.statLabel}>Posts</Text>
                         </View>
-                        <View style={[styles.statItem, styles.statDivider]}>
-                            <Text style={styles.statNumber}>{stats.followersCount}</Text>
-                            <Text style={styles.statLabel}>Followers</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>{stats.followingCount}</Text>
-                            <Text style={styles.statLabel}>Following</Text>
-                        </View>
                     </View>
 
                     {currentUser && currentUser.uid !== profileId && (
@@ -701,27 +641,6 @@ function UploaderProfile() {
                                 ? styles.actionButtonsContainerShop 
                                 : styles.actionButtonsContainer
                         }>
-                            <TouchableOpacity 
-                                style={[
-                                    styles.followButton, 
-                                    isFollowing ? styles.followingButton : null
-                                ]}
-                                onPress={handleFollow}
-                            >
-                                <Ionicons 
-                                    name={isFollowing ? "checkmark-circle" : "person-add"} 
-                                    size={18} 
-                                    color={isFollowing ? "#0095f6" : "#fff"} 
-                                    style={styles.buttonIcon}
-                                />
-                                <Text style={[
-                                    styles.followButtonText,
-                                    isFollowing ? styles.followingButtonText : null
-                                ]}>
-                                    {isFollowing ? 'Following' : 'Follow'}
-                                </Text>
-                            </TouchableOpacity>
-                            
                             <TouchableOpacity 
                                 style={styles.messageButton}
                                 onPress={() => navigation.navigate('WorkerChatScreen', { userId: profileId })}
@@ -773,7 +692,8 @@ function UploaderProfile() {
                                 postId={post.id}
                                 username={post.ownerName}
                                 caption={post.caption}
-                                imageList={post.imageUrls}
+                                imageList={post.imageList}
+                                videoUrl={post.videoUrl}
                                 userImage={post.userImage}
                                 uploadDate={post.timestamp}
                                 ownerId={post.uid}
@@ -1146,7 +1066,7 @@ const styles = StyleSheet.create({
     },
     statsContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'center',
         marginTop: 20,
         padding: 12,
         backgroundColor: '#f9f9f9',
@@ -1155,11 +1075,6 @@ const styles = StyleSheet.create({
     statItem: {
         alignItems: 'center',
         flex: 1,
-    },
-    statDivider: {
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: '#eee',
     },
     statNumber: {
         fontSize: 18,
@@ -1173,7 +1088,7 @@ const styles = StyleSheet.create({
     },
     actionButtonsContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         marginTop: 16,
     },
     actionButtonsContainerShop: {
@@ -1181,29 +1096,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginTop: 16,
         flexWrap: 'wrap',
-    },
-    followButton: {
-        flex: 1,
-        flexDirection: 'row',
-        backgroundColor: '#0095f6',
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 8,
-    },
-    followingButton: {
-        backgroundColor: '#e4f2ff',
-        borderWidth: 1,
-        borderColor: '#0095f6',
-    },
-    followButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 15,
-    },
-    followingButtonText: {
-        color: '#0095f6',
     },
     messageButton: {
         flex: 1,
@@ -1213,7 +1105,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: 8,
+        marginHorizontal: 8,
     },
     messageButtonText: {
         color: '#fff',
@@ -1228,7 +1120,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: 8,
+        marginHorizontal: 8,
         marginTop: 8,
     },
     orderButtonText: {

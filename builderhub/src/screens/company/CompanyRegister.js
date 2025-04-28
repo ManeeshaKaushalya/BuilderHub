@@ -149,7 +149,7 @@ const CompanyRegister = ({ navigation }) => {
 
       // Prepare company data
       const companyData = {
-        companyName,
+        name: companyName,
         email,
         accountType,
         companyDescription,
@@ -221,7 +221,7 @@ const CompanyRegister = ({ navigation }) => {
       )}
       <SuccessModal />
       <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
-        <Text style={dynamicStyles.title}>Create Your Company Account</Text>
+        <Text style={dynamicStyles.title}>Create Your Account</Text>
 
         <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
           {profileImage ? (
@@ -230,13 +230,13 @@ const CompanyRegister = ({ navigation }) => {
             <Icon name="camera" size={50} color={isDarkMode ? '#444' : '#ccc'} />
           )}
         </TouchableOpacity>
-        <Text style={dynamicStyles.uploadText}>Upload Company Logo</Text>
+        <Text style={dynamicStyles.uploadText}>Upload Profile Picture</Text>
 
         <View style={dynamicStyles.inputContainer}>
-          <Icon name="building" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+          <Icon name="user" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
           <TextInput
             style={dynamicStyles.input}
-            placeholder="Company Name"
+            placeholder="Name"
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={companyName}
             onChangeText={setCompanyName}
@@ -272,7 +272,7 @@ const CompanyRegister = ({ navigation }) => {
           <Icon name="info-circle" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
           <TextInput
             style={dynamicStyles.input}
-            placeholder="Company Description"
+            placeholder="Bio"
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={companyDescription}
             onChangeText={setCompanyDescription}

@@ -6,12 +6,12 @@ import UsersPostsScreen from './UsersPostsScreen';
 import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
-import ProfileScreen from './ProfileScreen';
-import ShopOrdersScreen from './ShopOrdersScreen'; // Import ShopOrdersScreen
+import UploaderProfile from './UploaderProfile'; // Import UploaderProfile
+import ShopOrdersScreen from './ShopOrdersScreen';
 import { useTheme } from '../context/ThemeContext';
 import { getAuth } from 'firebase/auth';
-import { firestore } from '../../firebase/firebaseConfig'; // Adjust path as needed
-import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../../firebase/firebaseConfig';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,6 +20,8 @@ const TabsScreen = () => {
   const auth = getAuth();
   const [accountType, setAccountType] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [newOrderCount, setNewOrderCount] = useState(0);
 
   useEffect(() => {
     const fetchAccountType = async () => {
@@ -48,9 +50,73 @@ const TabsScreen = () => {
     fetchAccountType();
   }, []);
 
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('No authenticated user, skipping unread notifications');
+      setUnreadCount(0);
+      return;
+    }
+
+    const notificationsRef = collection(firestore, 'users', user.uid, 'notifications');
+    const q = query(notificationsRef, where('read', '==', false));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      try {
+        const count = snapshot.size;
+        console.log('Unread notifications count:', count);
+        setUnreadCount(count);
+      } catch (error) {
+        console.error('Error fetching unread notifications:', error);
+        setUnreadCount(0);
+      }
+    }, (error) => {
+      console.error('Snapshot error for unread notifications:', error);
+      setUnreadCount(0);
+    });
+
+    return () => {
+      console.log('Unsubscribing from unread notifications listener');
+      unsubscribe();
+    };
+  }, [auth.currentUser]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || accountType !== 'Shop') {
+      console.log('No authenticated user or not a Shop account, skipping new orders');
+      setNewOrderCount(0);
+      return;
+    }
+
+    const ordersRef = collection(firestore, 'orders');
+    const q = query(ordersRef, where('shopId', '==', user.uid), where('status', '==', 'pending'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      try {
+        const count = snapshot.size;
+        console.log('New orders count:', count);
+        setNewOrderCount(count);
+      } catch (error) {
+        console.error('Error fetching new orders:', error);
+        setNewOrderCount(0);
+      }
+    }, (error) => {
+      console.error('Snapshot error for new orders:', error);
+      setNewOrderCount(0);
+    });
+
+    return () => {
+      console.log('Unsubscribing from new orders listener');
+      unsubscribe();
+    };
+  }, [auth.currentUser, accountType]);
+
   if (loading) {
     return null; // Optionally render a loading indicator
   }
+
+  const currentUserId = auth.currentUser?.uid;
 
   return (
     <Tab.Navigator
@@ -93,6 +159,17 @@ const TabsScreen = () => {
         component={NotificationScreen}
         options={{
           tabBarIcon: ({ color, size }) => <Icon name="bell" size={size} color={color} />,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#ff6b6b',
+            color: '#fff',
+            fontSize: 12,
+            minWidth: 20,
+            height: 20,
+            borderRadius: 10,
+            lineHeight: 20,
+            textAlign: 'center',
+          },
         }}
       />
       <Tab.Screen
@@ -104,10 +181,11 @@ const TabsScreen = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={UploaderProfile} // Use UploaderProfile instead of ProfileScreen
         options={{
           tabBarIcon: ({ color, size }) => <Icon name="user" size={size} color={color} />,
         }}
+        initialParams={{ userId: currentUserId }} // Pass current user's ID
       />
       {accountType === 'Shop' && (
         <Tab.Screen
@@ -115,6 +193,17 @@ const TabsScreen = () => {
           component={ShopOrdersScreen}
           options={{
             tabBarIcon: ({ color, size }) => <Icon name="list-alt" size={size} color={color} />,
+            tabBarBadge: newOrderCount > 0 ? newOrderCount : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: '#ff6b6b',
+              color: '#fff',
+              fontSize: 12,
+              minWidth: 20,
+              height: 20,
+              borderRadius: 10,
+              lineHeight: 20,
+              textAlign: 'center',
+            },
           }}
         />
       )}

@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { useTheme } from '../context/ThemeContext'; // Custom hook
+import { useTheme } from '../context/ThemeContext';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 
@@ -19,23 +27,14 @@ const COLORS = {
 };
 
 const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
-const REGISTRATION_TYPES = ['user', 'shop', 'company'];
 
-const MapScreen = ({ navigation, route }) => {
+const OrderAddressMap = ({ navigation, route }) => {
   const { isDarkMode } = useTheme();
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const autocompleteRef = useRef();
-  const registrationType = route?.params?.registrationType || 'user';
   const watchSubscription = useRef(null);
-
-  useEffect(() => {
-    if (!REGISTRATION_TYPES.includes(registrationType)) {
-      console.warn('Invalid registration type:', registrationType);
-      navigation.goBack();
-    }
-  }, [registrationType, navigation]);
 
   useEffect(() => {
     let mounted = true;
@@ -47,7 +46,7 @@ const MapScreen = ({ navigation, route }) => {
           if (mounted) {
             Alert.alert(
               'Permission Denied',
-              'Location access is required to select a location. Please enable it in settings.',
+              'Location access is required to select a delivery location. Please enable it in settings.',
               [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
           }
@@ -109,43 +108,16 @@ const MapScreen = ({ navigation, route }) => {
   }, []);
 
   const handleConfirmLocation = useCallback(() => {
-    if (selectedLocation) {
-      const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
-      const targetScreen = {
-        user: 'UserRegister',
-        shop: 'ShopRegister',
-        company: 'CompanyRegister',
-      }[registrationType] || 'UserRegister';
-      navigation.navigate(targetScreen, { location: locationString });
-    } else {
-      Alert.alert(
-        'No Location Selected',
-        'Would you like to use your current location?',
-        [
-          {
-            text: 'No',
-            style: 'cancel',
-          },
-          {
-            text: 'Yes',
-            onPress: () => {
-              if (!currentLocation) {
-                Alert.alert('Error', 'Current location is not available. Please try again.');
-                return;
-              }
-              const locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
-              const targetScreen = {
-                user: 'UserRegister',
-                shop: 'ShopRegister',
-                company: 'CompanyRegister',
-              }[registrationType] || 'UserRegister';
-              navigation.navigate(targetScreen, { location: locationString });
-            },
-          },
-        ]
-      );
+    const locationToUse = selectedLocation || currentLocation;
+    if (!locationToUse) {
+      Alert.alert('Error', 'Unable to determine location. Please try again.');
+      return;
     }
-  }, [selectedLocation, currentLocation, registrationType, navigation]);
+
+    const locationString = `${locationToUse.latitude.toFixed(6)}, ${locationToUse.longitude.toFixed(6)}`;
+    navigation.goBack();
+    route.params?.onLocationSelected?.(locationString);
+  }, [selectedLocation, currentLocation, navigation, route.params]);
 
   const themedStyles = styles(isDarkMode);
 
@@ -160,11 +132,10 @@ const MapScreen = ({ navigation, route }) => {
 
   return (
     <View style={themedStyles.container}>
-      {/* Search Bar */}
       <View style={themedStyles.searchContainer} pointerEvents="box-none">
         <GooglePlacesAutocomplete
           ref={autocompleteRef}
-          placeholder="Search for a place"
+          placeholder="Search for a delivery location"
           fetchDetails={true}
           debounce={300}
           enablePoweredByContainer={false}
@@ -190,14 +161,12 @@ const MapScreen = ({ navigation, route }) => {
           textInputProps={{
             autoCorrect: false,
             autoCapitalize: 'none',
-            accessibilityLabel: 'Search location',
+            accessibilityLabel: 'Search delivery location',
             accessibilityHint: 'Enter a place name to find it on the map',
           }}
           keyboardShouldPersistTaps="handled"
         />
       </View>
-
-      {/* Map */}
       <MapView
         provider={PROVIDER_GOOGLE}
         style={themedStyles.map}
@@ -218,17 +187,15 @@ const MapScreen = ({ navigation, route }) => {
         {selectedLocation && (
           <Marker
             coordinate={selectedLocation}
-            title="Selected Location"
+            title="Selected Delivery Location"
             pinColor="red"
           />
         )}
       </MapView>
-
-      {/* Confirm Button */}
       <TouchableOpacity
         style={themedStyles.button}
         onPress={handleConfirmLocation}
-        accessibilityLabel="Confirm selected location"
+        accessibilityLabel="Confirm selected delivery location"
       >
         <Text style={themedStyles.buttonText}>Confirm Location</Text>
       </TouchableOpacity>
@@ -303,4 +270,4 @@ const styles = (isDarkMode) =>
     },
   });
 
-export default React.memo(MapScreen);
+export default React.memo(OrderAddressMap);

@@ -59,6 +59,22 @@ const ImageUpload = ({ navigation }) => {
     'Kitchen', 'Bathroom', 'Roofing', 'HVAC', 'Furniture'
   ];
 
+  // Redirect to Login if not authenticated
+  useEffect(() => {
+    const auth = getAuth();
+    if (!user || !auth.currentUser) {
+      console.log('No authenticated user in ImageUpload, redirecting to Login');
+      navigation.replace('Login');
+      return;
+    }
+    if (user.uid !== auth.currentUser.uid) {
+      console.warn('UserContext UID does not match auth UID:', user.uid, auth.currentUser.uid);
+      navigation.replace('Login');
+      return;
+    }
+    console.log('UserContext user data:', user);
+  }, [user, navigation]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -366,6 +382,12 @@ const ImageUpload = ({ navigation }) => {
       return;
     }
 
+    if (!user || !user.name || !user.uid) {
+      Alert.alert('Error', 'User data is missing. Please log in again.');
+      navigation.replace('Login');
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
 
@@ -388,7 +410,7 @@ const ImageUpload = ({ navigation }) => {
         const response = await fetch(item.uri);
         const blob = await response.blob();
         const fileExtension = item.type === 'video' ? '.mp4' : '.jpg';
-        const mediaRef = ref(storage, `posts/${user?.uid}/${Date.now()}_${index}${fileExtension}`);
+        const mediaRef = ref(storage, `posts/${user.uid}/${Date.now()}_${index}${fileExtension}`);
         
         await uploadBytes(mediaRef, blob);
         const downloadUrl = await getDownloadURL(mediaRef);
@@ -402,13 +424,13 @@ const ImageUpload = ({ navigation }) => {
       if (beforeAfterMode && beforeImage && afterImage) {
         const beforeResponse = await fetch(beforeImage);
         const beforeBlob = await beforeResponse.blob();
-        const beforeRef = ref(storage, `posts/${user?.uid}/before_${Date.now()}.jpg`);
+        const beforeRef = ref(storage, `posts/${user.uid}/before_${Date.now()}.jpg`);
         await uploadBytes(beforeRef, beforeBlob);
         const beforeUrl = await getDownloadURL(beforeRef);
         
         const afterResponse = await fetch(afterImage);
         const afterBlob = await afterResponse.blob();
-        const afterRef = ref(storage, `posts/${user?.uid}/after_${Date.now()}.jpg`);
+        const afterRef = ref(storage, `posts/${user.uid}/after_${Date.now()}.jpg`);
         await uploadBytes(afterRef, afterBlob);
         const afterUrl = await getDownloadURL(afterRef);
         
@@ -424,7 +446,7 @@ const ImageUpload = ({ navigation }) => {
       await Promise.all(documents.map(async (doc) => {
         const response = await fetch(doc.uri);
         const blob = await response.blob();
-        const docRef = ref(storage, `documents/${user?.uid}/${doc.name}`);
+        const docRef = ref(storage, `documents/${user.uid}/${doc.name}`);
         
         await uploadBytes(docRef, blob);
         const docUrl = await getDownloadURL(docRef);
@@ -441,7 +463,7 @@ const ImageUpload = ({ navigation }) => {
       await Promise.all(certificates.map(async (cert) => {
         const response = await fetch(cert.uri);
         const blob = await response.blob();
-        const certRef = ref(storage, `certificates/${user?.uid}/${cert.name}`);
+        const certRef = ref(storage, `certificates/${user.uid}/${cert.name}`);
         
         await uploadBytes(certRef, blob);
         const certUrl = await getDownloadURL(certRef);
@@ -455,12 +477,13 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }));
 
-      const auth = getAuth();
-      if (!auth.currentUser) throw new Error('User not authenticated');
-
-      const userRef = doc(firestore, 'users', auth.currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      const isVerified = userSnap.exists() ? userSnap.data().isVerified || false : false;
+      // Use isVerified from UserContext if available, otherwise fetch from Firestore
+      let isVerified = user.isVerified || false;
+      if (typeof user.isVerified === 'undefined') {
+        const userRef = doc(firestore, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        isVerified = userSnap.exists() ? userSnap.data().isVerified || false : false;
+      }
 
       await addDoc(collection(firestore, 'posts'), {
         timestamp: serverTimestamp(),
@@ -470,9 +493,9 @@ const ImageUpload = ({ navigation }) => {
         beforeAfterImages: beforeAfterUrls,
         documentUrls,
         certificates: certificateUrls,
-        username: user?.name || 'Anonymous',
-        uid: user?.uid,
-        userImage: user?.profileImage || null,
+        username: user.name, // Use user.name directly
+        uid: user.uid,
+        userImage: user.profileImage || null,
         categories,
         isVerified,
         projectTimeline: projectTimeline.trim(),
@@ -493,9 +516,7 @@ const ImageUpload = ({ navigation }) => {
       ]);
     } catch (error) {
       console.error('Upload Error:', error);
-      Alert.alert('Error', error.message === 'User not authenticated' 
-        ? 'Authentication error. Please log in again.'
-        : 'Failed to upload post. Please try again.');
+      Alert.alert('Error', 'Failed to upload post. Please try again.');
     } finally {
       setUploading(false);
     }

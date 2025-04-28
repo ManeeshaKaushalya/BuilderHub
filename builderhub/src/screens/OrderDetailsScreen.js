@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Linking } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../firebase/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -28,8 +28,27 @@ const OrderDetailsScreen = () => {
     }
   }, [orderId, order]);
 
+  const handleOpenGoogleMaps = () => {
+    if (orderData.location) {
+      const [latitude, longitude] = orderData.location.split(',').map(coord => parseFloat(coord.trim()));
+      if (latitude && longitude) {
+        const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        Linking.openURL(url).catch(err => {
+          console.error('Error opening Google Maps:', err);
+          Alert.alert('Error', 'Unable to open Google Maps. Please try again.');
+        });
+      } else {
+        Alert.alert('Error', 'Invalid location data.');
+      }
+    }
+  };
+
   if (!orderData) {
-    return <View><Text>Loading...</Text></View>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
   }
 
   return (
@@ -63,8 +82,16 @@ const OrderDetailsScreen = () => {
         </View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Delivery Details</Text>
-          <Text style={styles.detailText}>Address: {orderData.address}</Text>
-          <Text style={styles.detailText}>Contact: {orderData.contactNumber}</Text>
+          <View style={styles.locationContainer}>
+            <Text style={styles.detailText}>Location: {orderData.location || 'N/A'}</Text>
+            {orderData.location && (
+              <TouchableOpacity style={styles.mapButton} onPress={handleOpenGoogleMaps}>
+                <MaterialCommunityIcons name="google-maps" size={18} color="#0095f6" />
+                <Text style={styles.mapButtonText}>Open in Google Maps</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.detailText}>Contact: {orderData.contactNumber || 'N/A'}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -122,6 +149,33 @@ const styles = StyleSheet.create({
   },
   itemText: {
     fontSize: 15,
+    color: '#333',
+  },
+  locationContainer: {
+    marginBottom: 8,
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#e6f0fa',
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  mapButtonText: {
+    color: '#0095f6',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 16,
     color: '#333',
   },
 });

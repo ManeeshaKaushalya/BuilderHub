@@ -23,7 +23,6 @@ import { firestore, storage } from "../../../firebase/firebaseConfig";
 import { useUser } from "../../context/UserContext";
 
 const categories = ["Paints", "Machines", "Tools", "Furniture"];
-const companies = ["Sakithma", "Gayara", "Jesi"];
 const colors = ["Red", "Blue", "Green", "Black", "White", "Yellow", "Orange", "Purple", "Brown"];
 
 const AddItem = ({ navigation }) => {
@@ -31,7 +30,6 @@ const AddItem = ({ navigation }) => {
   const [formData, setFormData] = useState({
     itemName: "",
     category: "",
-    company: "",
     color: "",
     description: "",
     price: "",
@@ -53,12 +51,6 @@ const AddItem = ({ navigation }) => {
       newErrors.category = "Category is required";
     } else if (!categories.includes(formData.category)) {
       newErrors.category = "Please select a valid category";
-    }
-
-    if (!formData.company.trim()) {
-      newErrors.company = "Company is required";
-    } else if (!companies.includes(formData.company)) {
-      newErrors.company = "Please select a valid company";
     }
 
     if (!formData.color.trim()) {
@@ -298,7 +290,6 @@ const AddItem = ({ navigation }) => {
             </View>
 
             {renderDropdown('category', categories, 'Category')}
-            {renderDropdown('company', companies, 'Company')}
             {renderDropdown('color', colors, 'Color')}
 
             <View style={styles.inputGroup}>
