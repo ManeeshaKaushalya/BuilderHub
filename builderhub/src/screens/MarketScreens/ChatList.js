@@ -34,7 +34,11 @@ const ChatList = () => {
   const [userProfiles, setUserProfiles] = useState({});
 
   useEffect(() => {
-    if (!user) return;
+    // Make sure user exists and has a uid before querying
+    if (!user || !user.uid) {
+      console.log('User or user.uid is undefined, skipping chat fetch');
+      return;
+    }
 
     const chatsRef = collection(firestore, 'chats');
     const q = query(chatsRef, where('participants', 'array-contains', user.uid));
@@ -94,6 +98,9 @@ const ChatList = () => {
           }
         }
       });
+    }, (error) => {
+      console.error('Error listening to chats: ', error);
+      setLoading(false);
     });
 
     return unsubscribe;
@@ -117,27 +124,32 @@ const ChatList = () => {
 
   const getOtherUserProfile = (chat) => {
     if (!chat || !chat.participants || chat.isSupportChat) return null;
-    const otherUserId = chat.participants.find(id => id !== user.uid);
+    const otherUserId = chat.participants.find(id => id !== user?.uid);
     return userProfiles[otherUserId] || null;
   };
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
     
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    
-    if (date.toDateString() === now.toDateString()) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const now = new Date();
+      
+      if (date.toDateString() === now.toDateString()) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      if (date > oneWeekAgo) {
+        return date.toLocaleDateString(undefined, { weekday: 'short' });
+      }
+      
+      return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
+    } catch (error) {
+      console.error('Error formatting timestamp:', error);
+      return '';
     }
-    
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    if (date > oneWeekAgo) {
-      return date.toLocaleDateString(undefined, { weekday: 'short' });
-    }
-    
-    return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
   };
 
   const deleteChat = async (chatId) => {
@@ -167,6 +179,8 @@ const ChatList = () => {
   };
 
   const markChatAsRead = async (chatId) => {
+    if (!user?.uid) return;
+    
     try {
       const chatRef = doc(firestore, 'chats', chatId);
       const chatDoc = await getDoc(chatRef);
@@ -184,6 +198,11 @@ const ChatList = () => {
   };
 
   const navigateToChat = async (item, otherUser) => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'You need to be logged in to access chat');
+      return;
+    }
+    
     try {
       if (item.isSupportChat) {
         navigation.navigate('ChatScreen', {
@@ -211,17 +230,18 @@ const ChatList = () => {
       });
     } catch (error) {
       console.error('Error navigating to chat:', error);
+      Alert.alert('Error', 'Failed to open chat. Please try again.');
     }
   };
 
   const countUnreadMessages = (chat) => {
-    if (!chat || !chat.unreadCount || !chat.unreadBy || !chat.unreadBy.includes(user.uid)) return 0;
+    if (!chat || !chat.unreadCount || !chat.unreadBy || !user?.uid || !chat.unreadBy.includes(user.uid)) return 0;
     return chat.unreadCount[user.uid] || 1;
   };
 
   const renderChatItem = ({ item }) => {
     const otherUser = item.isSupportChat ? { name: 'Support Team', profileImage: null } : getOtherUserProfile(item);
-    const hasUnread = item.unreadBy?.includes(user.uid);
+    const hasUnread = user?.uid && item.unreadBy?.includes(user.uid);
     const unreadCount = countUnreadMessages(item);
 
     return (
@@ -301,11 +321,25 @@ const ChatList = () => {
     </View>
   );
 
-  if (loading) {
+  // Show loading state if we're still initializing or if user is null
+  if (loading || user === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4a6fa5" />
         <Text style={styles.loadingText}>Loading conversations...</Text>
+      </View>
+    );
+  }
+
+  // Show login prompt if user is undefined (not loading, but not logged in)
+  if (user === undefined) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Icon name="account-circle" size={60} color="#ccc" />
+        <Text style={styles.emptyTitle}>Not logged in</Text>
+        <Text style={styles.emptySubtitle}>
+          Please log in to view your conversations
+        </Text>
       </View>
     );
   }

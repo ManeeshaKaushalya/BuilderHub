@@ -10,14 +10,14 @@ import {
     SafeAreaView,
     Dimensions,
     Animated,
-    Platform
+    Platform,
+    Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { firestore } from '../../firebase/firebaseConfig';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { firestore, auth } from '../../firebase/firebaseConfig';
+import { collection, query, where, getDocs, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import Post from './Posts';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -28,12 +28,11 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0'; // Replac
 function UploaderProfile() {
     const route = useRoute();
     const navigation = useNavigation();
-    const auth = getAuth();
     const currentUser = auth.currentUser;
-    
+
     const { userId } = route.params || {};
     const profileId = userId;
-    
+
     const [userProfile, setUserProfile] = useState(null);
     const [userPosts, setUserPosts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -61,46 +60,56 @@ function UploaderProfile() {
                 console.log('Fetching profile for userId:', profileId);
 
                 const userDocRef = doc(firestore, 'users', profileId);
-                const userDocSnap = await getDoc(userDocRef);
+                const unsubscribe = onSnapshot(
+                    userDocRef,
+                    (docSnap) => {
+                        if (docSnap.exists()) {
+                            const userData = docSnap.data();
+                            setUserProfile({
+                                id: profileId,
+                                name: userData.name || 'Unknown User',
+                                bio: userData.bio || '',
+                                profileImage: userData.profileImage || null,
+                                ratings: userData.ratings || {},
+                                profession: userData.profession || 'Professional',
+                                location: userData.location || null,
+                                website: userData.website || null,
+                                skills: userData.skills ? (Array.isArray(userData.skills) ? userData.skills : [userData.skills]) : [],
+                                experience: userData.experience || [],
+                                education: userData.education || [],
+                                certifications: userData.certifications || [],
+                                yearsOfExperience: userData.yearsOfExperience || 0,
+                                accountType: userData.accountType || 'Person'
+                            });
 
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    setUserProfile({
-                        id: profileId,
-                        name: userData.name || 'Unknown User',
-                        bio: userData.bio || '',
-                        profileImage: userData.profileImage || null,
-                        ratings: userData.ratings || {},
-                        profession: userData.profession || 'Professional',
-                        location: userData.location || null,
-                        website: userData.website || null,
-                        skills: userData.skills ? (typeof userData.skills === 'string' ? [userData.skills] : userData.skills) : [],
-                        experience: userData.experience || [],
-                        education: userData.education || [],
-                        certifications: userData.certifications || [],
-                        yearsOfExperience: userData.yearsOfExperience || 0,
-                        accountType: userData.accountType || 'Person'
-                    });
+                            if (userData.ratings && userData.ratings.users && 
+                                currentUser && userData.ratings.users[currentUser.uid]) {
+                                setUserRating(userData.ratings.users[currentUser.uid]);
+                            }
 
-                    if (userData.ratings && userData.ratings.users && 
-                        currentUser && userData.ratings.users[currentUser.uid]) {
-                        setUserRating(userData.ratings.users[currentUser.uid]);
-                    }
-
-                    if (userData.ratings && userData.ratings.users) {
-                        const ratings = Object.values(userData.ratings.users);
-                        if (ratings.length > 0) {
-                            const sum = ratings.reduce((a, b) => a + b, 0);
-                            setAverageRating(sum / ratings.length);
-                            setTotalRatings(ratings.length);
+                            if (userData.ratings && userData.ratings.users) {
+                                const ratings = Object.values(userData.ratings.users);
+                                if (ratings.length > 0) {
+                                    const sum = ratings.reduce((a, b) => a + b, 0);
+                                    setAverageRating(sum / ratings.length);
+                                    setTotalRatings(ratings.length);
+                                }
+                            }
+                        } else {
+                            console.log('User document does not exist for ID:', profileId);
+                            setUserProfile(null);
                         }
+                        setLoading(false);
+                    },
+                    (error) => {
+                        console.error('Error fetching user profile:', error);
+                        setLoading(false);
                     }
-                } else {
-                    console.log('User document does not exist for ID:', profileId);
-                }
+                );
+
+                return () => unsubscribe();
             } catch (error) {
-                console.error('Error fetching user profile:', error);
-            } finally {
+                console.error('Error setting up profile listener:', error);
                 setLoading(false);
             }
         };
@@ -161,13 +170,13 @@ function UploaderProfile() {
                 setUserPosts(posts);
                 setStats((prevStats) => ({
                     ...prevStats,
-                    postsCount: posts.length // Update postsCount based on fetched posts
+                    postsCount: posts.length
                 }));
             } catch (error) {
                 console.error('Error fetching user posts:', error);
                 setStats((prevStats) => ({
                     ...prevStats,
-                    postsCount: 0 // Fallback to 0 on error
+                    postsCount: 0
                 }));
             }
         };
@@ -230,28 +239,28 @@ function UploaderProfile() {
         try {
             const userRef = doc(firestore, 'users', profileId);
             const userDoc = await getDoc(userRef);
-            
+
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 const ratings = userData.ratings || { users: {} };
-                
+
                 ratings.users = {
                     ...ratings.users,
                     [currentUser.uid]: rating
                 };
-                
+
                 const ratingValues = Object.values(ratings.users);
                 const newAverage = ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length;
-                
-                await updateDoc(userRef, { 
+
+                await updateDoc(userRef, {
                     ratings: ratings,
-                    averageRating: newAverage 
+                    averageRating: newAverage
                 });
-                
+
                 setUserRating(rating);
                 setAverageRating(newAverage);
                 setTotalRatings(ratingValues.length);
-                
+
                 Animated.sequence([
                     Animated.timing(ratingAnimation, {
                         toValue: 0.8,
@@ -272,6 +281,40 @@ function UploaderProfile() {
 
     const handleMakeOrder = () => {
         navigation.navigate('MakeOrderScreen', { userId: profileId });
+    };
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Confirm Logout',
+            'Are you sure you want to logout?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await auth.signOut();
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'Login' }],
+                            });
+                        } catch (error) {
+                            console.error('Error signing out:', error);
+                            Alert.alert('Error', 'Failed to logout. Please try again.');
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+    const handleEditProfile = () => {
+        navigation.navigate('EditProfileScreen', { userId: profileId });
     };
 
     const parseLocationString = (locationString) => {
@@ -317,24 +360,24 @@ function UploaderProfile() {
     const renderStars = (rating, onRatingPress, size = 24) => {
         const stars = [];
         const maxStars = 5;
-        
+
         for (let i = 1; i <= maxStars; i++) {
             stars.push(
-                <TouchableOpacity 
-                    key={i} 
+                <TouchableOpacity
+                    key={i}
                     onPress={() => onRatingPress && onRatingPress(i)}
                     style={styles.starContainer}
                     activeOpacity={onRatingPress ? 0.6 : 1}
                 >
-                    <FontAwesome 
-                        name={i <= rating ? "star" : "star-o"} 
-                        size={size} 
-                        color={i <= rating ? "#FFD700" : "#aaa"} 
+                    <FontAwesome
+                        name={i <= rating ? "star" : "star-o"}
+                        size={size}
+                        color={i <= rating ? "#FFD700" : "#aaa"}
                     />
                 </TouchableOpacity>
             );
         }
-        
+
         return stars;
     };
 
@@ -354,7 +397,7 @@ function UploaderProfile() {
         return (
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>User not found</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.backButtonFallback}
                     onPress={() => navigation.goBack()}
                 >
@@ -385,9 +428,9 @@ function UploaderProfile() {
                         style={styles.coverGradient}
                     >
                         <View style={styles.profileImageContainer}>
-                            <Image 
-                                source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }} 
-                                style={styles.profileImage} 
+                            <Image
+                                source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }}
+                                style={styles.profileImage}
                                 resizeMode="cover"
                             />
                             <View style={styles.onlineIndicator} />
@@ -409,21 +452,28 @@ function UploaderProfile() {
                                 </View>
                             )}
                         </View>
-                        
+
+                        <View style={styles.infoRow}>
+                            <MaterialCommunityIcons name="clock-outline" size={16} color="#666" />
+                            <Text style={styles.infoText}>
+                                {userProfile.yearsOfExperience || 0} years of experience
+                            </Text>
+                        </View>
+
                         {userProfile.location && (
                             <View style={styles.infoRow}>
                                 <Ionicons name="location-outline" size={16} color="#666" />
                                 <Text style={styles.infoText}>{userProfile.location}</Text>
                             </View>
                         )}
-                        
+
                         {userProfile.website && (
                             <View style={styles.infoRow}>
                                 <Ionicons name="globe-outline" size={16} color="#666" />
                                 <Text style={styles.infoText}>{userProfile.website}</Text>
                             </View>
                         )}
-                        
+
                         {userProfile.bio ? (
                             <Text style={styles.bioText}>{userProfile.bio}</Text>
                         ) : null}
@@ -443,19 +493,19 @@ function UploaderProfile() {
                                 ))}
                             </View>
                             {userProfile.skills.length > 5 && (
-                                <TouchableOpacity 
-                                    style={styles.showMoreButton} 
+                                <TouchableOpacity
+                                    style={styles.showMoreButton}
                                     onPress={toggleShowAllSkills}
                                 >
                                     <Text style={styles.showMoreText}>
-                                        {showAllSkills 
-                                            ? "Show Less" 
+                                        {showAllSkills
+                                            ? "Show Less"
                                             : `Show All (${userProfile.skills.length})`}
                                     </Text>
-                                    <Ionicons 
-                                        name={showAllSkills ? "chevron-up" : "chevron-down"} 
-                                        size={16} 
-                                        color="#0095f6" 
+                                    <Ionicons
+                                        name={showAllSkills ? "chevron-up" : "chevron-down"}
+                                        size={16}
+                                        color="#0095f6"
                                     />
                                 </TouchableOpacity>
                             )}
@@ -472,9 +522,9 @@ function UploaderProfile() {
                                 {userProfile.experience.map((exp, index) => (
                                     <View key={index} style={styles.experienceItem}>
                                         {exp.companyLogo ? (
-                                            <Image 
-                                                source={{ uri: exp.companyLogo }} 
-                                                style={styles.companyLogo} 
+                                            <Image
+                                                source={{ uri: exp.companyLogo }}
+                                                style={styles.companyLogo}
                                             />
                                         ) : (
                                             <View style={styles.companyLogoPlaceholder}>
@@ -499,7 +549,7 @@ function UploaderProfile() {
                         </View>
                     )}
 
-                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) || 
+                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) ||
                       (userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0)) ? (
                         <View style={styles.professionalSection}>
                             {userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0 && (
@@ -522,7 +572,7 @@ function UploaderProfile() {
 
                             {userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0 && (
                                 <>
-                                    <View style={[styles.sectionTitleRow, {marginTop: 15}]}>
+                                    <View style={[styles.sectionTitleRow, { marginTop: 15 }]}>
                                         <MaterialCommunityIcons name="certificate" size={18} color="#0095f6" />
                                         <Text style={styles.professionalSectionTitle}>Certifications</Text>
                                     </View>
@@ -578,16 +628,18 @@ function UploaderProfile() {
                         <Text style={styles.mapErrorText}>Location data unavailable</Text>
                     )}
 
-                    <Animated.View 
+                    <Animated.View
                         style={[
                             styles.ratingCard,
                             {
                                 opacity: ratingAnimation,
                                 transform: [
-                                    { scale: ratingAnimation.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [0.8, 1]
-                                    }) }
+                                    {
+                                        scale: ratingAnimation.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [0.8, 1]
+                                        })
+                                    }
                                 ]
                             }
                         ]}
@@ -600,7 +652,7 @@ function UploaderProfile() {
                                 <MaterialCommunityIcons name="star-circle" size={22} color="#FFB400" />
                                 <Text style={styles.ratingTitle}>Reputation Score</Text>
                             </View>
-                            
+
                             <View style={styles.ratingValue}>
                                 <Text style={styles.ratingNumber}>
                                     {totalRatings > 0 ? averageRating.toFixed(1) : '0.0'}
@@ -614,7 +666,7 @@ function UploaderProfile() {
                                     </Text>
                                 </View>
                             </View>
-                            
+
                             {currentUser && currentUser.uid !== profileId && (
                                 <View style={styles.userRatingContainer}>
                                     <Text style={styles.userRatingTitle}>
@@ -635,38 +687,69 @@ function UploaderProfile() {
                         </View>
                     </View>
 
-                    {currentUser && currentUser.uid !== profileId && (
+                    {currentUser && (
                         <View style={
-                            userProfile.accountType === 'Shop' 
-                                ? styles.actionButtonsContainerShop 
+                            userProfile.accountType === 'Shop' && currentUser.uid !== profileId
+                                ? styles.actionButtonsContainerShop
                                 : styles.actionButtonsContainer
                         }>
-                            <TouchableOpacity 
-                                style={styles.messageButton}
-                                onPress={() => navigation.navigate('WorkerChatScreen', { userId: profileId })}
-                            >
-                                <Ionicons 
-                                    name="chatbubble-ellipses-outline" 
-                                    size={18} 
-                                    color="#fff" 
-                                    style={styles.buttonIcon}
-                                />
-                                <Text style={styles.messageButtonText}>Message</Text>
-                            </TouchableOpacity>
+                            {currentUser.uid !== profileId && (
+                                <TouchableOpacity
+                                    style={styles.messageButton}
+                                    onPress={() => navigation.navigate('WorkerChatScreen', { userId: profileId })}
+                                >
+                                    <Ionicons
+                                        name="chatbubble-ellipses-outline"
+                                        size={18}
+                                        color="#fff"
+                                        style={styles.buttonIcon}
+                                    />
+                                    <Text style={styles.messageButtonText}>Message</Text>
+                                </TouchableOpacity>
+                            )}
 
-                            {userProfile.accountType === 'Shop' && (
-                                <TouchableOpacity 
+                            {userProfile.accountType === 'Shop' && currentUser.uid !== profileId && (
+                                <TouchableOpacity
                                     style={styles.orderButton}
                                     onPress={handleMakeOrder}
                                 >
-                                    <MaterialCommunityIcons 
-                                        name="cart-outline" 
-                                        size={18} 
-                                        color="#fff" 
+                                    <MaterialCommunityIcons
+                                        name="cart-outline"
+                                        size={18}
+                                        color="#fff"
                                         style={styles.buttonIcon}
                                     />
                                     <Text style={styles.orderButtonText}>Make Orders</Text>
                                 </TouchableOpacity>
+                            )}
+
+                            {currentUser.uid === profileId && (
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.editProfileButton}
+                                        onPress={handleEditProfile}
+                                    >
+                                        <Ionicons
+                                            name="pencil-outline"
+                                            size={18}
+                                            color="#fff"
+                                            style={styles.buttonIcon}
+                                        />
+                                        <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.logoutButton}
+                                        onPress={handleLogout}
+                                    >
+                                        <Ionicons
+                                            name="log-out-outline"
+                                            size={18}
+                                            color="#fff"
+                                            style={styles.buttonIcon}
+                                        />
+                                        <Text style={styles.logoutButtonText}>Logout</Text>
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </View>
                     )}
@@ -679,7 +762,7 @@ function UploaderProfile() {
                             <Text style={styles.seeAllText}>See All</Text>
                         </TouchableOpacity>
                     </View>
-                    
+
                     {userPosts.length === 0 ? (
                         <View style={styles.emptyPostsContainer}>
                             <MaterialIcons name="post-add" size={50} color="#ccc" />
@@ -1090,6 +1173,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         marginTop: 16,
+        flexWrap: 'wrap',
     },
     actionButtonsContainerShop: {
         flexDirection: 'row',
@@ -1106,6 +1190,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginHorizontal: 8,
+        marginTop: 8,
     },
     messageButtonText: {
         color: '#fff',
@@ -1124,6 +1209,38 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     orderButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    editProfileButton: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: '#0095f6',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 8,
+        marginTop: 8,
+    },
+    editProfileButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    logoutButton: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: '#ff3b30',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 8,
+        marginTop: 8,
+    },
+    logoutButtonText: {
         color: '#fff',
         fontWeight: '600',
         fontSize: 15,
