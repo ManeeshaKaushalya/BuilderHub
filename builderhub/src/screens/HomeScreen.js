@@ -28,18 +28,15 @@ const HomeScreen = () => {
   const [searchRadius, setSearchRadius] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfession, setSelectedProfession] = useState('All');
-  const [selectedAccountType, setSelectedAccountType] = useState('All');
   const [minRating, setMinRating] = useState(0);
-  const [sortBy, setSortBy] = useState('distance');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
-  const [showEmergencyResultsModal, setShowEmergencyResultsModal] = useState(false); // New state for results modal
-  const [emergencyProfessionals, setEmergencyProfessionals] = useState([]); // New state for professionals
+  const [showEmergencyResultsModal, setShowEmergencyResultsModal] = useState(false);
+  const [emergencyProfessionals, setEmergencyProfessionals] = useState([]);
   const [emergencyType, setEmergencyType] = useState('');
   const [expandedSection, setExpandedSection] = useState(null);
 
   const professions = ['All', 'Constructor', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason'];
-  const accountTypes = ['All', 'Person', 'Company', 'Shop'];
 
   const parseLocation = (locationString) => {
     try {
@@ -98,7 +95,6 @@ const HomeScreen = () => {
             ...locationObj,
             name: data.name || 'Anonymous',
             profession: data.profession || 'Unknown',
-            accountType: data.accountType || 'Person',
             profileImage: data.profileImage || null,
             averageRating: data.averageRating || 0,
             experience: data.experience || '0',
@@ -140,33 +136,11 @@ const HomeScreen = () => {
       );
     }
     
-    if (selectedAccountType === 'All') {
-      filtered = filtered.filter(user => 
-        user.accountType === 'Person' || user.accountType === 'Shop'
-      );
-    } else {
-      filtered = filtered.filter(user => 
-        user.accountType === selectedAccountType
-      );
-    }
-    
     filtered = filtered.filter(user => user.averageRating >= minRating);
     
     if (availabilityFilter !== 'all') {
       const status = availabilityFilter === 'available' ? 'Available Now' : 'Busy';
       filtered = filtered.filter(user => user.availability === status);
-    }
-    
-    switch (sortBy) {
-      case 'distance':
-        filtered.sort((a, b) => a.distance - b.distance);
-        break;
-      case 'rating':
-        filtered.sort((a, b) => b.averageRating - a.averageRating);
-        break;
-      case 'experience':
-        filtered.sort((a, b) => parseInt(b.experience) - parseInt(a.experience));
-        break;
     }
     
     setFilteredLocations(filtered);
@@ -224,10 +198,9 @@ const HomeScreen = () => {
         profession = 'All';
     }
 
-    // Filter users by profession and sort by distance
+    // Filter users by profession
     const filteredProfessionals = userLocations
       .filter(user => user.profession === profession)
-      .sort((a, b) => a.distance - b.distance)
       .slice(0, 5); // Take top 5
 
     if (filteredProfessionals.length === 0) {
@@ -241,7 +214,7 @@ const HomeScreen = () => {
 
     setEmergencyProfessionals(filteredProfessionals);
     setShowEmergencyModal(false);
-    setShowEmergencyResultsModal(true); // Show results modal
+    setShowEmergencyResultsModal(true);
   };
 
   const handleManualLocationInput = () => {
@@ -329,7 +302,7 @@ const HomeScreen = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [searchText, searchRadius, selectedProfession, selectedAccountType, minRating, sortBy, availabilityFilter, currentLocation]);
+  }, [searchText, searchRadius, selectedProfession, minRating, availabilityFilter, currentLocation]);
 
   useEffect(() => {
     if (!currentLocation) return;
@@ -361,15 +334,6 @@ const HomeScreen = () => {
       case 'Busy': return '#FFC107';
       case 'Offline': return '#9E9E9E';
       default: return '#9E9E9E';
-    }
-  };
-
-  const getAccountTypeIcon = (type) => {
-    switch(type) {
-      case 'Person': return 'person';
-      case 'Company': return 'business';
-      case 'Shop': return 'storefront';
-      default: return 'account-circle';
     }
   };
 
@@ -448,40 +412,6 @@ const HomeScreen = () => {
             </View>
           )}
 
-          <TouchableOpacity onPress={() => toggleSection('accountType')} style={styles.accordionHeader}>
-            <Text style={styles.accordionTitle}>Account Type</Text>
-            <MaterialIcons name={expandedSection === 'accountType' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
-          </TouchableOpacity>
-          {expandedSection === 'accountType' && (
-            <View style={styles.accordionContent}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {accountTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.accountTypeChip,
-                      selectedAccountType === type && styles.selectedAccountTypeChip
-                    ]}
-                    onPress={() => setSelectedAccountType(type)}
-                  >
-                    <MaterialIcons 
-                      name={getAccountTypeIcon(type)} 
-                      size={16} 
-                      color={selectedAccountType === type ? "#fff" : "#007BFF"} 
-                      style={styles.accountTypeIcon}
-                    />
-                    <Text style={[
-                      styles.accountTypeChipText,
-                      selectedAccountType === type && styles.selectedAccountTypeChipText
-                    ]}>
-                      {type}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
           <TouchableOpacity onPress={() => toggleSection('rating')} style={styles.accordionHeader}>
             <Text style={styles.accordionTitle}>Minimum Rating</Text>
             <MaterialIcons name={expandedSection === 'rating' ? 'expand-less' : 'expand-more'} size={24} color="#007BFF" />
@@ -504,36 +434,6 @@ const HomeScreen = () => {
               </View>
             </View>
           )}
-
-          <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>Sort By</Text>
-            <View style={styles.sortButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.sortButton, sortBy === 'distance' && styles.selectedSortButton]}
-                onPress={() => setSortBy('distance')}
-              >
-                <Text style={[styles.sortButtonText, sortBy === 'distance' && styles.selectedSortButtonText]}>
-                  Distance
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sortButton, sortBy === 'rating' && styles.selectedSortButton]}
-                onPress={() => setSortBy('rating')}
-              >
-                <Text style={[styles.sortButtonText, sortBy === 'rating' && styles.selectedSortButtonText]}>
-                  Rating
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sortButton, sortBy === 'experience' && styles.selectedSortButton]}
-                onPress={() => setSortBy('experience')}
-              >
-                <Text style={[styles.sortButtonText, sortBy === 'experience' && styles.selectedSortButtonText]}>
-                  Experience
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Availability</Text>
@@ -632,10 +532,6 @@ const HomeScreen = () => {
                 />
                 <Text style={styles.calloutName}>{user.name}</Text>
                 <Text style={styles.calloutProfession}>{user.profession}</Text>
-                <View style={styles.accountTypeRow}>
-                  <MaterialIcons name={getAccountTypeIcon(user.accountType)} size={14} color="#666" />
-                  <Text style={styles.accountTypeText}>{user.accountType}</Text>
-                </View>
                 <View style={styles.ratingRow}>
                   {Array(5).fill(0).map((_, i) => (
                     <FontAwesome
@@ -941,57 +837,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  accountTypeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-  },
-  selectedAccountTypeChip: {
-    backgroundColor: '#3B82F6',
-  },
-  accountTypeIcon: {
-    marginRight: 6,
-  },
-  accountTypeChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  selectedAccountTypeChipText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  sortButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  sortButton: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectedSortButton: {
-    backgroundColor: '#3B82F6',
-  },
-  sortButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  selectedSortButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   availabilityContainer: {
     flexDirection: 'row',
@@ -1067,18 +915,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginBottom: 6,
-  },
-  accountTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  accountTypeText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 6,
   },
   ratingRow: {
     flexDirection: 'row',

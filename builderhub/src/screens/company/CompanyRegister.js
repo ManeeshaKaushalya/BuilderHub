@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
-import { useRoute } from '@react-navigation/native'; // Add this import
+import { useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
@@ -23,7 +23,8 @@ const CompanyRegister = ({ navigation }) => {
   const [location, setLocation] = useState(route?.params?.location || '');
   const [accountType, setAccountType] = useState('Company');
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
 
   // Handle location updates from MapScreen
   useEffect(() => {
@@ -68,7 +69,9 @@ const CompanyRegister = ({ navigation }) => {
     }
   };
 
-
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleImageUpload = async () => {
     try {
@@ -107,6 +110,7 @@ const CompanyRegister = ({ navigation }) => {
       Alert.alert('Error', 'Failed to upload image');
     }
   };
+
   // Success Modal Component
   const SuccessModal = () => (
     <Modal
@@ -179,6 +183,7 @@ const CompanyRegister = ({ navigation }) => {
       previousLocation: location
     });
   };
+
   const dynamicStyles = StyleSheet.create({
     container: {
       ...styles.container,
@@ -206,8 +211,6 @@ const CompanyRegister = ({ navigation }) => {
       color: isDarkMode ? '#66b0ff' : '#007BFF'
     }
   });
-
-
 
   return (
     <>
@@ -264,8 +267,20 @@ const CompanyRegister = ({ navigation }) => {
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
+            accessibilityLabel="Password input"
           />
+          <TouchableOpacity
+            onPress={toggleShowPassword}
+            style={styles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+          >
+            <Icon
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={20}
+              color={isDarkMode ? '#ddd' : '#666'}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={dynamicStyles.inputContainer}>
@@ -303,8 +318,6 @@ const CompanyRegister = ({ navigation }) => {
     </>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -344,6 +357,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     height: 50,
   },
+  eyeIcon: {
+    padding: 10, // Ensure touchable area is large enough
+  },
   icon: {
     padding: 10,
   },
@@ -373,19 +389,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   linkBold: {
-    fontWeight: 'bold',
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
   },
   modalOverlay: {

@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
     "@firebase/app": "^0.10.18",
     "@firebase/auth": "^1.8.2",
     "@firebase/firestore": "^4.7.6",

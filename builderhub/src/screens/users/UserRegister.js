@@ -48,6 +48,7 @@ const UserRegister = ({ navigation }) => {
   const [location, setLocation] = useState(route?.params?.location || '');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); 
 
   // Handle location updates from MapScreen
   useEffect(() => {
@@ -135,6 +136,10 @@ const UserRegister = ({ navigation }) => {
     if (experience && isNaN(experience)) errors.push('Experience must be a number.');
     return errors;
   }, [name, email, password, location, experience]);
+
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleRegister = useCallback(async () => {
     const errors = validateForm();
@@ -254,7 +259,20 @@ const UserRegister = ({ navigation }) => {
             secureTextEntry
             accessibilityLabel="Password input"
           />
+
+<TouchableOpacity
+                    onPress={toggleShowPassword}
+                    style={themedStyles.eyeIcon}
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <Icon
+                      name={showPassword ? 'eye' : 'eye-slash'}
+                      size={20}
+                      color={COLORS.BORDER}
+                    />
+                  </TouchableOpacity>
         </View>
+    
 
         <View style={themedStyles.inputContainer}>
           <Icon name="briefcase" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
@@ -415,6 +433,9 @@ const styles = (isDarkMode) =>
       color: '#fff',
       marginTop: 10,
       fontSize: 16,
+    },
+    eyeIcon: {
+      padding: 10, // Ensure touchable area is large enough
     },
     modalOverlay: {
       flex: 1,

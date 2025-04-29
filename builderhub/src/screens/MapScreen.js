@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Pla
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { useTheme } from '../context/ThemeContext'; // Custom hook
+import { useTheme } from '../context/ThemeContext';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 
@@ -28,6 +28,7 @@ const MapScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(true);
   const autocompleteRef = useRef();
   const registrationType = route?.params?.registrationType || 'user';
+  const onLocationSelected = route?.params?.onLocationSelected;
   const watchSubscription = useRef(null);
 
   useEffect(() => {
@@ -109,15 +110,10 @@ const MapScreen = ({ navigation, route }) => {
   }, []);
 
   const handleConfirmLocation = useCallback(() => {
+    let locationString;
     if (selectedLocation) {
-      const locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
-      const targetScreen = {
-        user: 'UserRegister',
-        shop: 'ShopRegister',
-        company: 'CompanyRegister',
-      }[registrationType] || 'UserRegister';
-      navigation.navigate(targetScreen, { location: locationString });
-    } else {
+      locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+    } else if (currentLocation) {
       Alert.alert(
         'No Location Selected',
         'Would you like to use your current location?',
@@ -129,23 +125,40 @@ const MapScreen = ({ navigation, route }) => {
           {
             text: 'Yes',
             onPress: () => {
-              if (!currentLocation) {
-                Alert.alert('Error', 'Current location is not available. Please try again.');
-                return;
+              locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+              if (onLocationSelected) {
+                onLocationSelected(locationString);
+                navigation.goBack();
+              } else {
+                const targetScreen = {
+                  user: 'UserRegister',
+                  shop: 'ShopRegister',
+                  company: 'CompanyRegister',
+                }[registrationType] || 'UserRegister';
+                navigation.navigate(targetScreen, { location: locationString });
               }
-              const locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
-              const targetScreen = {
-                user: 'UserRegister',
-                shop: 'ShopRegister',
-                company: 'CompanyRegister',
-              }[registrationType] || 'UserRegister';
-              navigation.navigate(targetScreen, { location: locationString });
             },
           },
         ]
       );
+      return;
+    } else {
+      Alert.alert('Error', 'No location available. Please try again.');
+      return;
     }
-  }, [selectedLocation, currentLocation, registrationType, navigation]);
+
+    if (onLocationSelected) {
+      onLocationSelected(locationString);
+      navigation.goBack();
+    } else {
+      const targetScreen = {
+        user: 'UserRegister',
+        shop: 'ShopRegister',
+        company: 'CompanyRegister',
+      }[registrationType] || 'UserRegister';
+      navigation.navigate(targetScreen, { location: locationString });
+    }
+  }, [selectedLocation, currentLocation, registrationType, onLocationSelected, navigation]);
 
   const themedStyles = styles(isDarkMode);
 
@@ -160,7 +173,6 @@ const MapScreen = ({ navigation, route }) => {
 
   return (
     <View style={themedStyles.container}>
-      {/* Search Bar */}
       <View style={themedStyles.searchContainer} pointerEvents="box-none">
         <GooglePlacesAutocomplete
           ref={autocompleteRef}
@@ -197,7 +209,6 @@ const MapScreen = ({ navigation, route }) => {
         />
       </View>
 
-      {/* Map */}
       <MapView
         provider={PROVIDER_GOOGLE}
         style={themedStyles.map}
@@ -224,7 +235,6 @@ const MapScreen = ({ navigation, route }) => {
         )}
       </MapView>
 
-      {/* Confirm Button */}
       <TouchableOpacity
         style={themedStyles.button}
         onPress={handleConfirmLocation}

@@ -32,7 +32,8 @@ const LoginScreen = ({ navigation }) => {
   const { isDarkMode } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // Explicitly defined here
+  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
+  const [isLoading, setIsLoading] = useState(false);
   const db = getFirestore();
   const { loginUser } = useUser();
 
@@ -70,7 +71,7 @@ const LoginScreen = ({ navigation }) => {
       }
 
       Alert.alert('Success', 'Logged in successfully!');
-      navigation.replace('Tabs'); // Ensure navigation is stable
+      navigation.replace('Tabs');
     } catch (error) {
       let errorMessage = 'An error occurred during login.';
       switch (error.code) {
@@ -94,6 +95,10 @@ const LoginScreen = ({ navigation }) => {
       setIsLoading(false);
     }
   }, [email, password, db, loginUser, navigation]);
+
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const themedStyles = styles(isDarkMode);
 
@@ -134,9 +139,20 @@ const LoginScreen = ({ navigation }) => {
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             accessibilityLabel="Password input"
           />
+          <TouchableOpacity
+            onPress={toggleShowPassword}
+            style={themedStyles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+          >
+            <Icon
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={20}
+              color={COLORS.BORDER}
+            />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -212,6 +228,9 @@ const styles = (isDarkMode) =>
       color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
       fontSize: 16,
     },
+    eyeIcon: {
+      padding: 10, // Ensure touchable area is large enough
+    },
     loginButton: {
       width: '100%',
       backgroundColor: COLORS.PRIMARY,
@@ -221,7 +240,7 @@ const styles = (isDarkMode) =>
       marginTop: 10,
     },
     loginButtonDisabled: {
-      opacity: 0.7, // Visual feedback for disabled state
+      opacity: 0.7,
     },
     loginButtonText: {
       color: '#fff',
@@ -239,4 +258,4 @@ const styles = (isDarkMode) =>
     },
   });
 
-export default LoginScreen; // Removed React.memo for now to simplify debugging
+export default LoginScreen;

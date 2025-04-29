@@ -21,7 +21,8 @@ const ShopRegister = ({ navigation }) => {
   const [location, setLocation] = useState(route?.params?.location || '');
   const [accountType, setAccountType] = useState('Shop');
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
 
   useEffect(() => {
     requestPermissions();
@@ -50,7 +51,6 @@ const ShopRegister = ({ navigation }) => {
     };
   }, [showSuccessModal, navigation]);
 
-
   const requestPermissions = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -67,7 +67,9 @@ const ShopRegister = ({ navigation }) => {
     }
   };
 
-
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleImageUpload = async () => {
     try {
@@ -106,7 +108,6 @@ const ShopRegister = ({ navigation }) => {
       Alert.alert('Error', 'Failed to upload image');
     }
   };
-
 
   const validateForm = () => {
     const errors = [];
@@ -174,7 +175,7 @@ const ShopRegister = ({ navigation }) => {
       // Prepare shop data
       const shopData = {
         uid,
-        name:shopName,
+        name: shopName,
         email: shopEmail,
         accountType,
         description: shopDescription,
@@ -316,10 +317,12 @@ const ShopRegister = ({ navigation }) => {
           <Icon name="envelope" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
           <TextInput
             style={dynamicStyles.input}
-            placeholder="email-address"
+            placeholder="Email Address"
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={shopEmail}
             onChangeText={setShopEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
         </View>
 
@@ -331,8 +334,20 @@ const ShopRegister = ({ navigation }) => {
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={shopPassword}
             onChangeText={setShopPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
+            accessibilityLabel="Password input"
           />
+          <TouchableOpacity
+            onPress={toggleShowPassword}
+            style={styles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+          >
+            <Icon
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={20}
+              color={isDarkMode ? '#ddd' : '#666'}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={dynamicStyles.inputContainer}>
@@ -343,11 +358,8 @@ const ShopRegister = ({ navigation }) => {
             placeholderTextColor={isDarkMode ? '#888' : '#666'}
             value={shopDescription}
             onChangeText={setShopDescription}
-           
           />
         </View>
-
-
 
         <TouchableOpacity style={dynamicStyles.inputContainer} onPress={handleLocationSelect}>
           <Icon name="map-marker" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
@@ -370,7 +382,7 @@ const ShopRegister = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('ShopLogin')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={dynamicStyles.link}>
             Already have a shop account? <Text style={styles.linkBold}>Login here</Text>
           </Text>
@@ -432,6 +444,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     height: 50,
     fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 10, // Ensure touchable area is large enough
   },
   button: {
     backgroundColor: '#007BFF',

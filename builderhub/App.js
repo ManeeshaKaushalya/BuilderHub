@@ -61,6 +61,8 @@ import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 import ChatBot from './src/screens/ChatBot';
 import PostCards from './src/screens/PostCards';
 import OrderAddressMap from './src/screens/OrderAddressMap';
+import EditProfile from './src/screens/EditProfile';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 
 
 const Stack = createStackNavigator();
@@ -115,6 +117,8 @@ export default function App() {
                 <Stack.Screen name="OrderDetailsScreen" component={OrderDetailsScreen} />
                 <Stack.Screen name="ChatBot" component={ChatBot} />
                 <Stack.Screen name="PostCards" component={PostCards} />
+                <Stack.Screen name="EditProfileScreen" component={EditProfile} />
+                <Stack.Screen name="forgetpassword" component={ForgotPasswordScreen} />
 
                 
               </Stack.Navigator>
