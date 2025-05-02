@@ -71,7 +71,10 @@ const HomeScreen = () => {
   const fetchUserLocations = () => {
     return onSnapshot(collection(firestore, 'users'), (snapshot) => {
       const locations = snapshot.docs
-        .filter(doc => doc.id !== user?.uid)
+        .filter(doc => {
+          const data = doc.data();
+          return doc.id !== user?.uid && data.accountType !== 'Company';
+        })
         .map(doc => {
           const data = doc.data();
           const locationObj = data.location ? parseLocation(data.location) : null;

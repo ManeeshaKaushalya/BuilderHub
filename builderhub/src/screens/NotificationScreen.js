@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -9,7 +8,6 @@ import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
 function NotificationScreen() {
-  const { isDarkMode } = useTheme();
   const auth = getAuth();
   const user = auth.currentUser;
   const navigation = useNavigation();
@@ -102,6 +100,10 @@ function NotificationScreen() {
         return `${actorName} commented on your project: "${notification.message || ''}"`;
       case 'order_status':
         return notification.message || `${actorName} updated your order status`;
+      case 'hire_request':
+        return notification.message || `${actorName} sent you a hire request`;
+      case 'hire_request_status':
+        return notification.message || `${actorName} updated the status of your hire request`;
       default:
         return `${actorName} interacted with your content`;
     }
@@ -128,25 +130,26 @@ function NotificationScreen() {
       <TouchableOpacity
         style={[
           styles.notificationItem,
-          isDarkMode ? styles.darkNotificationItem : styles.lightNotificationItem,
           item.read ? styles.readNotification : styles.unreadNotification,
         ]}
         onPress={() => {
           if (!item.read) markAsRead(item.id);
 
-          console.log('Notification clicked:', { type: item.type, postId: item.postId, orderId: item.orderId });
+          console.log('Notification clicked:', { type: item.type, postId: item.postId, orderId: item.orderId, requestId: item.requestId });
 
           try {
             if (['like', 'comment'].includes(item.type) && item.postId) {
               navigation.navigate('PostCards', { postId: item.postId });
             } else if (item.type === 'order_status' && item.orderId) {
               navigation.navigate('OrderDetailsScreen', { orderId: item.orderId });
+            } else if (['hire_request', 'hire_request_status'].includes(item.type) && item.requestId) {
+              navigation.navigate('HireRequestDetailsScreen', { requestId: item.requestId });
             } else {
               console.warn('No valid navigation target for notification:', item);
               Toast.show({
                 type: 'info',
                 text1: 'Cannot open notification',
-                text2: item.postId ? 'Post not found.' : 'This notification is not linked to a post or order.',
+                text2: item.postId ? 'Post not found.' : item.orderId ? 'Order not found.' : 'This notification is not linked to a post, order, or hire request.',
               });
             }
           } catch (error) {
@@ -154,7 +157,7 @@ function NotificationScreen() {
             Toast.show({
               type: 'error',
               text1: 'Navigation failed',
-              text2: 'Unable to open the post or order. Please try again.',
+              text2: 'Unable to open the content. Please try again.',
             });
           }
         }}
@@ -169,10 +172,7 @@ function NotificationScreen() {
           style={styles.avatar}
         />
         <View style={styles.notificationContent}>
-          <Text
-            style={[styles.notificationText, isDarkMode ? styles.darkText : styles.lightText]}
-            numberOfLines={2}
-          >
+          <Text style={styles.notificationText} numberOfLines={2}>
             {getNotificationMessage(item)}
           </Text>
           <Text style={styles.timestamp}>{formatTimestamp(item.timestamp)}</Text>
@@ -181,7 +181,7 @@ function NotificationScreen() {
           <MaterialIcons
             name="favorite"
             size={20}
-            color={isDarkMode ? '#ff6b6b' : '#e41e3f'}
+            color="#e41e3f"
             style={styles.icon}
           />
         )}
@@ -189,7 +189,7 @@ function NotificationScreen() {
           <MaterialIcons
             name="comment"
             size={20}
-            color={isDarkMode ? '#4fc3f7' : '#1877f2'}
+            color="#1877f2"
             style={styles.icon}
           />
         )}
@@ -197,7 +197,23 @@ function NotificationScreen() {
           <MaterialIcons
             name="shopping-cart"
             size={20}
-            color={isDarkMode ? '#81c784' : '#28a745'}
+            color="#28a745"
+            style={styles.icon}
+          />
+        )}
+        {item.type === 'hire_request' && (
+          <MaterialIcons
+            name="work"
+            size={20}
+            color="#F4B018"
+            style={styles.icon}
+          />
+        )}
+        {item.type === 'hire_request_status' && (
+          <MaterialIcons
+            name="briefcase"
+            size={20}
+            color="#0288D1"
             style={styles.icon}
           />
         )}
@@ -207,26 +223,24 @@ function NotificationScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-        <ActivityIndicator size="large" color={isDarkMode ? '#4fc3f7' : '#1877f2'} />
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#F4B018" />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-      <Text style={[styles.header, isDarkMode ? styles.darkText : styles.lightText]}>
-        Notifications
-      </Text>
+    <View style={styles.container}>
+      <View style={styles.headerSection}>
+        <Text style={styles.headerTitle}>Notifications</Text>
+      </View>
       <FlatList
         ref={flatListRef}
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
         ListEmptyComponent={
-          <Text style={[styles.emptyText, isDarkMode ? styles.darkText : styles.lightText]}>
-            No notifications yet
-          </Text>
+          <Text style={styles.emptyText}>No notifications yet</Text>
         }
         contentContainerStyle={styles.listContainer}
         onScrollToIndexFailed={(info) => {
@@ -244,56 +258,58 @@ function NotificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20,
+    backgroundColor: '#fff',
   },
-  lightContainer: {
-    backgroundColor: '#f7f9fc',
+  headerSection: {
+    width: '100%',
+    alignSelf: 'center',
+    paddingTop: 10,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomLeftRadius: 70,
+    borderBottomRightRadius: 70,
+    elevation: 5,
+    backgroundColor: '#F4B018',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  darkContainer: {
-    backgroundColor: '#121212',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  headerTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
   },
   listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
   },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
-    position: 'relative',
-  },
-  lightNotificationItem: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginBottom: 12,
+    backgroundColor: '#F9FAFB',
     elevation: 2,
-  },
-  darkNotificationItem: {
-    backgroundColor: '#1e1e1e',
-    borderColor: '#333',
-    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    position: 'relative',
   },
   readNotification: {
     opacity: 0.7,
   },
   unreadNotification: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#FFFDE7',
   },
   newBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#ff6b6b',
+    backgroundColor: '#F4B018',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -315,6 +331,8 @@ const styles = StyleSheet.create({
   },
   notificationText: {
     fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
     lineHeight: 22,
   },
   timestamp: {
@@ -325,16 +343,12 @@ const styles = StyleSheet.create({
   icon: {
     marginLeft: 8,
   },
-  lightText: {
-    color: '#000',
-  },
-  darkText: {
-    color: '#fff',
-  },
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
     marginTop: 40,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
 

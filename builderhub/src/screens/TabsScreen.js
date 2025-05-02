@@ -121,7 +121,7 @@ const TabsScreen = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#007BFF',
+        tabBarActiveTintColor: '#F4B018', // Changed from '#007BFF' (blue) to '#F4B018' (yellow)
         tabBarInactiveTintColor: isDarkMode ? '#BBBBBB' : 'gray',
         tabBarStyle: {
           height: 60,

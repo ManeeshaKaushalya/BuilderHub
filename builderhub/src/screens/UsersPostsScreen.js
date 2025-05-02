@@ -7,8 +7,8 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Post from './Posts';
 
 function UsersPostsScreen() {
-  const { isDarkMode } = useTheme();
   const { user } = useUser();
   const navigation = useNavigation();
   const [search, setSearch] = useState('');
@@ -54,7 +53,6 @@ function UsersPostsScreen() {
             id: doc.id,
             name: doc.data().name || 'Unknown Professional',
             profileImage: doc.data().profileImage || null,
-            // Add more fields if needed (e.g., bio, location)
           };
           return map;
         }, {});
@@ -175,11 +173,12 @@ function UsersPostsScreen() {
   const renderItem = ({ item }) => {
     if (item.type === 'user') {
       return (
-        <View style={[styles.userCard, isDarkMode ? styles.darkCard : styles.lightCard]}>
-          <Text style={[styles.userName, isDarkMode ? styles.darkText : styles.lightText]}>
-            {item.user.name}
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.userCard}
+          onPress={() => navigation.navigate('UploaderProfile', { userId: item.user.id })}
+        >
+          <Text style={styles.userName}>{item.user.name}</Text>
+        </TouchableOpacity>
       );
     } else if (item.type === 'post') {
       console.log('Rendering project post:', item.post.postId);
@@ -213,17 +212,17 @@ function UsersPostsScreen() {
   };
 
   return (
-    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
+    <View style={styles.container}>
       {/* Header */}
-      <Text style={[styles.headerTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-        Project Showcase
-      </Text>
+      <View style={styles.headerSection}>
+        <Text style={styles.headerSubtitle}>Project Showcase</Text>
+      </View>
 
       {/* Search Bar */}
       <TextInput
-        style={[styles.searchInput, isDarkMode ? styles.darkInput : styles.lightInput]}
+        style={styles.searchInput}
         placeholder="Search professionals or projects..."
-        placeholderTextColor={isDarkMode ? '#bbb' : '#666'}
+        placeholderTextColor="#999"
         value={search}
         onChangeText={setSearch}
       />
@@ -236,11 +235,9 @@ function UsersPostsScreen() {
         contentContainerStyle={[styles.listContainer, { paddingBottom: 80 }]}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator size="large" color="#007BFF" style={styles.loader} />
+            <ActivityIndicator size="large" color="#F4B018" style={styles.loader} />
           ) : (
-            <Text style={[styles.noResults, isDarkMode ? styles.darkText : styles.lightText]}>
-              No projects or professionals found
-            </Text>
+            <Text style={styles.noResults}>No projects or professionals found</Text>
           )
         }
       />
@@ -249,7 +246,7 @@ function UsersPostsScreen() {
       {user && (
         <View style={styles.fabContainer}>
           <TouchableOpacity
-            style={[styles.fab, isDarkMode && styles.darkFab]}
+            style={styles.fab}
             onPress={user.accountType === 'Shop' ? handleAddPost : handleCreatePost}
             activeOpacity={0.7}
             accessibilityLabel={user.accountType === 'Shop' ? 'Add post' : 'Add new project'}
@@ -265,62 +262,70 @@ function UsersPostsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: '#fff',
   },
-  lightContainer: {
-    backgroundColor: '#F7F9FC',
+  headerSection: {
+    width: '120%',
+    alignSelf: 'center',
+    paddingTop: 10,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomLeftRadius: 70,
+    borderBottomRightRadius: 70,
+    elevation: 5,
+    backgroundColor: '#F4B018',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  darkContainer: {
-    backgroundColor: '#1A1A1A',
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+    marginBottom: 5,
   },
   headerTitle: {
-    fontSize: 24,
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  headerSubtitle: {
+    color: '#fff',
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    marginTop: 5,
   },
   searchInput: {
-    width: '100%',
+    width: '86%',
     height: 48,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 15,
     fontSize: 16,
-    marginBottom: 20,
+    marginVertical: 20,
+    marginHorizontal: 24,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  lightInput: {
-    backgroundColor: '#FFFFFF',
-    color: '#333333',
-  },
-  darkInput: {
-    backgroundColor: '#2C2C2C',
-    color: '#FFFFFF',
-    borderColor: '#444444',
+    borderColor: '#aaa',
+    backgroundColor: '#eee',
+    color: '#333',
   },
   userCard: {
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 8,
     marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  lightCard: {
-    backgroundColor: '#FFFFFF',
-  },
-  darkCard: {
-    backgroundColor: '#2C2C2C',
-    borderColor: '#444444',
+    marginHorizontal: 24,
+    backgroundColor: '#F9FAFB',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   userName: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  lightText: {
-    color: '#333333',
-  },
-  darkText: {
-    color: '#FFFFFF',
+    color: '#333',
   },
   loader: {
     marginTop: 30,
@@ -330,7 +335,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 30,
     fontStyle: 'italic',
-    color: '#666666',
+    color: '#666',
   },
   listContainer: {
     paddingBottom: 80, // Ensure space for FAB
@@ -345,7 +350,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1E88E5',
+    backgroundColor: '#F4B018',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
@@ -353,9 +358,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-  },
-  darkFab: {
-    backgroundColor: '#60A5FA',
   },
 });
 

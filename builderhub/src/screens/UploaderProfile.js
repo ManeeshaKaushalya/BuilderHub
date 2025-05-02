@@ -17,7 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { firestore, auth } from '../../firebase/firebaseConfig';
-import { collection, query, where, getDocs, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 import Post from './Posts';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -68,7 +68,7 @@ function UploaderProfile() {
                             setUserProfile({
                                 id: profileId,
                                 name: userData.name || 'Unknown User',
-                                bio: userData.bio || '',
+                                bio: userData.description || '',
                                 profileImage: userData.profileImage || null,
                                 ratings: userData.ratings || {},
                                 profession: userData.profession || 'Professional',
@@ -283,6 +283,10 @@ function UploaderProfile() {
         navigation.navigate('MakeOrderScreen', { userId: profileId });
     };
 
+    const handleHire = () => {
+        navigation.navigate('HireUserScreen', { userId: profileId });
+    };
+
     const handleLogout = () => {
         Alert.alert(
             'Confirm Logout',
@@ -372,7 +376,7 @@ function UploaderProfile() {
                     <FontAwesome
                         name={i <= rating ? "star" : "star-o"}
                         size={size}
-                        color={i <= rating ? "#FFD700" : "#aaa"}
+                        color={i <= rating ? "#FFC107" : "#aaa"}
                     />
                 </TouchableOpacity>
             );
@@ -388,7 +392,7 @@ function UploaderProfile() {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0095f6" />
+                <ActivityIndicator size="large" color="#F4B018" />
             </View>
         );
     }
@@ -424,15 +428,21 @@ function UploaderProfile() {
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.coverContainer}>
                     <LinearGradient
-                        colors={['#4c669f', '#3b5998', '#192f6a']}
+                        colors={['#0288D1', '#4FC3F7', '#B3E5FC']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
                         style={styles.coverGradient}
                     >
+                        {/* Semi-transparent overlay for pattern effect */}
+                        <View style={styles.coverOverlay} />
                         <View style={styles.profileImageContainer}>
-                            <Image
-                                source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }}
-                                style={styles.profileImage}
-                                resizeMode="cover"
-                            />
+                            <View style={styles.profileImageWrapper}>
+                                <Image
+                                    source={{ uri: userProfile.profileImage || '../../assets/default-user.png' }}
+                                    style={styles.profileImage}
+                                    resizeMode="cover"
+                                />
+                            </View>
                             <View style={styles.onlineIndicator} />
                         </View>
                     </LinearGradient>
@@ -442,15 +452,8 @@ function UploaderProfile() {
                     <View style={styles.userInfoSection}>
                         <Text style={styles.nameText}>{userProfile.name}</Text>
                         <View style={styles.professionContainer}>
-                            <MaterialCommunityIcons name="briefcase" size={16} color="#0095f6" />
+                            <MaterialCommunityIcons name="briefcase" size={16} color="#0288D1" />
                             <Text style={styles.professionText}>{userProfile.profession}</Text>
-                            {userProfile.yearsOfExperience > 0 && (
-                                <View style={styles.experienceTag}>
-                                    <Text style={styles.experienceTagText}>
-                                        {userProfile.yearsOfExperience}+ yrs exp
-                                    </Text>
-                                </View>
-                            )}
                         </View>
 
                         <View style={styles.infoRow}>
@@ -459,13 +462,6 @@ function UploaderProfile() {
                                 {userProfile.yearsOfExperience || 0} years of experience
                             </Text>
                         </View>
-
-                        {userProfile.location && (
-                            <View style={styles.infoRow}>
-                                <Ionicons name="location-outline" size={16} color="#666" />
-                                <Text style={styles.infoText}>{userProfile.location}</Text>
-                            </View>
-                        )}
 
                         {userProfile.website && (
                             <View style={styles.infoRow}>
@@ -482,7 +478,7 @@ function UploaderProfile() {
                     {userProfile.skills && Array.isArray(userProfile.skills) && userProfile.skills.length > 0 && (
                         <View style={styles.professionalSection}>
                             <View style={styles.sectionTitleRow}>
-                                <MaterialCommunityIcons name="lightning-bolt" size={18} color="#0095f6" />
+                                <MaterialCommunityIcons name="lightning-bolt" size={18} color="#0288D1" />
                                 <Text style={styles.professionalSectionTitle}>Skills</Text>
                             </View>
                             <View style={styles.skillsContainer}>
@@ -505,90 +501,12 @@ function UploaderProfile() {
                                     <Ionicons
                                         name={showAllSkills ? "chevron-up" : "chevron-down"}
                                         size={16}
-                                        color="#0095f6"
+                                        color="#0288D1"
                                     />
                                 </TouchableOpacity>
                             )}
                         </View>
                     )}
-
-                    {userProfile.experience && Array.isArray(userProfile.experience) && userProfile.experience.length > 0 && (
-                        <View style={styles.professionalSection}>
-                            <View style={styles.sectionTitleRow}>
-                                <MaterialIcons name="work" size={18} color="#0095f6" />
-                                <Text style={styles.professionalSectionTitle}>Work Experience</Text>
-                            </View>
-                            <View style={styles.experienceContainer}>
-                                {userProfile.experience.map((exp, index) => (
-                                    <View key={index} style={styles.experienceItem}>
-                                        {exp.companyLogo ? (
-                                            <Image
-                                                source={{ uri: exp.companyLogo }}
-                                                style={styles.companyLogo}
-                                            />
-                                        ) : (
-                                            <View style={styles.companyLogoPlaceholder}>
-                                                <MaterialIcons name="business" size={22} color="#666" />
-                                            </View>
-                                        )}
-                                        <View style={styles.experienceDetails}>
-                                            <Text style={styles.experienceRole}>{exp.role}</Text>
-                                            <Text style={styles.experienceCompany}>{exp.company}</Text>
-                                            <Text style={styles.experiencePeriod}>
-                                                {exp.startDate} - {exp.endDate || 'Present'}
-                                            </Text>
-                                            {exp.description && (
-                                                <Text style={styles.experienceDescription}>
-                                                    {exp.description}
-                                                </Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-                    )}
-
-                    {((userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0) ||
-                      (userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0)) ? (
-                        <View style={styles.professionalSection}>
-                            {userProfile.education && Array.isArray(userProfile.education) && userProfile.education.length > 0 && (
-                                <>
-                                    <View style={styles.sectionTitleRow}>
-                                        <Ionicons name="school" size={18} color="#0095f6" />
-                                        <Text style={styles.professionalSectionTitle}>Education</Text>
-                                    </View>
-                                    <View style={styles.educationContainer}>
-                                        {userProfile.education.map((edu, index) => (
-                                            <View key={index} style={styles.educationItem}>
-                                                <Text style={styles.educationDegree}>{edu.degree}</Text>
-                                                <Text style={styles.educationInstitution}>{edu.institution}</Text>
-                                                <Text style={styles.educationYear}>{edu.year}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </>
-                            )}
-
-                            {userProfile.certifications && Array.isArray(userProfile.certifications) && userProfile.certifications.length > 0 && (
-                                <>
-                                    <View style={[styles.sectionTitleRow, { marginTop: 15 }]}>
-                                        <MaterialCommunityIcons name="certificate" size={18} color="#0095f6" />
-                                        <Text style={styles.professionalSectionTitle}>Certifications</Text>
-                                    </View>
-                                    <View style={styles.certificationsContainer}>
-                                        {userProfile.certifications.map((cert, index) => (
-                                            <View key={index} style={styles.certificationItem}>
-                                                <Text style={styles.certificationName}>{cert.name}</Text>
-                                                <Text style={styles.certificationIssuer}>{cert.issuer}</Text>
-                                                <Text style={styles.certificationDate}>{cert.date}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </>
-                            )}
-                        </View>
-                    ) : null}
 
                     {currentLocation && userLocation ? (
                         <View style={styles.mapContainer}>
@@ -605,7 +523,7 @@ function UploaderProfile() {
                                 <Marker
                                     coordinate={currentLocation}
                                     title="My Location"
-                                    pinColor="#007BFF"
+                                    pinColor="#0288D1"
                                 />
                                 <Marker
                                     coordinate={userLocation}
@@ -615,7 +533,7 @@ function UploaderProfile() {
                                 {routeCoordinates.length > 0 && (
                                     <Polyline
                                         coordinates={routeCoordinates}
-                                        strokeColor="#007BFF"
+                                        strokeColor="#0288D1"
                                         strokeWidth={3}
                                     />
                                 )}
@@ -645,11 +563,11 @@ function UploaderProfile() {
                         ]}
                     >
                         <LinearGradient
-                            colors={['#f5f7fa', '#e4e8f0']}
+                            colors={['#E1F5FE', '#B3E5FC']}
                             style={styles.ratingGradient}
                         >
                             <View style={styles.ratingHeader}>
-                                <MaterialCommunityIcons name="star-circle" size={22} color="#FFB400" />
+                                <MaterialCommunityIcons name="star-circle" size={22} color="#0288D1" />
                                 <Text style={styles.ratingTitle}>Reputation Score</Text>
                             </View>
 
@@ -689,8 +607,8 @@ function UploaderProfile() {
 
                     {currentUser && (
                         <View style={
-                            userProfile.accountType === 'Shop' && currentUser.uid !== profileId
-                                ? styles.actionButtonsContainerShop
+                            (userProfile.accountType === 'Shop' || userProfile.accountType === 'Company' || userProfile.accountType === 'Person') && currentUser.uid !== profileId
+                                ? styles.actionButtonsContainerMulti
                                 : styles.actionButtonsContainer
                         }>
                             {currentUser.uid !== profileId && (
@@ -720,6 +638,21 @@ function UploaderProfile() {
                                         style={styles.buttonIcon}
                                     />
                                     <Text style={styles.orderButtonText}>Make Orders</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {(userProfile.accountType === 'Company' || userProfile.accountType === 'Person') && currentUser.uid !== profileId && (
+                                <TouchableOpacity
+                                    style={styles.hireButton}
+                                    onPress={handleHire}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="briefcase-plus-outline"
+                                        size={18}
+                                        color="#fff"
+                                        style={styles.buttonIcon}
+                                    />
+                                    <Text style={styles.hireButtonText}>Hire</Text>
                                 </TouchableOpacity>
                             )}
 
@@ -814,7 +747,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     backButtonFallback: {
-        backgroundColor: '#0095f6',
+        backgroundColor: '#0288D1',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 8,
@@ -825,7 +758,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     header: {
-        backgroundColor: '#0095f6',
+        backgroundColor: '#0288D1',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -844,7 +777,7 @@ const styles = StyleSheet.create({
         padding: 5,
     },
     coverContainer: {
-        height: 160,
+        height: 180,
         width: '100%',
     },
     coverGradient: {
@@ -853,28 +786,43 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'flex-end',
     },
+    coverOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 20,
+    },
     profileImageContainer: {
         position: 'absolute',
         bottom: -50,
         alignItems: 'center',
     },
+    profileImageWrapper: {
+        borderRadius: 60,
+        padding: 5,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 8,
+    },
     profileImage: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
         borderWidth: 4,
         borderColor: '#fff',
     },
     onlineIndicator: {
         position: 'absolute',
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#4CD964',
-        borderWidth: 2,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#4CAF50',
+        borderWidth: 3,
         borderColor: '#fff',
         bottom: 12,
-        right: 6,
+        right: 8,
     },
     profileInfoCard: {
         backgroundColor: '#fff',
@@ -896,7 +844,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     nameText: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: '700',
         color: '#333',
         marginBottom: 4,
@@ -907,22 +855,10 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     professionText: {
-        color: '#0095f6',
+        color: '#0288D1',
         fontSize: 16,
         fontWeight: '500',
         marginLeft: 5,
-    },
-    experienceTag: {
-        backgroundColor: '#e4f2ff',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        marginLeft: 8,
-    },
-    experienceTagText: {
-        color: '#0095f6',
-        fontSize: 12,
-        fontWeight: '500',
     },
     infoRow: {
         flexDirection: 'row',
@@ -963,7 +899,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     skillBadge: {
-        backgroundColor: '#e4f2ff',
+        backgroundColor: '#E1F5FE',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
@@ -971,7 +907,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     skillText: {
-        color: '#0095f6',
+        color: '#0288D1',
         fontSize: 13,
         fontWeight: '500',
     },
@@ -982,97 +918,10 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     showMoreText: {
-        color: '#0095f6',
+        color: '#0288D1',
         fontSize: 14,
         fontWeight: '500',
         marginRight: 4,
-    },
-    experienceContainer: {
-        marginTop: 4,
-    },
-    experienceItem: {
-        flexDirection: 'row',
-        marginBottom: 16,
-    },
-    companyLogo: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-    },
-    companyLogoPlaceholder: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        backgroundColor: '#e4e8f0',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    experienceDetails: {
-        marginLeft: 12,
-        flex: 1,
-    },
-    experienceRole: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-    },
-    experienceCompany: {
-        fontSize: 14,
-        color: '#444',
-        marginTop: 2,
-    },
-    experiencePeriod: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 2,
-    },
-    experienceDescription: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 4,
-        lineHeight: 18,
-    },
-    educationContainer: {
-        marginTop: 4,
-    },
-    educationItem: {
-        marginBottom: 12,
-    },
-    educationDegree: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#333',
-    },
-    educationInstitution: {
-        fontSize: 14,
-        color: '#444',
-        marginTop: 2,
-    },
-    educationYear: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 2,
-    },
-    certificationsContainer: {
-        marginTop: 4,
-    },
-    certificationItem: {
-        marginBottom: 12,
-    },
-    certificationName: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#333',
-    },
-    certificationIssuer: {
-        fontSize: 14,
-        color: '#444',
-        marginTop: 2,
-    },
-    certificationDate: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 2,
     },
     mapContainer: {
         height: 200,
@@ -1173,18 +1022,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         marginTop: 16,
+        marginBottom: 20,
         flexWrap: 'wrap',
     },
-    actionButtonsContainerShop: {
+    actionButtonsContainerMulti: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginTop: 16,
+        marginBottom: 20,
         flexWrap: 'wrap',
     },
     messageButton: {
         flex: 1,
         flexDirection: 'row',
-        backgroundColor: '#333',
+        backgroundColor: '#0288D1',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
@@ -1200,7 +1051,7 @@ const styles = StyleSheet.create({
     orderButton: {
         flex: 1,
         flexDirection: 'row',
-        backgroundColor: '#28a745',
+        backgroundColor: '#0288D1',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
@@ -1213,10 +1064,26 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 15,
     },
+    hireButton: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: '#0288D1',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 8,
+        marginTop: 8,
+    },
+    hireButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 15,
+    },
     editProfileButton: {
         flex: 1,
         flexDirection: 'row',
-        backgroundColor: '#0095f6',
+        backgroundColor: '#0288D1',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
@@ -1232,7 +1099,7 @@ const styles = StyleSheet.create({
     logoutButton: {
         flex: 1,
         flexDirection: 'row',
-        backgroundColor: '#ff3b30',
+        backgroundColor: '#0288D1',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
@@ -1268,7 +1135,7 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     seeAllText: {
-        color: '#0095f6',
+        color: '#0288D1',
         fontSize: 14,
         fontWeight: '500',
     },

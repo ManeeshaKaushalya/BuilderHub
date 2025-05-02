@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useTheme } from '../context/ThemeContext';
@@ -21,9 +22,10 @@ const COLORS = {
   DARK_BG: '#1a1a1a',
   LIGHT_TEXT: '#333',
   DARK_TEXT: '#ddd',
-  PRIMARY: '#007BFF',
+  ACCENT: '#F4B018', // Updated to match LoginScreen
   ERROR: '#ff4444',
-  BORDER: '#ccc',
+  BORDER: '#aaa', // Updated to match LoginScreen
+  INPUT_BG: '#eee', // Added to match LoginScreen input background
 };
 
 const ForgotPasswordScreen = () => {
@@ -86,17 +88,16 @@ const ForgotPasswordScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={themedStyles.container}
     >
-      <View style={themedStyles.innerContainer}>
-        <TouchableOpacity
-          style={themedStyles.backButton}
-          onPress={() => navigation.navigate('Login')}
-          accessibilityLabel="Back to login"
-        >
-          <Icon name="arrow-left" size={20} color={isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT} />
-          <Text style={themedStyles.backButtonText}>Back</Text>
-        </TouchableOpacity>
+      {/* Header Section */}
+      <View style={themedStyles.headerSection}>
+    
+        <Text style={themedStyles.headerTitle}>Reset Your Password at</Text>
+        <Text style={themedStyles.headerSubtitle}>BuilderHub</Text>
+      </View>
 
-        <Text style={themedStyles.title}>Reset Password</Text>
+      <View style={themedStyles.formContainer}>
+      
+
         <Text style={themedStyles.subtitle}>
           Enter your email address to receive a password reset link.
         </Text>
@@ -139,29 +140,56 @@ const styles = (isDarkMode) =>
       flex: 1,
       backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
     },
-    innerContainer: {
-      flex: 1,
-      justifyContent: 'center',
+    headerSection: {
+      width: '120%',
+      alignSelf: 'center',
+      paddingTop: 10, // Matches LoginScreen
+      paddingBottom: 20,
       alignItems: 'center',
-      padding: 20,
+      justifyContent: 'center',
+      borderBottomLeftRadius: 70,
+      borderBottomRightRadius: 70,
+      elevation: 5,
+      backgroundColor: COLORS.ACCENT, // Matches LoginScreen header color
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    logo: {
+      width: 100,
+      height: 100,
+      resizeMode: 'contain',
+      marginBottom: 5, // Matches LoginScreen
+    },
+    headerTitle: {
+      color: '#fff',
+      fontSize: 20,
+      fontWeight: '600',
+    },
+    headerSubtitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginTop: 5,
+    },
+    formContainer: {
+      flex: 1,
+      width: '100%',
+      paddingHorizontal: 24, // Matches LoginScreen padding
+      marginTop: 30, // Matches LoginScreen spacing
+      alignItems: 'center',
     },
     backButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      position: 'absolute',
-      top: 40,
-      left: 20,
+      alignSelf: 'flex-start',
+      marginBottom: 2,
     },
     backButtonText: {
       color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
       fontSize: 16,
-      marginLeft: 8,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginBottom: 10,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+      marginLeft: 30,
     },
     subtitle: {
       fontSize: 16,
@@ -178,21 +206,21 @@ const styles = (isDarkMode) =>
       borderColor: COLORS.BORDER,
       borderRadius: 8,
       paddingHorizontal: 12,
-      backgroundColor: isDarkMode ? '#333' : '#fff',
+      backgroundColor: COLORS.INPUT_BG, // Matches LoginScreen input background
     },
     icon: {
       marginRight: 10,
     },
     input: {
       flex: 1,
-      height: 48,
+      height: 48, // Matches LoginScreen input height
       color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
       fontSize: 16,
     },
     resetButton: {
       width: '100%',
-      backgroundColor: COLORS.PRIMARY,
-      paddingVertical: 15,
+      backgroundColor: COLORS.ACCENT, // Matches LoginScreen button color
+      paddingVertical: 14, // Matches LoginScreen button padding
       borderRadius: 8,
       alignItems: 'center',
       marginTop: 10,
@@ -203,7 +231,7 @@ const styles = (isDarkMode) =>
     resetButtonText: {
       color: '#fff',
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: 'bold', // Matches LoginScreen button text
     },
   });
 

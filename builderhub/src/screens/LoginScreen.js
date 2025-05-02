@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useTheme } from '../context/ThemeContext';
@@ -19,164 +21,127 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { useUser } from '../context/UserContext';
 
 const COLORS = {
-  LIGHT_BG: '#fff',
-  DARK_BG: '#1a1a1a',
-  LIGHT_TEXT: '#333',
-  DARK_TEXT: '#ddd',
-  PRIMARY: '#007BFF',
-  ERROR: '#ff4444',
-  BORDER: '#ccc',
+  DARK: '#1A1A1A',
+  LIGHT: '#fff',
+  ACCENT: '#f7b731',
+  TEXT_DARK: '#333',
+  TEXT_LIGHT: '#ddd',
+  ERROR: '#e74c3c',
+  BORDER: '#aaa',
 };
 
 const LoginScreen = ({ navigation }) => {
   const { isDarkMode } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const db = getFirestore();
   const { loginUser } = useUser();
-
-  // Debug logging to verify state
-  useEffect(() => {
-    console.log('LoginScreen rendered, isLoading:', isLoading);
-  }, [isLoading]);
 
   const handleLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Validation Error', 'Please enter both email and password.');
       return;
     }
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      Alert.alert('Validation Error', 'Please enter a valid email address.');
-      return;
-    }
 
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        const userData = docSnap.data();
-        loginUser(userData);
-        if (__DEV__) {
-          console.log('User data:', userData);
-        }
+        loginUser(docSnap.data());
+        Alert.alert('Welcome', 'Logged in successfully!');
+        navigation.replace('Tabs');
       } else {
-        throw new Error('User data not found in Firestore.');
+        throw new Error('User data not found.');
       }
-
-      Alert.alert('Success', 'Logged in successfully!');
-      navigation.replace('Tabs');
     } catch (error) {
-      let errorMessage = 'An error occurred during login.';
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'No account found with this email.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Incorrect password. Please try again.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many attempts. Please try again later.';
-          break;
-        default:
-          errorMessage = error.message;
-      }
-      Alert.alert('Login Failed', errorMessage);
-      if (__DEV__) {
-        console.error('Login error:', error);
-      }
+      let errorMessage = 'Login failed. Please try again.';
+      if (error.code === 'auth/user-not-found') errorMessage = 'User not found.';
+      else if (error.code === 'auth/wrong-password') errorMessage = 'Incorrect password.';
+      else if (error.code === 'auth/too-many-requests') errorMessage = 'Too many attempts. Try later.';
+
+      Alert.alert('Login Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, db, loginUser, navigation]);
+  }, [email, password]);
 
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const themedStyles = styles(isDarkMode);
+  const toggleShowPassword = () => setShowPassword(!showPassword);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={themedStyles.container}
+      style={[styles.container, { backgroundColor: isDarkMode ? COLORS.DARK : COLORS.LIGHT }]}
     >
-      <View style={themedStyles.innerContainer}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={themedStyles.logo}
-          accessibilityLabel="BuilderHub Logo"
-        />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
-        <Text style={themedStyles.title}>Login</Text>
+      {/* Header with logo and titles */}
+      <View style={styles.headerSection}>
+        <Image source={require('../../assets/logo.png')} style={styles.logo} />
+        <Text style={styles.headerTitle}>Welcome to</Text>
+        <Text style={styles.headerSubtitle}>BuilderHub</Text>
+      </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="envelope" size={20} color={COLORS.BORDER} style={themedStyles.icon} />
+      {/* Login Form */}
+      <View style={styles.formContainer}>
+        <View style={styles.inputWrapper}>
+          <Icon name="envelope" size={18} color={COLORS.BORDER} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
             placeholder="Email"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor="#999"
+            style={styles.input}
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="Email input"
+            keyboardType="email-address"
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="lock" size={20} color={COLORS.BORDER} style={themedStyles.icon} />
+        <View style={styles.inputWrapper}>
+          <Icon name="lock" size={20} color={COLORS.BORDER} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
             placeholder="Password"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor="#999"
+            style={styles.input}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            accessibilityLabel="Password input"
           />
-          <TouchableOpacity
-            onPress={toggleShowPassword}
-            style={themedStyles.eyeIcon}
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-          >
+          <TouchableOpacity onPress={toggleShowPassword}>
             <Icon
               name={showPassword ? 'eye' : 'eye-slash'}
-              size={20}
+              size={18}
               color={COLORS.BORDER}
+              style={styles.eyeIcon}
             />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={[themedStyles.loginButton, isLoading && themedStyles.loginButtonDisabled]}
+          style={[styles.loginButton, isLoading && styles.disabledButton]}
           onPress={handleLogin}
           disabled={isLoading}
-          accessibilityLabel="Login button"
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={themedStyles.loginButtonText}>Login</Text>
+            <Text style={styles.loginButtonText}>Login</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('forgetpassword')}>
-          <Text style={themedStyles.link}>
-            Forgot Password? <Text style={themedStyles.linkBold}>Reset here</Text>
-          </Text>
+          <Text style={styles.linkText}>Forgot Password?</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={themedStyles.link}>
-            Don’t have an account? <Text style={themedStyles.linkBold}>Register here</Text>
+          <Text style={styles.linkText}>
+            Don't have an account? <Text style={styles.boldLink}>Register</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -184,78 +149,98 @@ const LoginScreen = ({ navigation }) => {
   );
 };
 
-const styles = (isDarkMode) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
-    },
-    innerContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    logo: {
-      width: 140,
-      height: 100,
-      marginBottom: 20,
-      resizeMode: 'contain',
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginBottom: 20,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-    inputContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      width: '100%',
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: COLORS.BORDER,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      backgroundColor: isDarkMode ? '#333' : '#fff',
-    },
-    icon: {
-      marginRight: 10,
-    },
-    input: {
-      flex: 1,
-      height: 48,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-      fontSize: 16,
-    },
-    eyeIcon: {
-      padding: 10, // Ensure touchable area is large enough
-    },
-    loginButton: {
-      width: '100%',
-      backgroundColor: COLORS.PRIMARY,
-      paddingVertical: 15,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginTop: 10,
-    },
-    loginButtonDisabled: {
-      opacity: 0.7,
-    },
-    loginButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    link: {
-      marginTop: 15,
-      color: isDarkMode ? '#aaa' : '#666',
-      fontSize: 14,
-    },
-    linkBold: {
-      fontWeight: '600',
-      color: COLORS.PRIMARY,
-    },
-  });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  headerSection: {
+    width: '120 %',
+    alignSelf: 'center',
+    paddingTop: 135, // Reduced from 20 to 10
+    paddingBottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomLeftRadius: 70,
+    borderBottomRightRadius: 70,
+    elevation: 5,
+    backgroundColor: '#F4B018', // or COLORS.ACCENT
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  logo: {
+    
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
+    
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+    
+    
+  },
+  headerSubtitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 50,
+  },
+  formContainer: {
+    width: '100%',
+    marginTop: 30,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  icon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+    color: COLORS.TEXT_DARK,
+  },
+  eyeIcon: {
+    paddingHorizontal: 8,
+  },
+  loginButton: {
+    backgroundColor: COLORS.ACCENT,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  linkText: {
+    textAlign: 'center',
+    marginTop: 15,
+    color: COLORS.BORDER,
+  },
+  boldLink: {
+    color: COLORS.ACCENT,
+    fontWeight: 'bold',
+  },
+});
 
 export default LoginScreen;

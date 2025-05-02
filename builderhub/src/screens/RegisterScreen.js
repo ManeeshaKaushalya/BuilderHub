@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,8 +22,9 @@ const COLORS = {
   LIGHT_TEXT: '#333',
   DARK_TEXT: '#ddd',
   PRIMARY: '#007BFF',
-  BORDER: '#ccc',
-  LIGHT_GRAY: '#f9f9f9',
+  BORDER: '#aaa', // Updated to match LoginScreen
+  LIGHT_GRAY: '#eee', // Updated to match LoginScreen input background
+  ACCENT: '#F4B018', // Added to match LoginScreen header
 };
 
 const ACCOUNT_TYPES = {
@@ -57,7 +59,7 @@ const RegisterScreen = ({ navigation }) => {
         Alert.alert(
           'Permission Required',
           'We need camera roll permissions to upload profile images. Please enable them in settings.',
-          [{ text: 'OK' }] // Simplified onPress
+          [{ text: 'OK' }]
         );
       }
     } catch (error) {
@@ -79,7 +81,7 @@ const RegisterScreen = ({ navigation }) => {
       );
     }
 
-    console.log('Rendering component for account type:', accountType); // Debug log
+    console.log('Rendering component for account type:', accountType);
     switch (accountType) {
       case ACCOUNT_TYPES.PERSON:
         if (!UserRegister) {
@@ -112,32 +114,37 @@ const RegisterScreen = ({ navigation }) => {
       contentContainerStyle={themedStyles.container}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={themedStyles.title} accessibilityLabel="Create Your Account">
-        Create Your Account
-      </Text>
-
-      <View style={themedStyles.pickerContainer}>
-        <Picker
-          selectedValue={accountType}
-          onValueChange={(value) => {
-            console.log('Selected account type:', value); // Debug log
-            setAccountType(value);
-          }}
-          style={themedStyles.picker}
-          mode="dropdown"
-          accessibilityLabel="Select account type"
-          accessibilityHint="Choose between Person, Client, or Material Selling Shop"
-        >
-          <Picker.Item label="Person" value={ACCOUNT_TYPES.PERSON} />
-          <Picker.Item label="Client" value={ACCOUNT_TYPES.CLIENT} />
-          <Picker.Item
-            label="Material Selling Shop"
-            value={ACCOUNT_TYPES.MATERIAL_SHOP}
-          />
-        </Picker>
+      {/* Header Section */}
+      <View style={themedStyles.headerSection}>
+        <Text style={themedStyles.headerTitle}>Create Your Account at</Text>
+        <Text style={themedStyles.headerSubtitle}>BuilderHub</Text>
       </View>
 
-      {renderRegisterComponent()}
+      {/* Picker Section */}
+      <View style={themedStyles.formContainer}>
+        <View style={themedStyles.pickerContainer}>
+          <Picker
+            selectedValue={accountType}
+            onValueChange={(value) => {
+              console.log('Selected account type:', value);
+              setAccountType(value);
+            }}
+            style={themedStyles.picker}
+            mode="dropdown"
+            accessibilityLabel="Select account type"
+            accessibilityHint="Choose between Person, Client, or Material Selling Shop"
+          >
+            <Picker.Item label="Person" value={ACCOUNT_TYPES.PERSON} />
+            <Picker.Item label="Client" value={ACCOUNT_TYPES.CLIENT} />
+            <Picker.Item
+              label="Material Selling Shop"
+              value={ACCOUNT_TYPES.MATERIAL_SHOP}
+            />
+          </Picker>
+        </View>
+
+        {renderRegisterComponent()}
+      </View>
     </ScrollView>
   );
 };
@@ -146,15 +153,45 @@ const styles = (isDarkMode) =>
   StyleSheet.create({
     container: {
       flexGrow: 1,
-      alignItems: 'center',
-      padding: 20,
       backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
     },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginBottom: 20,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
+    headerSection: {
+      width: '120%',
+      alignSelf: 'center',
+      paddingTop: 10, // Matches LoginScreen
+      paddingBottom: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottomLeftRadius: 70,
+      borderBottomRightRadius: 70,
+      elevation: 5,
+      backgroundColor: COLORS.ACCENT, // Matches LoginScreen header color
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    logo: {
+      width: 100,
+      height: 100,
+      resizeMode: 'contain',
+      marginBottom: 5, // Matches LoginScreen
+    },
+    headerTitle: {
+      color: '#fff',
+      fontSize: 20,
+      fontWeight: '600',
+    },
+    headerSubtitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginTop: 5,
+    },
+    formContainer: {
+      width: '100%',
+      paddingHorizontal: 24, // Matches LoginScreen padding
+      marginTop: 30, // Matches LoginScreen spacing
     },
     pickerContainer: {
       width: '100%',
@@ -162,12 +199,12 @@ const styles = (isDarkMode) =>
       borderRadius: 8,
       marginBottom: 20,
       borderColor: COLORS.BORDER,
-      backgroundColor: isDarkMode ? '#333' : COLORS.LIGHT_GRAY,
+      backgroundColor: COLORS.LIGHT_GRAY, // Matches LoginScreen input background
       overflow: 'hidden',
       elevation: 2,
     },
     picker: {
-      height: 50,
+      height: 48, // Matches LoginScreen input height
       width: '100%',
       color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
     },

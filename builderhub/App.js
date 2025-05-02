@@ -63,6 +63,8 @@ import PostCards from './src/screens/PostCards';
 import OrderAddressMap from './src/screens/OrderAddressMap';
 import EditProfile from './src/screens/EditProfile';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import HireUserScreen from './src/screens/HireUserScreen';
+import HireRequestDetailsScreen from './src/screens/HireRequestDetailsScreen';
 
 
 const Stack = createStackNavigator();
@@ -119,6 +121,8 @@ export default function App() {
                 <Stack.Screen name="PostCards" component={PostCards} />
                 <Stack.Screen name="EditProfileScreen" component={EditProfile} />
                 <Stack.Screen name="forgetpassword" component={ForgotPasswordScreen} />
+                <Stack.Screen name="HireUserScreen" component={HireUserScreen} />
+                <Stack.Screen name="HireRequestDetailsScreen" component={HireRequestDetailsScreen} />
 
                 
               </Stack.Navigator>
