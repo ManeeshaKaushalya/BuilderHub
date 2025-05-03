@@ -11,6 +11,16 @@ import { createUserWithEmailAndPassword } from '@firebase/auth';
 import { doc, setDoc, getFirestore } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
 
+const COLORS = {
+  DARK: '#1A1A1A',
+  LIGHT: '#fff',
+  ACCENT: '#f7b731',
+  TEXT_DARK: '#333',
+  TEXT_LIGHT: '#ddd',
+  ERROR: '#e74c3c',
+  BORDER: '#aaa',
+};
+
 const CompanyRegister = ({ navigation }) => {
   const route = useRoute();
   const { isDarkMode } = useTheme();
@@ -372,7 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#007BFF',
+    backgroundColor: COLORS.ACCENT,
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',

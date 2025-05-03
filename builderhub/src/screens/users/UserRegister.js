@@ -26,12 +26,14 @@ const COLORS = {
   DARK_BG: '#1a1a1a',
   LIGHT_TEXT: '#333',
   DARK_TEXT: '#ddd',
+  ACCENT: '#f7b731',
   PRIMARY: '#007BFF',
   GRAY: '#666',
   LIGHT_GRAY: '#f9f9f9',
   DARK_GRAY: '#333',
   SUCCESS: '#4CAF50',
 };
+
 
 const UserRegister = ({ navigation }) => {
   const { isDarkMode } = useTheme();
@@ -401,7 +403,7 @@ const styles = (isDarkMode) =>
       fontSize: 16,
     },
     button: {
-      backgroundColor: COLORS.PRIMARY,
+      backgroundColor: COLORS.ACCENT,
       paddingVertical: 15,
       borderRadius: 8,
       alignItems: 'center',
