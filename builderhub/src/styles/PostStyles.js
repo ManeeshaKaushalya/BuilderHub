@@ -242,6 +242,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.LIGHT_TEXT,
   },
+  likedIcon: {
+    color: COLORS.ERROR, // Red color for liked heart
+  },
+  unlikedIcon: {
+    color: COLORS.LIGHT_TEXT, // Default color for unliked heart
+  },
+  likedText: {
+    color: COLORS.ERROR, // Red color for "Like" text when liked
+  },
   pinnedCommentContainer: {
     marginTop: 15,
     padding: 10,

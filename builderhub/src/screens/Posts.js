@@ -7,7 +7,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../firebase/firebaseConfig';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, onSnapshot, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Video } from 'expo-av';
 import styles from '../styles/PostStyles'; // Adjust the import path as necessary
@@ -76,14 +76,11 @@ function Post({
           setLikes(postData.likes || 0);
           setIsLiked(postData.likedBy?.includes(userId) || false);
           
-          // Log before/after images specifically
           if (postData.beforeAfterImages) {
             console.log("Before/After images data:", postData.beforeAfterImages);
           } else {
             console.log("No beforeAfterImages found in post data");
           }
-          
-          fetchComments();
           
           setLoading(false);
         } else {
@@ -99,33 +96,36 @@ function Post({
       setLoading(false);
     });
 
+    const unsubscribeComments = fetchComments();
+
     return () => {
       console.log("Unsubscribing from post:", postId);
       unsubscribe();
+      unsubscribeComments();
     };
   }, [postId, userId]);
 
-  const fetchComments = async () => {
+  const fetchComments = () => {
     try {
       const commentsRef = collection(firestore, 'posts', postId, 'comments');
-      const commentsSnap = await onSnapshot(commentsRef, (snapshot) => {
+      const unsubscribe = onSnapshot(commentsRef, (snapshot) => {
         const commentsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
         
-        const pinned = commentsData.find(comment => comment.isPinned);
-        if (pinned) {
-          setPinnedComment(pinned);
-        }
-        
+        const pinned = commentsData.find(comment => comment.isCubePinned);
+        setPinnedComment(pinned || null);
         setComments(commentsData);
         setCommentsCount(commentsData.length);
+      }, (error) => {
+        console.error('Error fetching comments:', error);
       });
       
-      return () => commentsSnap();
+      return unsubscribe;
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Error setting up comments listener:', error);
+      return () => {};
     }
   };
 
@@ -343,29 +343,31 @@ function Post({
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            Project Documents
-          </Text>
-          
+          <Text style={styles.modalTitle}>Project Documents</Text>
           <FlatList
-            data={[...documentUrls, ...certificates]}
+            data={[...(Array.isArray(documentUrls) ? documentUrls : []), ...(Array.isArray(certificates) ? certificates : [])]}
             keyExtractor={(item, index) => `doc-${index}`}
             renderItem={({ item }) => (
               <TouchableOpacity 
                 style={styles.documentItem}
                 onPress={() => {
-                  navigation.navigate('DocumentViewer', { url: item.url });
-                  setIsDocumentsModalVisible(false);
+                  if (item.url) {
+                    navigation.navigate('DocumentViewer', { url: item.url });
+                    setIsDocumentsModalVisible(false);
+                  } else {
+                    console.error('Invalid document URL:', item);
+                    Alert.alert('Error', 'Invalid document URL');
+                  }
                 }}
               >
                 <MaterialIcons name="description" size={24} color={styles.documentName.color} />
                 <Text style={styles.documentName}>
-                  {item.name || "Document"}
+                  {item.name || 'Document'}
                 </Text>
               </TouchableOpacity>
             )}
+            ListEmptyComponent={<Text style={styles.documentName}>No documents available</Text>}
           />
-          
           <TouchableOpacity 
             style={styles.closeButton}
             onPress={() => setIsDocumentsModalVisible(false)}
@@ -494,38 +496,44 @@ function Post({
 
       {/* Action buttons */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleLike}
+          accessible={true}
+          accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+          accessibilityRole="button"
+        >
           <FontAwesome
             name={isLiked ? "heart" : "heart-o"}
             size={22}
-            color={isLiked ? styles.errorText.color : styles.actionText.color}
+            style={isLiked ? styles.likedIcon : styles.unlikedIcon}
           />
-          <Text style={styles.actionText}>Like</Text>
+          <Text style={[styles.actionText, isLiked ? styles.likedText : null]}>Like</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => navigation.navigate('CommentScreen', { postId })}
         >
-          <FontAwesome name="comment-o" size={22} color={styles.actionText.color} />
+          <FontAwesome name="comment-o" size={22} style={styles.unlikedIcon} />
           <Text style={styles.actionText}>Comment</Text>
         </TouchableOpacity>
         
         {userId !== ownerId && (
           <TouchableOpacity style={styles.actionButton} onPress={handleHireNow}>
-            <MaterialIcons name="work" size={22} color={styles.actionText.color} />
+            <MaterialIcons name="work" size={22} style={styles.unlikedIcon} />
             <Text style={styles.actionText}>Hire</Text>
           </TouchableOpacity>
         )}
         
         <TouchableOpacity style={styles.actionButton} onPress={handleSharePost}>
-          <FontAwesome name="share" size={22} color={styles.actionText.color} />
+          <FontAwesome name="share" size={22} style={styles.unlikedIcon} />
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
       </View>
       
       {/* Pinned comment */}
-      {pinnedComment && (
+      {pinnedComment && pinnedComment.username && pinnedComment.text && (
         <View style={styles.pinnedCommentContainer}>
           <View style={styles.pinnedCommentHeader}>
             <MaterialIcons name="push-pin" size={16} color={styles.pinnedCommentLabel.color} />
