@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Image,
   ScrollView,
   Alert,
@@ -14,29 +13,13 @@ import {
 import { useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from '../../context/ThemeContext';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
-
-// Constants
-const COLORS = {
-  LIGHT_BG: '#fff',
-  DARK_BG: '#1a1a1a',
-  LIGHT_TEXT: '#333',
-  DARK_TEXT: '#ddd',
-  ACCENT: '#f7b731',
-  PRIMARY: '#007BFF',
-  GRAY: '#666',
-  LIGHT_GRAY: '#f9f9f9',
-  DARK_GRAY: '#333',
-  SUCCESS: '#4CAF50',
-};
-
+import styles from '../../styles/UserRegisterStyles'; // Adjust the import path as necessary
 
 const UserRegister = ({ navigation }) => {
-  const { isDarkMode } = useTheme();
   const route = useRoute();
 
   // State declarations
@@ -50,7 +33,7 @@ const UserRegister = ({ navigation }) => {
   const [location, setLocation] = useState(route?.params?.location || '');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
 
   // Handle location updates from MapScreen
   useEffect(() => {
@@ -93,7 +76,7 @@ const UserRegister = ({ navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8, // Slightly reduced for faster uploads
+        quality: 0.8,
       });
 
       if (!result.canceled) {
@@ -192,45 +175,43 @@ const UserRegister = ({ navigation }) => {
     navigation.navigate('MapScreen', { registrationType: 'user', previousLocation: location });
   }, [navigation, location]);
 
-  const themedStyles = styles(isDarkMode);
-
   return (
     <>
       {isLoading && (
-        <View style={themedStyles.loadingOverlay}>
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          <Text style={themedStyles.loadingText}>Creating your account...</Text>
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={styles.button.backgroundColor} />
+          <Text style={styles.loadingText}>Creating your account...</Text>
         </View>
       )}
 
       <Modal transparent visible={showSuccessModal} animationType="fade">
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <Icon name="check-circle" size={50} color={COLORS.SUCCESS} />
-            <Text style={themedStyles.modalTitle}>Registration Successful!</Text>
-            <Text style={themedStyles.modalText}>Redirecting to login...</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Icon name="check-circle" size={50} color={styles.modalContent.backgroundColor} />
+            <Text style={styles.modalTitle}>Registration Successful!</Text>
+            <Text style={styles.modalText}>Redirecting to login...</Text>
           </View>
         </View>
       </Modal>
 
-      <ScrollView contentContainerStyle={themedStyles.container} keyboardShouldPersistTaps="handled">
-        <Text style={themedStyles.title} accessibilityLabel="Create Your Account">
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title} accessibilityLabel="Create Your Account">
           Create Your Account
         </Text>
 
-        <TouchableOpacity style={themedStyles.imageUploadContainer} onPress={handleImageUpload}>
+        <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
           {profileImage ? (
-            <Image source={{ uri: profileImage }} style={themedStyles.profileImage} />
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
           ) : (
-            <Icon name="camera" size={50} color={isDarkMode ? '#444' : COLORS.GRAY} />
+            <Icon name="camera" size={50} color={styles.uploadText.color} />
           )}
         </TouchableOpacity>
-        <Text style={themedStyles.uploadText}>Upload Profile Picture</Text>
+        <Text style={styles.uploadText}>Upload Profile Picture</Text>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="user" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="user" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Full Name"
             value={name}
             onChangeText={setName}
@@ -238,10 +219,10 @@ const UserRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="envelope" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="envelope" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
@@ -251,35 +232,33 @@ const UserRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="lock" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="lock" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             accessibilityLabel="Password input"
           />
-
-<TouchableOpacity
-                    onPress={toggleShowPassword}
-                    style={themedStyles.eyeIcon}
-                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <Icon
-                      name={showPassword ? 'eye' : 'eye-slash'}
-                      size={20}
-                      color={COLORS.BORDER}
-                    />
-                  </TouchableOpacity>
+          <TouchableOpacity
+            onPress={toggleShowPassword}
+            style={styles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+          >
+            <Icon
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={20}
+              color={styles.inputContainer.borderColor}
+            />
+          </TouchableOpacity>
         </View>
-    
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="briefcase" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="briefcase" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Profession (optional)"
             value={profession}
             onChangeText={setProfession}
@@ -287,10 +266,10 @@ const UserRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="clock-o" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="clock-o" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Years of Experience (optional)"
             value={experience}
             onChangeText={setExperience}
@@ -299,10 +278,10 @@ const UserRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="tags" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
+        <View style={styles.inputContainer}>
+          <Icon name="tags" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
           <TextInput
-            style={themedStyles.input}
+            style={styles.input}
             placeholder="Skills (comma separated, optional)"
             value={skills}
             onChangeText={setSkills}
@@ -310,172 +289,36 @@ const UserRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={themedStyles.inputContainer}>
-          <Icon name="map-marker" size={20} color={COLORS.GRAY} style={themedStyles.icon} />
-          <TextInput
-            style={[themedStyles.input, { flex: 1 }]}
-            placeholder="Location"
-            value={location}
-            editable={false}
-            accessibilityLabel="Location display"
-          />
-          <TouchableOpacity
-            style={themedStyles.locationButton}
-            onPress={handleLocationSelect}
-            accessibilityLabel="Select location"
-          >
-            <Text style={themedStyles.locationButtonText}>Select</Text>
+        <View style={styles.inputContainer}>
+          <Icon name="map-marker" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+          <TouchableOpacity onPress={handleLocationSelect} style={styles.locationInputWrapper}>
+            <TextInput
+              style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
+              placeholder="Location"
+              value={location}
+              editable={false}
+              accessibilityLabel="Location input"
+            />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={[themedStyles.button, isLoading && { opacity: 0.7 }]}
+          style={[styles.button, isLoading && { opacity: 0.7 }]}
           onPress={handleRegister}
           disabled={isLoading}
           accessibilityLabel="Register button"
         >
-          <Text style={themedStyles.buttonText}>Register</Text>
+          <Text style={styles.buttonText}>Register</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={themedStyles.link}>
-            Already have an account? <Text style={themedStyles.linkBold}>Login here</Text>
+          <Text style={styles.link}>
+            Already have an account? <Text style={styles.linkBold}>Login here</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
     </>
   );
 };
-
-const styles = (isDarkMode) =>
-  StyleSheet.create({
-    container: {
-      flexGrow: 1,
-      alignItems: 'center',
-      padding: 20,
-      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginBottom: 20,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-    imageUploadContainer: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : '#f0f0f0',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 10,
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#444' : '#ddd',
-    },
-    profileImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-    },
-    uploadText: {
-      marginBottom: 20,
-      fontSize: 16,
-      color: isDarkMode ? '#888' : COLORS.GRAY,
-    },
-    inputContainer: {
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#444' : COLORS.GRAY,
-      borderRadius: 8,
-      marginBottom: 15,
-      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_GRAY,
-    },
-    icon: {
-      padding: 10,
-    },
-    input: {
-      flex: 1,
-      height: 50,
-      paddingHorizontal: 10,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-      fontSize: 16,
-    },
-    button: {
-      backgroundColor: COLORS.ACCENT,
-      paddingVertical: 15,
-      borderRadius: 8,
-      alignItems: 'center',
-      width: '100%',
-      marginTop: 10,
-    },
-    buttonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    link: {
-      marginTop: 15,
-      color: isDarkMode ? '#aaa' : COLORS.GRAY,
-      fontSize: 14,
-    },
-    linkBold: {
-      fontWeight: '600',
-      color: COLORS.PRIMARY,
-    },
-    loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000,
-    },
-    loadingText: {
-      color: '#fff',
-      marginTop: 10,
-      fontSize: 16,
-    },
-    eyeIcon: {
-      padding: 10, // Ensure touchable area is large enough
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
-      borderRadius: 20,
-      padding: 30,
-      alignItems: 'center',
-      width: '80%',
-      elevation: 5,
-    },
-    modalTitle: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginTop: 15,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-    modalText: {
-      fontSize: 16,
-      textAlign: 'center',
-      color: isDarkMode ? '#ccc' : COLORS.GRAY,
-      marginVertical: 10,
-    },
-    locationButton: {
-      backgroundColor: COLORS.PRIMARY,
-      padding: 8,
-      borderRadius: 5,
-      marginHorizontal: 10,
-    },
-    locationButtonText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-  });
 
 export default React.memo(UserRegister);

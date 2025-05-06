@@ -49,33 +49,8 @@ const ChatList = () => {
         chatList.push({ id: doc.id, ...doc.data() });
       });
 
-      // Add persistent support chat entry
-      const supportChatId = `support_${user.uid}`;
-      const supportChatIndex = chatList.findIndex(chat => chat.id === supportChatId);
-      const supportChat = {
-        id: supportChatId,
-        itemId: 'supportAgent',
-        itemName: 'Customer Support',
-        itemImage: null,
-        participants: [user.uid, 'supportAgent'],
-        lastMessage: chatList[supportChatIndex]?.lastMessage || 'How can we help you today?',
-        lastMessageTime: chatList[supportChatIndex]?.lastMessageTime || serverTimestamp(),
-        isSupportChat: true
-      };
-
-      // Replace or add support chat at the top
-      if (supportChatIndex >= 0) {
-        chatList[supportChatIndex] = supportChat;
-      } else {
-        chatList.unshift(supportChat);
-      }
-
-      // Sort chats: support first, then unread, then by timestamp
+      // Sort chats: unread first, then by timestamp
       chatList.sort((a, b) => {
-        // Support chat always first
-        if (a.isSupportChat) return -1;
-        if (b.isSupportChat) return 1;
-
         // Prioritize unread chats
         if ((a.unreadBy?.includes(user.uid) && !b.unreadBy?.includes(user.uid))) return -1;
         if ((!a.unreadBy?.includes(user.uid) && b.unreadBy?.includes(user.uid))) return 1;
@@ -89,13 +64,11 @@ const ChatList = () => {
       setChats(chatList);
       setLoading(false);
 
-      // Fetch user profiles for all participants (excluding support)
+      // Fetch user profiles for all participants
       chatList.forEach(chat => {
-        if (!chat.isSupportChat) {
-          const otherUserId = chat.participants.find(id => id !== user.uid);
-          if (otherUserId && !userProfiles[otherUserId]) {
-            fetchUserProfile(otherUserId);
-          }
+        const otherUserId = chat.participants.find(id => id !== user.uid);
+        if (otherUserId && !userProfiles[otherUserId]) {
+          fetchUserProfile(otherUserId);
         }
       });
     }, (error) => {
@@ -123,7 +96,7 @@ const ChatList = () => {
   };
 
   const getOtherUserProfile = (chat) => {
-    if (!chat || !chat.participants || chat.isSupportChat) return null;
+    if (!chat || !chat.participants) return null;
     const otherUserId = chat.participants.find(id => id !== user?.uid);
     return userProfiles[otherUserId] || null;
   };
@@ -204,16 +177,6 @@ const ChatList = () => {
     }
     
     try {
-      if (item.isSupportChat) {
-        navigation.navigate('ChatScreen', {
-          item: { id: 'supportAgent', itemName: 'Customer Support', images: [], price: 'N/A' },
-          sellerData: { name: 'Support Team', profileImage: null },
-          isSupportChat: true,
-          chatId: item.id
-        });
-        return;
-      }
-
       await markChatAsRead(item.id);
       const itemRef = doc(firestore, 'items', item.itemId);
       const itemSnap = await getDoc(itemRef);
@@ -221,8 +184,8 @@ const ChatList = () => {
       navigation.navigate('ChatScreen', { 
         item: itemSnap.exists() ? { id: itemSnap.id, ...itemSnap.data() } : { 
           id: item.itemId, 
-          itemName: item.itemName || 'Item Unavailable',
-          images: item.itemImage ? [item.itemImage] : [],
+          itemName: 'Item Unavailable',
+          images: [],
           price: 'N/A'
         }, 
         sellerData: otherUser,
@@ -239,8 +202,15 @@ const ChatList = () => {
     return chat.unreadCount[user.uid] || 1;
   };
 
+  // Sanitize lastMessage to remove item names within quotes
+  const sanitizeLastMessage = (message) => {
+    if (!message) return 'No messages yet';
+    // Remove content within quotes, e.g., "Scaffolding" in "John purchased "Scaffolding" (Quantity: 2, Order ID: abc123)"
+    return message.replace(/"[^"]*"/g, 'an item').replace(/\s+/g, ' ').trim();
+  };
+
   const renderChatItem = ({ item }) => {
-    const otherUser = item.isSupportChat ? { name: 'Support Team', profileImage: null } : getOtherUserProfile(item);
+    const otherUser = getOtherUserProfile(item);
     const hasUnread = user?.uid && item.unreadBy?.includes(user.uid);
     const unreadCount = countUnreadMessages(item);
 
@@ -248,16 +218,12 @@ const ChatList = () => {
       <TouchableOpacity
         style={[styles.chatItem, hasUnread && styles.unreadChatItem]}
         onPress={() => navigateToChat(item, otherUser)}
-        onLongPress={() => !item.isSupportChat && deleteChat(item.id)}
+        onLongPress={() => deleteChat(item.id)}
         delayLongPress={500}
         activeOpacity={0.7}
       >
         <View style={styles.avatarContainer}>
-          {item.isSupportChat ? (
-            <View style={styles.supportAvatar}>
-              <Icon name="support-agent" size={26} color="#fff" />
-            </View>
-          ) : otherUser?.profileImage ? (
+          {otherUser?.profileImage ? (
             <Image source={{ uri: otherUser.profileImage }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, hasUnread && styles.unreadAvatarPlaceholder]}>
@@ -272,7 +238,7 @@ const ChatList = () => {
         <View style={styles.contentContainer}>
           <View style={styles.headerRow}>
             <Text style={[styles.userName, hasUnread && styles.unreadText]} numberOfLines={1}>
-              {item.isSupportChat ? 'Support Team' : (otherUser?.name || 'User')}
+              {otherUser?.name || 'User'}
             </Text>
             <Text style={styles.timeStamp}>
               {item.lastMessageTime ? formatTimestamp(item.lastMessageTime) : ''}
@@ -281,7 +247,7 @@ const ChatList = () => {
           
           <View style={styles.messagePreview}>
             <Text style={[styles.lastMessage, hasUnread && styles.unreadText]} numberOfLines={1}>
-              {item.lastMessage || 'No messages yet'}
+              {sanitizeLastMessage(item.lastMessage)}
             </Text>
             {hasUnread && (
               <View style={styles.badgeContainer}>
@@ -291,21 +257,6 @@ const ChatList = () => {
               </View>
             )}
           </View>
-          
-          {!item.isSupportChat && item.itemName && (
-            <View style={styles.itemTag}>
-              {item.itemImage ? (
-                <Image source={{ uri: item.itemImage }} style={styles.itemThumb} />
-              ) : (
-                <View style={styles.itemThumbPlaceholder}>
-                  <Icon name="inventory-2" size={12} color="#555" />
-                </View>
-              )}
-              <Text style={styles.itemName} numberOfLines={1}>
-                {item.itemName}
-              </Text>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -427,14 +378,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4a6fa5',
   },
-  supportAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#4a6fa5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   statusIndicator: {
     position: 'absolute',
     width: 14,
@@ -497,35 +440,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  itemTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f2f4f6',
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    alignSelf: 'flex-start',
-  },
-  itemThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  itemThumbPlaceholder: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    backgroundColor: '#e0e6ee',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  itemName: {
-    fontSize: 12,
-    color: '#546e7a',
-    maxWidth: 120,
   },
   emptyContainer: {
     flex: 1,

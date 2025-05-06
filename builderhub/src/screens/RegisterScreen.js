@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Alert,
-  StyleSheet,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -13,19 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import CompanyRegister from './company/CompanyRegister';
 import ShopRegister from './shops/ShopRegister';
 import UserRegister from './users/UserRegister';
-import { useTheme } from '../context/ThemeContext';
-
-// Constants
-const COLORS = {
-  LIGHT_BG: '#fff',
-  DARK_BG: '#1a1a1a',
-  LIGHT_TEXT: '#333',
-  DARK_TEXT: '#ddd',
-  PRIMARY: '#007BFF',
-  BORDER: '#aaa', // Updated to match LoginScreen
-  LIGHT_GRAY: '#eee', // Updated to match LoginScreen input background
-  ACCENT: '#F4B018', // Added to match LoginScreen header
-};
+import styles from '../styles/RegisterScreenStyles'; // Adjust the import path as necessary
 
 const ACCOUNT_TYPES = {
   PERSON: 'Person',
@@ -34,7 +21,6 @@ const ACCOUNT_TYPES = {
 };
 
 const RegisterScreen = ({ navigation }) => {
-  const { isDarkMode = false } = useTheme() || {}; // Fallback if useTheme fails
   const [accountType, setAccountType] = useState(ACCOUNT_TYPES.PERSON);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
 
@@ -75,7 +61,7 @@ const RegisterScreen = ({ navigation }) => {
     if (isLoadingPermissions) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          <ActivityIndicator size="large" color={styles.picker.color} />
           <Text style={styles.loadingText}>Checking permissions...</Text>
         </View>
       );
@@ -107,29 +93,28 @@ const RegisterScreen = ({ navigation }) => {
     }
   }, [accountType, isLoadingPermissions, navigation]);
 
-  const themedStyles = styles(isDarkMode);
-
   return (
     <ScrollView
-      contentContainerStyle={themedStyles.container}
+      contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
       {/* Header Section */}
-      <View style={themedStyles.headerSection}>
-        <Text style={themedStyles.headerTitle}>Create Your Account at</Text>
-        <Text style={themedStyles.headerSubtitle}>BuilderHub</Text>
+      <View style={styles.headerSection}>
+        <Text style={styles.headerTitle}>Create Your Account at</Text>
+        <Text style={styles.headerSubtitle}>BuilderHub</Text>
       </View>
 
       {/* Picker Section */}
-      <View style={themedStyles.formContainer}>
-        <View style={themedStyles.pickerContainer}>
+      <View style={styles.formContainer}>
+        <View style={styles.pickerContainer}>
           <Picker
             selectedValue={accountType}
             onValueChange={(value) => {
               console.log('Selected account type:', value);
               setAccountType(value);
             }}
-            style={themedStyles.picker}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
             mode="dropdown"
             accessibilityLabel="Select account type"
             accessibilityHint="Choose between Person, Client, or Material Selling Shop"
@@ -148,81 +133,5 @@ const RegisterScreen = ({ navigation }) => {
     </ScrollView>
   );
 };
-
-const styles = (isDarkMode) =>
-  StyleSheet.create({
-    container: {
-      flexGrow: 1,
-      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
-    },
-    headerSection: {
-      width: '120%',
-      alignSelf: 'center',
-      paddingTop: 10, // Matches LoginScreen
-      paddingBottom: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderBottomLeftRadius: 70,
-      borderBottomRightRadius: 70,
-      elevation: 5,
-      backgroundColor: COLORS.ACCENT, // Matches LoginScreen header color
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-    },
-    logo: {
-      width: 100,
-      height: 100,
-      resizeMode: 'contain',
-      marginBottom: 5, // Matches LoginScreen
-    },
-    headerTitle: {
-      color: '#fff',
-      fontSize: 20,
-      fontWeight: '600',
-    },
-    headerSubtitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: 'bold',
-      marginTop: 5,
-    },
-    formContainer: {
-      width: '100%',
-      paddingHorizontal: 24, // Matches LoginScreen padding
-      marginTop: 30, // Matches LoginScreen spacing
-    },
-    pickerContainer: {
-      width: '100%',
-      borderWidth: 1,
-      borderRadius: 8,
-      marginBottom: 20,
-      borderColor: COLORS.BORDER,
-      backgroundColor: COLORS.LIGHT_GRAY, // Matches LoginScreen input background
-      overflow: 'hidden',
-      elevation: 2,
-    },
-    picker: {
-      height: 48, // Matches LoginScreen input height
-      width: '100%',
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-    loadingContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-    },
-    loadingText: {
-      marginTop: 10,
-      fontSize: 16,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-    errorText: {
-      fontSize: 16,
-      color: 'red',
-      textAlign: 'center',
-    },
-  });
 
 export default React.memo(RegisterScreen);

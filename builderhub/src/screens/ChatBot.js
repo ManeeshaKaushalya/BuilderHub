@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 15,
-    backgroundColor: '#FF6600', // Construction orange
+    backgroundColor: '#F4B018', // Construction orange
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',

@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   pinnedButtonContainer: {
     position: 'absolute',
-    top: 290,
+    top: 250, // Moved up from 290 to 180
     right: 20,
     zIndex: 1000,
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#10B981',
+    backgroundColor: '#F4B018',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,

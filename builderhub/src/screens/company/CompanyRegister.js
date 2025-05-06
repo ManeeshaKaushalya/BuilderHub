@@ -1,29 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker';
-import LocationScreen from '../LocationScreen';
-import { useTheme } from '../../context/ThemeContext';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { createUserWithEmailAndPassword } from '@firebase/auth';
 import { doc, setDoc, getFirestore } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
-
-const COLORS = {
-  DARK: '#1A1A1A',
-  LIGHT: '#fff',
-  ACCENT: '#f7b731',
-  TEXT_DARK: '#333',
-  TEXT_LIGHT: '#ddd',
-  ERROR: '#e74c3c',
-  BORDER: '#aaa',
-};
+import styles from '../../styles/ClientRegisterStyle';
 
 const CompanyRegister = ({ navigation }) => {
   const route = useRoute();
-  const { isDarkMode } = useTheme();
 
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,7 +21,7 @@ const CompanyRegister = ({ navigation }) => {
   const [accountType, setAccountType] = useState('Company');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   // Handle location updates from MapScreen
   useEffect(() => {
@@ -54,7 +41,7 @@ const CompanyRegister = ({ navigation }) => {
       navigationTimer = setTimeout(() => {
         setShowSuccessModal(false);
         navigation.navigate('Login');
-      }, 2000); // Show success message for 2 seconds
+      }, 2000);
     }
     return () => {
       if (navigationTimer) {
@@ -108,6 +95,7 @@ const CompanyRegister = ({ navigation }) => {
           snapshot => { },
           error => {
             console.error('Image upload failed:', error);
+            Alert.alert('Error', 'Failed to upload image');
           },
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -129,15 +117,10 @@ const CompanyRegister = ({ navigation }) => {
       animationType="fade"
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-          <Icon name="check-circle" size={50} color="#4CAF50" />
-          <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-            Registration Successful!
-          </Text>
-          <Text style={[styles.modalText, isDarkMode && styles.modalTextDark]}>
-            Your account has been created successfully.
-          </Text>
-          {/* Removed the button since we're auto-navigating */}
+        <View style={styles.modalContent}>
+          <Icon name="check-circle" size={50} color={styles.modalContent.backgroundColor} />
+          <Text style={styles.modalTitle}>Registration Successful!</Text>
+          <Text style={styles.modalText}>Your account has been created successfully.</Text>
         </View>
       </View>
     </Modal>
@@ -183,7 +166,15 @@ const CompanyRegister = ({ navigation }) => {
     } catch (error) {
       setIsLoading(false);
       console.error('Registration error:', error);
-      Alert.alert('Error', 'Failed to register: ' + error.message);
+      let errorMessage = 'Failed to register';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please use a different email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters long.';
+      }
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -194,74 +185,44 @@ const CompanyRegister = ({ navigation }) => {
     });
   };
 
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      ...styles.container,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#fff'
-    },
-    title: {
-      ...styles.title,
-      color: isDarkMode ? '#fff' : '#000'
-    },
-    inputContainer: {
-      ...styles.inputContainer,
-      backgroundColor: isDarkMode ? '#333' : '#f9f9f9',
-      borderColor: isDarkMode ? '#444' : '#ccc'
-    },
-    input: {
-      ...styles.input,
-      color: isDarkMode ? '#fff' : '#000'
-    },
-    uploadText: {
-      ...styles.uploadText,
-      color: isDarkMode ? '#ddd' : '#666'
-    },
-    link: {
-      ...styles.link,
-      color: isDarkMode ? '#66b0ff' : '#007BFF'
-    }
-  });
-
   return (
     <>
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007BFF" />
-          <Text style={{ color: '#fff', marginTop: 10 }}>
-            Creating your account...
-          </Text>
+          <ActivityIndicator size="large" color={styles.button.backgroundColor} />
+          <Text style={styles.modalText}>Creating your account...</Text>
         </View>
       )}
       <SuccessModal />
-      <ScrollView contentContainerStyle={dynamicStyles.container} keyboardShouldPersistTaps="handled">
-        <Text style={dynamicStyles.title}>Create Your Account</Text>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>Create Your Account</Text>
 
         <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
           ) : (
-            <Icon name="camera" size={50} color={isDarkMode ? '#444' : '#ccc'} />
+            <Icon name="camera" size={50} color={styles.uploadText.color} />
           )}
         </TouchableOpacity>
-        <Text style={dynamicStyles.uploadText}>Upload Profile Picture</Text>
+        <Text style={styles.uploadText}>Upload Profile Picture</Text>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon name="user" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <View style={styles.inputContainer}>
+          <Icon name="user" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
           <TextInput
-            style={dynamicStyles.input}
+            style={styles.input}
             placeholder="Name"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor={styles.uploadText.color}
             value={companyName}
             onChangeText={setCompanyName}
           />
         </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon name="envelope" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <View style={styles.inputContainer}>
+          <Icon name="envelope" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
           <TextInput
-            style={dynamicStyles.input}
+            style={styles.input}
             placeholder="Email"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor={styles.uploadText.color}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -269,12 +230,12 @@ const CompanyRegister = ({ navigation }) => {
           />
         </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon name="lock" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <View style={styles.inputContainer}>
+          <Icon name="lock" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
           <TextInput
-            style={dynamicStyles.input}
+            style={styles.input}
             placeholder="Password"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor={styles.uploadText.color}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
@@ -288,28 +249,28 @@ const CompanyRegister = ({ navigation }) => {
             <Icon
               name={showPassword ? 'eye' : 'eye-slash'}
               size={20}
-              color={isDarkMode ? '#ddd' : '#666'}
+              color={styles.inputContainer.borderColor}
             />
           </TouchableOpacity>
         </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Icon name="info-circle" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <View style={styles.inputContainer}>
+          <Icon name="info-circle" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
           <TextInput
-            style={dynamicStyles.input}
+            style={styles.input}
             placeholder="Bio"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor={styles.uploadText.color}
             value={companyDescription}
             onChangeText={setCompanyDescription}
           />
         </View>
 
-        <TouchableOpacity style={dynamicStyles.inputContainer} onPress={handleLocationSelect}>
-          <Icon name="map-marker" size={20} style={[styles.icon, { color: isDarkMode ? '#ddd' : '#666' }]} />
+        <TouchableOpacity style={styles.inputContainer} onPress={handleLocationSelect}>
+          <Icon name="map-marker" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
           <TextInput
-            style={dynamicStyles.input}
+            style={styles.input}
             placeholder="Select Location"
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            placeholderTextColor={styles.uploadText.color}
             value={location}
             editable={false}
           />
@@ -320,7 +281,7 @@ const CompanyRegister = ({ navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={dynamicStyles.link}>
+          <Text style={styles.link}>
             Already have an account? <Text style={styles.linkBold}>Login here</Text>
           </Text>
         </TouchableOpacity>
@@ -328,141 +289,5 @@ const CompanyRegister = ({ navigation }) => {
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  imageUploadContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  uploadText: {
-    marginBottom: 20,
-  },
-  inputContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-    height: 50,
-  },
-  eyeIcon: {
-    padding: 10, // Ensure touchable area is large enough
-  },
-  icon: {
-    padding: 10,
-  },
-  input: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 5,
-    width: '100%',
-    height: 50,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: COLORS.ACCENT,
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 15,
-    fontWeight: '500',
-  },
-  linkBold: {
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    width: '80%',
-  },
-  modalContentDark: {
-    backgroundColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#000',
-  },
-  modalTitleDark: {
-    color: '#fff',
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-  },
-  modalTextDark: {
-    color: '#ccc',
-  },
-  modalButton: {
-    backgroundColor: '#007BFF',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
-    elevation: 2,
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-});
 
 export default CompanyRegister;

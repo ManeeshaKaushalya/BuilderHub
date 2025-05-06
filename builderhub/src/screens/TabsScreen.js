@@ -134,17 +134,17 @@ const TabsScreen = () => {
       }}
     >
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Posts"
+        component={UsersPostsScreen}
         options={{
           tabBarIcon: ({ color, size }) => <Icon name="home" size={size} color={color} />,
         }}
       />
       <Tab.Screen
-        name="Posts"
-        component={UsersPostsScreen}
+        name="Discover"
+        component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Icon name="users" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Icon name="compass" size={size} color={color} />,
         }}
       />
       <Tab.Screen

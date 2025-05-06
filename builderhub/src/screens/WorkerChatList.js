@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     header: {
-        backgroundColor: '#0095f6',
+        backgroundColor: '#F4B018',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#fff',
+        color: 'black',
     },
     newChatButton: {
         padding: 8,

@@ -292,14 +292,12 @@ const WorkerChatScreen = () => {
                     
                     <View style={styles.headerTextContainer}>
                         <Text style={styles.headerUsername}>{recipient?.name || 'User'}</Text>
-                        <Text style={styles.headerStatus}>Online</Text>
+                       
                     </View>
                 </View>
                 
                 <View style={styles.headerActions}>
-                    <TouchableOpacity style={styles.headerActionButton}>
-                        <Ionicons name="call-outline" size={22} color="#fff" />
-                    </TouchableOpacity>
+                    
                     <TouchableOpacity style={styles.headerActionButton}>
                         <Ionicons name="ellipsis-vertical" size={22} color="#fff" />
                     </TouchableOpacity>
@@ -375,7 +373,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     header: {
-        backgroundColor: '#0095f6',
+        backgroundColor: '#F4B018',
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,

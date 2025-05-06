@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -11,7 +11,9 @@ import {
     Dimensions,
     Animated,
     Platform,
-    Alert
+    Alert,
+    Modal,
+    TouchableWithoutFeedback
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -47,6 +49,9 @@ function UploaderProfile() {
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [mapError, setMapError] = useState(null);
     const [showAllSkills, setShowAllSkills] = useState(false);
+    const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+    const [showMenu, setShowMenu] = useState(false);
+    const menuAnimation = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -193,7 +198,12 @@ function UploaderProfile() {
             const userLocation = parseLocationString(userProfile.location);
             if (!userLocation) {
                 setMapError('Invalid user location');
-                setRouteCoordinates([currentLocation, userLocation]);
+                return;
+            }
+
+            if (currentUser && currentUser.uid === profileId) {
+                setRouteCoordinates([]);
+                setMapError(null);
                 return;
             }
 
@@ -223,7 +233,7 @@ function UploaderProfile() {
         };
 
         fetchRoute();
-    }, [currentLocation, userProfile]);
+    }, [currentLocation, userProfile, currentUser, profileId]);
 
     useEffect(() => {
         Animated.timing(ratingAnimation, {
@@ -232,6 +242,50 @@ function UploaderProfile() {
             useNativeDriver: true,
         }).start();
     }, [ratingAnimation]);
+
+    useEffect(() => {
+        if (!currentUser || !profileId || currentUser.uid !== profileId) {
+            setPendingOrdersCount(0);
+            return;
+        }
+
+        const ordersRef = collection(firestore, 'item_orders');
+        const q1 = query(
+            ordersRef,
+            where('itemOwnerId', '==', profileId),
+            where('status', '==', 'pending')
+        );
+        const q2 = query(
+            ordersRef,
+            where('buyerId', '==', profileId),
+            where('status', '==', 'pending')
+        );
+
+        const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+            const ownerPendingCount = snapshot.docs.length;
+            setPendingOrdersCount((prev) => {
+                const buyerPendingCount = prev - snapshot.docs.length;
+                return ownerPendingCount + (buyerPendingCount >= 0 ? buyerPendingCount : 0);
+            });
+        }, (error) => {
+            console.error('Error fetching pending owner orders:', error);
+        });
+
+        const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+            const buyerPendingCount = snapshot.docs.length;
+            setPendingOrdersCount((prev) => {
+                const ownerPendingCount = prev - snapshot.docs.length;
+                return buyerPendingCount + (ownerPendingCount >= 0 ? ownerPendingCount : 0);
+            });
+        }, (error) => {
+            console.error('Error fetching pending buyer orders:', error);
+        });
+
+        return () => {
+            unsubscribe1();
+            unsubscribe2();
+        };
+    }, [currentUser, profileId]);
 
     const handleRating = async (rating) => {
         if (!currentUser || !profileId || currentUser.uid === profileId) return;
@@ -288,6 +342,7 @@ function UploaderProfile() {
     };
 
     const handleLogout = () => {
+        setShowMenu(false);
         Alert.alert(
             'Confirm Logout',
             'Are you sure you want to logout?',
@@ -317,8 +372,28 @@ function UploaderProfile() {
         );
     };
 
+    const handleHelp = () => {
+        setShowMenu(false);
+        navigation.navigate('HelpScreen');
+    };
+
+    const toggleMenu = () => {
+        if (currentUser && currentUser.uid === profileId) {
+            setShowMenu(!showMenu);
+            Animated.timing(menuAnimation, {
+                toValue: showMenu ? 0 : 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        }
+    };
+
     const handleEditProfile = () => {
         navigation.navigate('EditProfileScreen', { userId: profileId });
+    };
+
+    const handleViewOrders = () => {
+        navigation.navigate('OrdersScreen', { userId: profileId });
     };
 
     const parseLocationString = (locationString) => {
@@ -420,10 +495,63 @@ function UploaderProfile() {
                     <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{userProfile.name}</Text>
-                <TouchableOpacity style={styles.headerIconButton}>
+                <TouchableOpacity style={styles.headerIconButton} onPress={toggleMenu}>
                     <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
                 </TouchableOpacity>
             </View>
+
+            <Modal
+                transparent={true}
+                visible={showMenu}
+                animationType="none"
+                onRequestClose={() => setShowMenu(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
+                    <View style={styles.modalOverlay}>
+                        <Animated.View
+                            style={[
+                                styles.dropdownMenu,
+                                {
+                                    opacity: menuAnimation,
+                                    transform: [
+                                        {
+                                            translateY: menuAnimation.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [-10, 0]
+                                            })
+                                        }
+                                    ]
+                                }
+                            ]}
+                        >
+                            <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={handleHelp}
+                            >
+                                <Ionicons
+                                    name="help-circle-outline"
+                                    size={18}
+                                    color="#333"
+                                    style={styles.dropdownIcon}
+                                />
+                                <Text style={styles.dropdownText}>Help</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={handleLogout}
+                            >
+                                <Ionicons
+                                    name="log-out-outline"
+                                    size={18}
+                                    color="#D32F2F"
+                                    style={styles.dropdownIcon}
+                                />
+                                <Text style={[styles.dropdownText, { color: '#D32F2F' }]}>Logout</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
 
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.coverContainer}>
@@ -433,7 +561,6 @@ function UploaderProfile() {
                         end={{ x: 1, y: 1 }}
                         style={styles.coverGradient}
                     >
-                        {/* Semi-transparent overlay for pattern effect */}
                         <View style={styles.coverOverlay} />
                         <View style={styles.profileImageContainer}>
                             <View style={styles.profileImageWrapper}>
@@ -508,41 +635,51 @@ function UploaderProfile() {
                         </View>
                     )}
 
-                    {currentLocation && userLocation ? (
+                    {currentLocation && (
                         <View style={styles.mapContainer}>
                             <MapView
                                 provider={PROVIDER_GOOGLE}
                                 style={styles.map}
                                 initialRegion={{
-                                    latitude: (currentLocation.latitude + userLocation.latitude) / 2,
-                                    longitude: (currentLocation.longitude + userLocation.longitude) / 2,
-                                    latitudeDelta: Math.abs(currentLocation.latitude - userLocation.latitude) * 1.5,
-                                    longitudeDelta: Math.abs(currentLocation.longitude - userLocation.longitude) * 1.5,
+                                    latitude: currentLocation.latitude,
+                                    longitude: currentLocation.longitude,
+                                    latitudeDelta: 0.0922,
+                                    longitudeDelta: 0.0421,
                                 }}
                             >
-                                <Marker
-                                    coordinate={currentLocation}
-                                    title="My Location"
-                                    pinColor="#0288D1"
-                                />
-                                <Marker
-                                    coordinate={userLocation}
-                                    title={userProfile.name}
-                                    pinColor="#FF0000"
-                                />
-                                {routeCoordinates.length > 0 && (
-                                    <Polyline
-                                        coordinates={routeCoordinates}
-                                        strokeColor="#0288D1"
-                                        strokeWidth={3}
+                                {currentUser && currentUser.uid === profileId ? (
+                                    <Marker
+                                        coordinate={currentLocation}
+                                        title="My Location"
+                                        pinColor="#0288D1"
                                     />
-                                )}
+                                ) : userLocation ? (
+                                    <>
+                                        <Marker
+                                            coordinate={currentLocation}
+                                            title="My Location"
+                                            pinColor="#0288D1"
+                                        />
+                                        <Marker
+                                            coordinate={userLocation}
+                                            title={userProfile.name}
+                                            pinColor="#FF0000"
+                                        />
+                                        {routeCoordinates.length > 0 && (
+                                            <Polyline
+                                                coordinates={routeCoordinates}
+                                                strokeColor="#0288D1"
+                                                strokeWidth={3}
+                                            />
+                                        )}
+                                    </>
+                                ) : null}
                             </MapView>
                             {mapError && (
                                 <Text style={styles.mapErrorText}>{mapError}</Text>
                             )}
                         </View>
-                    ) : (
+                    ) || (
                         <Text style={styles.mapErrorText}>Location data unavailable</Text>
                     )}
 
@@ -658,6 +795,25 @@ function UploaderProfile() {
 
                             {currentUser.uid === profileId && (
                                 <>
+                                    <View style={styles.buttonWithBadge}>
+                                        <TouchableOpacity
+                                            style={styles.ordersButton}
+                                            onPress={handleViewOrders}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="cart-outline"
+                                                size={18}
+                                                color="#fff"
+                                                style={styles.buttonIcon}
+                                            />
+                                            <Text style={styles.ordersButtonText}>Your Orders</Text>
+                                        </TouchableOpacity>
+                                        {pendingOrdersCount > 0 && (
+                                            <View style={styles.badge}>
+                                                <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                     <TouchableOpacity
                                         style={styles.editProfileButton}
                                         onPress={handleEditProfile}
@@ -669,18 +825,6 @@ function UploaderProfile() {
                                             style={styles.buttonIcon}
                                         />
                                         <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.logoutButton}
-                                        onPress={handleLogout}
-                                    >
-                                        <Ionicons
-                                            name="log-out-outline"
-                                            size={18}
-                                            color="#fff"
-                                            style={styles.buttonIcon}
-                                        />
-                                        <Text style={styles.logoutButtonText}>Logout</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -758,7 +902,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     header: {
-        backgroundColor: '#0288D1',
+        backgroundColor: '#F4B018',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -775,6 +919,38 @@ const styles = StyleSheet.create({
     },
     headerIconButton: {
         padding: 5,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    },
+    dropdownMenu: {
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 60 : 50,
+        right: 16,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        width: 160,
+        paddingVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+    },
+    dropdownIcon: {
+        marginRight: 10,
+    },
+    dropdownText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
     },
     coverContainer: {
         height: 180,
@@ -1020,100 +1196,161 @@ const styles = StyleSheet.create({
     },
     actionButtonsContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         justifyContent: 'center',
         marginTop: 16,
         marginBottom: 20,
-        flexWrap: 'wrap',
+        paddingHorizontal: 8,
     },
     actionButtonsContainerMulti: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         justifyContent: 'space-between',
         marginTop: 16,
         marginBottom: 20,
-        flexWrap: 'wrap',
+        paddingHorizontal: 8,
     },
     messageButton: {
-        flex: 1,
+        minWidth: 120,
         flexDirection: 'row',
         backgroundColor: '#0288D1',
         paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 8,
+        marginHorizontal: 4,
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     messageButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 15,
+        fontSize: 14,
+        textAlign: 'center',
     },
     orderButton: {
-        flex: 1,
+        minWidth: 120,
         flexDirection: 'row',
         backgroundColor: '#0288D1',
         paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 8,
+        marginHorizontal: 4,
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     orderButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 15,
+        fontSize: 14,
+        textAlign: 'center',
     },
     hireButton: {
-        flex: 1,
+        minWidth: 120,
         flexDirection: 'row',
         backgroundColor: '#0288D1',
         paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 8,
+        marginHorizontal: 4,
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     hireButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 15,
+        fontSize: 14,
+        textAlign: 'center',
     },
-    editProfileButton: {
-        flex: 1,
+    ordersButton: {
+        minWidth: 120,
         flexDirection: 'row',
         backgroundColor: '#0288D1',
         paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 8,
+        marginHorizontal: 4,
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    ordersButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    buttonWithBadge: {
+        position: 'relative',
+        marginHorizontal: 4,
+        marginTop: 8,
+    },
+    badge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        backgroundColor: '#D32F2F',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#fff',
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    editProfileButton: {
+        minWidth: 120,
+        flexDirection: 'row',
+        backgroundColor: '#0288D1',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 4,
+        marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     editProfileButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 15,
-    },
-    logoutButton: {
-        flex: 1,
-        flexDirection: 'row',
-        backgroundColor: '#bf171d',
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginHorizontal: 8,
-        marginTop: 8,
-    },
-    logoutButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 15,
+        fontSize: 14,
+        textAlign: 'center',
     },
     buttonIcon: {
-        marginRight: 6,
+        marginRight: 8,
     },
     postsSection: {
         marginTop: 20,

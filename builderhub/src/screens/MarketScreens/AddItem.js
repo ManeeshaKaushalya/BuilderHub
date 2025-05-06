@@ -380,12 +380,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
-    backgroundColor: '#fff',
+    backgroundColor: '#F4B018',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
   backButton: {
     padding: 8,
@@ -393,7 +395,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
   },
   headerRight: {
     width: 40,
@@ -404,7 +406,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#F4B018',
     marginBottom: 4,
   },
   sectionSubtitle: {
@@ -547,7 +549,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   submitButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#F4B018',
     height: 50,
     justifyContent: 'center',
     borderRadius: 8,

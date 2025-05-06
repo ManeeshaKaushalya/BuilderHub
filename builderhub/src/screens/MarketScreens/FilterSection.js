@@ -59,11 +59,17 @@ const FilterSection = ({
   return (
     <View style={[styles.container, isDarkMode && styles.darkContainer]}>
       {/* Search Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Search Products</Text>
-        <View style={styles.searchContainer}>
+      <View style={[styles.section, styles.searchSection, isDarkMode && { backgroundColor: '#4B5563' }]}>
+        <Text style={[styles.sectionTitleheader, isDarkMode && styles.darkSectionTitle]}>Search Products</Text>
+        <View style={[styles.searchContainer, isDarkMode && styles.darkSearchContainer]}>
+          <FontAwesome
+            name="search"
+            size={18}
+            color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+            style={styles.searchIcon}
+          />
           <TextInput
-            placeholder="Enter product name..."
+            placeholder="Search products..."
             placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
             value={searchText}
             onChangeText={handleSearch}
@@ -72,7 +78,8 @@ const FilterSection = ({
             clearButtonMode="while-editing"
             autoCapitalize="none"
             autoCorrect={false}
-            accessibilityLabel="Search products"
+            accessibilityLabel="Search products input"
+            accessibilityHint="Enter product name to search"
           />
           {searchText.length > 0 && (
             <TouchableOpacity
@@ -81,9 +88,10 @@ const FilterSection = ({
                 setSearchText('');
                 onSearch('');
               }}
-              accessibilityLabel="Clear search"
+              accessibilityLabel="Clear search input"
+              accessibilityHint="Clears the search text"
             >
-              <Text style={styles.clearButtonText}>×</Text>
+              <FontAwesome name="times-circle" size={18} color={isDarkMode ? '#F9FAFB' : '#6B7280'} />
             </TouchableOpacity>
           )}
         </View>
@@ -91,7 +99,7 @@ const FilterSection = ({
 
       {/* Categories Section */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Categories</Text>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkSectionTitle]}>Categories</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -125,7 +133,7 @@ const FilterSection = ({
 
       {/* Colors Section */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Filter by Color</Text>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkSectionTitle]}>Filter by Color</Text>
         <View style={styles.colorContainer}>
           {colors.map((item) => (
             <TouchableOpacity
@@ -151,7 +159,6 @@ const FilterSection = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
     backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -162,57 +169,88 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+  },
+  searchSection: {
+    backgroundColor: '#F4B018',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    marginTop: -16, // Adjust to minimize top white space
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  darkText: {
+  sectionTitleheader: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+    letterSpacing: 0.2,
+    backgroundColor: '#F4B018',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 0,
+    width: '100%',
+    marginHorizontal: 0,
+  },
+  darkSectionTitle: {
     color: '#F9FAFB',
+    backgroundColor: '#4B5563',
   },
   searchContainer: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+  },
+  darkSearchContainer: {
+    backgroundColor: '#374151',
+    borderColor: '#F9FAFB',
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    padding: 12,
+    flex: 1,
+    paddingVertical: 12,
     paddingRight: 40,
-    borderRadius: 8,
     fontSize: 16,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    color: '#1F2937',
+    backgroundColor: 'transparent',
   },
   darkInput: {
-    borderColor: '#4B5563',
-    backgroundColor: '#374151',
     color: '#F9FAFB',
   },
   clearButton: {
     position: 'absolute',
-    right: 10,
-    top: '50%',
-    transform: [{ translateY: -12 }],
+    right: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   darkClearButton: {
-    backgroundColor: '#4B5563',
-  },
-  clearButtonText: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: 'bold',
+    backgroundColor: 'transparent',
   },
   categoriesContainer: {
     flexDirection: 'row',
@@ -236,7 +274,7 @@ const styles = StyleSheet.create({
     borderColor: '#4B5563',
   },
   activeCategoryButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#F4B018',
     borderColor: '#0066CC',
   },
   categoryText: {
@@ -254,12 +292,14 @@ const styles = StyleSheet.create({
   colorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   colorCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
     marginRight: 12,
+    marginBottom: 8,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,

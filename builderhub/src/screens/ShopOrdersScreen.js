@@ -12,8 +12,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../firebase/firebaseConfig';
-import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, addDoc, getDoc } from 'firebase/firestore'; // Added addDoc, getDoc
+import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, addDoc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import BillFormModal from './BillFormModal'; // Import the new modal component
 
 const ShopOrdersScreen = () => {
   const navigation = useNavigation();
@@ -25,6 +26,9 @@ const ShopOrdersScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const statusFilters = ['all', 'pending', 'accepted', 'completed', 'rejected'];
+  const [customerNames, setCustomerNames] = useState({});
+  const [isBillModalVisible, setIsBillModalVisible] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -46,6 +50,12 @@ const ShopOrdersScreen = () => {
       setOrders(fetchedOrders);
       filterOrders(fetchedOrders, selectedStatus);
       setLoading(false);
+
+      fetchedOrders.forEach((order) => {
+        if (!customerNames[order.id]) {
+          fetchCustomerName(order.id, order.userId);
+        }
+      });
     }, (error) => {
       console.error('Error fetching orders:', error);
       Alert.alert('Error', 'Failed to load orders.');
@@ -58,6 +68,30 @@ const ShopOrdersScreen = () => {
   useEffect(() => {
     filterOrders(orders, selectedStatus);
   }, [selectedStatus, orders]);
+
+  const fetchCustomerName = async (orderId, userId) => {
+    try {
+      const userRef = doc(firestore, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setCustomerNames((prev) => ({
+          ...prev,
+          [orderId]: userSnap.data().name || 'Unknown User',
+        }));
+      } else {
+        setCustomerNames((prev) => ({
+          ...prev,
+          [orderId]: 'Unknown User',
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching customer name for order', orderId, ':', error);
+      setCustomerNames((prev) => ({
+        ...prev,
+        [orderId]: 'Unknown User',
+      }));
+    }
+  };
 
   const filterOrders = (ordersList, status) => {
     if (status === 'all') {
@@ -75,7 +109,6 @@ const ShopOrdersScreen = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Fetch order to get userId and shop details
       const orderSnap = await getDoc(orderRef);
       if (!orderSnap.exists()) {
         throw new Error('Order not found');
@@ -83,12 +116,10 @@ const ShopOrdersScreen = () => {
       const orderData = orderSnap.data();
       const customerId = orderData.userId;
 
-      // Fetch shop details
       const shopRef = doc(firestore, 'users', currentUser.uid);
       const shopSnap = await getDoc(shopRef);
       const shopName = shopSnap.exists() ? shopSnap.data().name || 'Shop' : 'Shop';
 
-      // Create notification for the customer
       const notificationRef = collection(firestore, 'users', customerId, 'notifications');
       await addDoc(notificationRef, {
         type: 'order_status',
@@ -104,6 +135,11 @@ const ShopOrdersScreen = () => {
       console.error('Error updating order status:', error);
       Alert.alert('Error', `Failed to update order status: ${error.message}`);
     }
+  };
+
+  const handleMakeBill = (order) => {
+    setSelectedOrder(order);
+    setIsBillModalVisible(true);
   };
 
   const renderStatusFilter = () => (
@@ -150,7 +186,7 @@ const ShopOrdersScreen = () => {
           Items: {item.items.length} ({item.items.map((i) => i.name).join(', ')})
         </Text>
         <Text style={styles.orderCustomer}>
-          Customer: {item.userId.slice(0, 8)}...
+          Customer: {customerNames[item.id] || 'Loading...'}
         </Text>
       </TouchableOpacity>
       <View style={styles.orderActions}>
@@ -172,7 +208,16 @@ const ShopOrdersScreen = () => {
             </TouchableOpacity>
           </>
         )}
-        {item.status === 'accepted' && (
+        {item.status === 'accepted' && !item.bill && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.billButton]}
+            onPress={() => handleMakeBill(item)}
+          >
+            <MaterialCommunityIcons name="receipt" size={16} color="#fff" />
+            <Text style={styles.actionButtonText}>Make Bill</Text>
+          </TouchableOpacity>
+        )}
+        {item.status === 'accepted' && item.bill && (
           <TouchableOpacity
             style={[styles.actionButton, styles.completeButton]}
             onPress={() => updateOrderStatus(item.id, 'completed')}
@@ -221,6 +266,14 @@ const ShopOrdersScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       )}
+      {selectedOrder && (
+        <BillFormModal
+          visible={isBillModalVisible}
+          onClose={() => setIsBillModalVisible(false)}
+          order={selectedOrder}
+          shopId={currentUser.uid}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -231,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#0095f6',
+    backgroundColor: '#F4B018',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -268,7 +321,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   filterButtonActive: {
-    backgroundColor: '#0095f6',
+    backgroundColor: '#F4B018',
   },
   filterButtonText: {
     fontSize: 14,
@@ -361,6 +414,9 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     backgroundColor: '#0095f6',
+  },
+  billButton: {
+    backgroundColor: '#ff9800',
   },
   actionButtonText: {
     color: '#fff',

@@ -294,17 +294,6 @@ const EditProfile = () => {
                             />
                         </View>
 
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Website</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={formData.website}
-                                onChangeText={value => handleInputChange('website', value)}
-                                placeholder="Enter your website"
-                                keyboardType="url"
-                                autoCapitalize="none"
-                            />
-                        </View>
                     </>
                 )}
 
@@ -401,7 +390,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     header: {
-        backgroundColor: '#0095f6',
+        backgroundColor: '#F4B018',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',

@@ -12,11 +12,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import WebView from 'react-native-webview';
 import { firestore } from '../../../firebase/firebaseConfig';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  addDoc, 
+  collection, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import { useUser } from '../../context/UserContext';
 
 const { width } = Dimensions.get('window');
@@ -32,6 +40,7 @@ const BuyItem = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
   const [showPayPalModal, setShowPayPalModal] = useState(false);
+  const [loadingPurchase, setLoadingPurchase] = useState(false);
 
   // PayPal Sandbox Client ID
   const PAYPAL_CLIENT_ID = 'Aff6u7YEtFI1KMJcvv0vLpOeho0ABcDOveLWWPlVvUPR2fz4NIFTNXbykZCMGhkiXRnHGoLycWsu9C1Q';
@@ -92,6 +101,53 @@ const BuyItem = ({ route, navigation }) => {
     }
   };
 
+  // Save the order to Firestore and return the order ID
+  const saveOrderToFirestore = async (additionalData = {}) => {
+    try {
+      const orderData = {
+        itemId: item.id,
+        itemName: item.itemName,
+        itemOwnerId: item.itemOwnerId,
+        buyerId: user.uid,
+        quantity: quantity,
+        totalPrice: totalPrice,
+        paymentMethod: paymentMethod,
+        orderDate: new Date().toISOString(),
+        status: 'pending',
+        deliveryAddress: address,
+        contactNumber: contactNumber,
+        ...additionalData,
+      };
+
+      const orderRef = await addDoc(collection(firestore, 'item_orders'), orderData);
+      console.log('Order saved successfully with ID:', orderRef.id);
+      return orderRef.id;
+    } catch (error) {
+      console.error('Error saving order to Firestore:', error);
+      Alert.alert('Error', 'Failed to save order details. The purchase was successful, but please contact support to confirm your order.');
+      return null;
+    }
+  };
+
+  // Send notification to the item owner
+  const sendNotificationToOwner = async (orderId) => {
+    try {
+      const notificationData = {
+        type: 'order_status',
+        actorId: user.uid,
+        orderId: orderId,
+        message: `${buyerData?.name || 'A buyer'} purchased your item "${item.itemName}" (Quantity: ${quantity})`,
+        timestamp: serverTimestamp(),
+        read: false,
+      };
+
+      await addDoc(collection(firestore, 'users', item.itemOwnerId, 'notifications'), notificationData);
+      console.log('Notification sent to item owner:', item.itemOwnerId);
+    } catch (error) {
+      console.error('Error sending notification to item owner:', error);
+    }
+  };
+
   const handlePurchase = async () => {
     // Validation
     if (!address.trim()) {
@@ -107,12 +163,12 @@ const BuyItem = ({ route, navigation }) => {
       return;
     }
 
+    setLoadingPurchase(true);
     try {
       if (paymentMethod === 'PayPal') {
-        // Validate totalPrice
-        const convertedPrice = (totalPrice / 300).toFixed(2); // Approx. LKR to USD (1 USD ≈ 300 LKR)
-        console.log('Total Price (LKR):', totalPrice, 'Converted to USD:', convertedPrice);
+        const convertedPrice = (totalPrice / 300).toFixed(2);
         if (totalPrice <= 0 || convertedPrice < 0.01) {
+          setLoadingPurchase(false);
           Alert.alert('Error', 'Invalid payment amount. The amount must be at least 0.01 USD.');
           return;
         }
@@ -123,19 +179,96 @@ const BuyItem = ({ route, navigation }) => {
         await updateDoc(doc(firestore, 'items', item.id), {
           Stock: newStock,
         });
+
+        // Save the order and get order ID
+        const orderId = await saveOrderToFirestore();
+        if (orderId) {
+          // Send notification to owner
+          await sendNotificationToOwner(orderId);
+        }
+
+        setLoadingPurchase(false);
         Alert.alert(
           'Purchase Successful!',
           'Your order has been placed successfully via Cash on Delivery.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       }
     } catch (error) {
       console.error('Error processing purchase:', error);
+      setLoadingPurchase(false);
       Alert.alert('Error', 'Failed to process your purchase. Please try again.');
     }
   };
 
-  // PayPal WebView HTML with enhanced debugging and touch handling
+  // Handle WebView messages
+  const handleWebViewMessage = async (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('WebView Message:', data);
+
+      if (data.status === 'debug') {
+        console.log('Debug:', data.message);
+        return;
+      }
+
+      if (data.status === 'success') {
+        setShowPayPalModal(false);
+        const newStock = item.Stock - quantity;
+        await updateDoc(doc(firestore, 'items', item.id), {
+          Stock: newStock,
+        });
+
+        // Save the order with PayPal orderID
+        const orderId = await saveOrderToFirestore({ paypalOrderId: data.orderID });
+        if (orderId) {
+          // Send notification to owner
+          await sendNotificationToOwner(orderId);
+        }
+
+        setLoadingPurchase(false);
+        Alert.alert(
+          'Purchase Successful!',
+          `Your order has been placed successfully via PayPal (Order ID: ${data.orderID}).`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else if (data.status === 'cancel') {
+        setShowPayPalModal(false);
+        setLoadingPurchase(false);
+        Alert.alert('Payment Cancelled', 'You cancelled the PayPal payment.');
+      } else if (data.status === 'error') {
+        setShowPayPalModal(false);
+        setLoadingPurchase(false);
+        Alert.alert('Payment Error', `An error occurred: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error handling WebView message:', error);
+      setShowPayPalModal(false);
+      setLoadingPurchase(false);
+      Alert.alert('Error', 'Failed to process PayPal payment.');
+    }
+  };
+
+  // Handle WebView errors
+  const handleWebViewError = (syntheticEvent) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('WebView error:', nativeEvent);
+    setShowPayPalModal(false);
+    setLoadingPurchase(false);
+    Alert.alert('Error', 'Failed to load PayPal payment page. Please check your internet connection.');
+  };
+
+  // Handle WebView navigation state changes
+  const handleNavigationStateChange = (navState) => {
+    console.log('Navigation State:', navState);
+    if (navState.url.includes('paypal.com') && navState.url.includes('cancel')) {
+      setShowPayPalModal(false);
+      setLoadingPurchase(false);
+      Alert.alert('Payment Cancelled', 'You cancelled the PayPal payment.');
+    }
+  };
+
+  // PayPal WebView HTML
   const paypalHtml = `
     <!DOCTYPE html>
     <html>
@@ -147,7 +280,7 @@ const BuyItem = ({ route, navigation }) => {
           #paypal-button-container { margin: 20px auto; }
           #debug-message { color: blue; margin-top: 10px; }
         </style>
-        <script src="https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}¤cy=USD"></script>
+        <script src="https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD"></script>
       </head>
       <body>
         <div id="paypal-button-container"></div>
@@ -187,7 +320,7 @@ const BuyItem = ({ route, navigation }) => {
                   return actions.order.create({
                     purchase_units: [{
                       amount: {
-                        value: '${Math.max(0.01, (totalPrice / 300).toFixed(2))}', // Approx. LKR to USD
+                        value: '${Math.max(0.01, (totalPrice / 300).toFixed(2))}',
                         currency_code: 'USD'
                       },
                       description: '${item.itemName.replace(/'/g, "\\'")}'
@@ -232,7 +365,6 @@ const BuyItem = ({ route, navigation }) => {
               logError('Button render failed: ' + err.message);
             });
 
-            // Add touch event listener to debug touch interactions
             document.getElementById('paypal-button-container').addEventListener('touchstart', function() {
               logDebug('Touch event detected on button container');
             });
@@ -241,60 +373,6 @@ const BuyItem = ({ route, navigation }) => {
       </body>
     </html>
   `;
-
-  // Handle WebView messages
-  const handleWebViewMessage = async (event) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      console.log('WebView Message:', data);
-
-      if (data.status === 'debug') {
-        console.log('Debug:', data.message);
-        return;
-      }
-
-      if (data.status === 'success') {
-        setShowPayPalModal(false);
-        // Update stock in Firestore
-        const newStock = item.Stock - quantity;
-        await updateDoc(doc(firestore, 'items', item.id), {
-          Stock: newStock,
-        });
-        Alert.alert(
-          'Purchase Successful!',
-          `Your order has been placed successfully via PayPal (Order ID: ${data.orderID}).`,
-          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
-        );
-      } else if (data.status === 'cancel') {
-        setShowPayPalModal(false);
-        Alert.alert('Payment Cancelled', 'You cancelled the PayPal payment.');
-      } else if (data.status === 'error') {
-        setShowPayPalModal(false);
-        Alert.alert('Payment Error', `An error occurred: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error handling WebView message:', error);
-      setShowPayPalModal(false);
-      Alert.alert('Error', 'Failed to process PayPal payment.');
-    }
-  };
-
-  // Handle WebView errors
-  const handleWebViewError = (syntheticEvent) => {
-    const { nativeEvent } = syntheticEvent;
-    console.error('WebView error:', nativeEvent);
-    setShowPayPalModal(false);
-    Alert.alert('Error', 'Failed to load PayPal payment page. Please check your internet connection.');
-  };
-
-  // Handle WebView navigation state changes (for popups)
-  const handleNavigationStateChange = (navState) => {
-    console.log('Navigation State:', navState);
-    if (navState.url.includes('paypal.com') && navState.url.includes('cancel')) {
-      setShowPayPalModal(false);
-      Alert.alert('Payment Cancelled', 'You cancelled the PayPal payment.');
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -470,13 +548,19 @@ const BuyItem = ({ route, navigation }) => {
       <Modal
         visible={showPayPalModal}
         animationType="slide"
-        onRequestClose={() => setShowPayPalModal(false)}
+        onRequestClose={() => {
+          setShowPayPalModal(false);
+          setLoadingPurchase(false);
+        }}
         transparent={false}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
-              onPress={() => setShowPayPalModal(false)}
+              onPress={() => {
+                setShowPayPalModal(false);
+                setLoadingPurchase(false);
+              }}
               style={styles.closeButton}
             >
               <Icon name="close" size={24} color="#333" />
@@ -509,9 +593,19 @@ const BuyItem = ({ route, navigation }) => {
           <Text style={styles.bottomTotalLabel}>Total:</Text>
           <Text style={styles.bottomTotalAmount}>Rs. {Number(totalPrice).toLocaleString()}</Text>
         </View>
-        <TouchableOpacity style={styles.purchaseButton} onPress={handlePurchase}>
-          <Text style={styles.purchaseButtonText}>Confirm Purchase</Text>
-          <Icon name="shopping-bag" size={20} color="#fff" />
+        <TouchableOpacity
+          style={[styles.purchaseButton, loadingPurchase && styles.disabledPurchaseButton]}
+          onPress={handlePurchase}
+          disabled={loadingPurchase}
+        >
+          {loadingPurchase ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.purchaseButtonText}>Confirm Purchase</Text>
+              <Icon name="shopping-bag" size={20} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -540,12 +634,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+    backgroundColor: '#F4B018',
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18, // Fixed: Changed "font" and "Size" to "fontSize"
+    fontSize: 18,
     fontWeight: '600',
     color: '#333',
   },
@@ -779,6 +874,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 8,
     marginLeft: 16,
+  },
+  disabledPurchaseButton: {
+    backgroundColor: '#6c757d',
   },
   purchaseButtonText: {
     color: '#fff',

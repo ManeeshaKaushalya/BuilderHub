@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, Text, TextInput, Image, TouchableOpacity, StyleSheet, 
+import {
+  View, Text, TextInput, Image, TouchableOpacity,
   ScrollView, Alert, FlatList, Modal, ActivityIndicator,
-  Dimensions, Switch, Platform
+  Dimensions, Switch, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '../context/ThemeContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { firestore, storage } from '../../firebase/firebaseConfig';
@@ -19,6 +18,11 @@ import { useUser } from '../context/UserContext';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import PropTypes from 'prop-types';
+import { styles, COLORS } from '../styles/ImageUploadStyles'; // Adjust the import path as necessary
+
+// Ensure dependencies are installed:
+// expo install expo-av expo-image-picker expo-document-picker expo-image-manipulator expo-location
+// npm install firebase react-native-vector-icons prop-types
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +31,6 @@ const ImageUpload = ({ navigation }) => {
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { isDarkMode } = useTheme();
   const { user } = useUser();
   const videoRef = useRef(null);
 
@@ -52,11 +55,12 @@ const ImageUpload = ({ navigation }) => {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
 
   const commonCategories = [
-    'Interior Design', 'Plumbing', 'Electrical', 'Carpentry', 
+    'Interior Design', 'Plumbing', 'Electrical', 'Carpentry',
     'Landscaping', 'Painting', 'Renovation', 'Flooring',
-    'Kitchen', 'Bathroom', 'Roofing', 'HVAC', 'Furniture'
+    'Kitchen', 'Bathroom', 'Roofing', 'HVAC', 'Furniture',
   ];
 
   // Redirect to Login if not authenticated
@@ -72,9 +76,9 @@ const ImageUpload = ({ navigation }) => {
       navigation.replace('Login');
       return;
     }
-    console.log('UserContext user data:', user);
   }, [user, navigation]);
 
+  // Request camera and media library permissions
   useEffect(() => {
     let isMounted = true;
 
@@ -95,6 +99,7 @@ const ImageUpload = ({ navigation }) => {
     };
   }, []);
 
+  // Generate suggested tags when media is added
   useEffect(() => {
     let isMounted = true;
     let timeoutId;
@@ -116,6 +121,21 @@ const ImageUpload = ({ navigation }) => {
     };
   }, [media]);
 
+  // Auto-dismiss success modal after 1.5 seconds
+  useEffect(() => {
+    let timeoutId;
+    if (successModalVisible) {
+      timeoutId = setTimeout(() => {
+        setSuccessModalVisible(false);
+        resetForm();
+        navigation.goBack();
+      }, 1500);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [successModalVisible, navigation]);
+
   const getRandomSuggestedTags = (count) => {
     const shuffled = [...commonCategories].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
@@ -132,10 +152,10 @@ const ImageUpload = ({ navigation }) => {
       const locationResult = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      
+
       const newLocation = {
         latitude: locationResult.coords.latitude,
-        longitude: locationResult.coords.longitude
+        longitude: locationResult.coords.longitude,
       };
       setLocation(newLocation);
 
@@ -210,14 +230,14 @@ const ImageUpload = ({ navigation }) => {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*'],
         copyToCacheDirectory: true,
-        multiple: true
+        multiple: true,
       });
 
       if (result.canceled === false && result.assets) {
         const newDocs = result.assets.map(asset => ({
           uri: asset.uri,
           name: asset.name || `document_${Date.now()}`,
-          mimeType: asset.mimeType || 'application/pdf'
+          mimeType: asset.mimeType || 'application/pdf',
         }));
         setDocumentsModalVisible(true);
         setDocuments(prevDocs => [...prevDocs, ...newDocs]);
@@ -232,14 +252,14 @@ const ImageUpload = ({ navigation }) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true
+        copyToCacheDirectory: true,
       });
 
       if (result.canceled === false && result.assets) {
         const newCerts = result.assets.map(asset => ({
           uri: asset.uri,
           name: asset.name || `certificate_${Date.now()}`,
-          mimeType: asset.mimeType || 'application/pdf'
+          mimeType: asset.mimeType || 'application/pdf',
         }));
         setCertificates(prevCerts => [...prevCerts, ...newCerts]);
       }
@@ -314,28 +334,24 @@ const ImageUpload = ({ navigation }) => {
       const actions = [];
       
       if (brightness !== 0) {
-        actions.push({ 
-          brightness: brightness / 100 + 1
-        });
+        actions.push({ brightness: brightness / 100 + 1 });
       }
       
       if (rotation !== 0) {
-        actions.push({ 
-          rotate: rotation 
-        });
+        actions.push({ rotate: rotation });
       }
       
-      if (watermarkText.trim()) {
-        actions.push({ 
-          flip: { horizontal: false, vertical: false }
-        });
-      }
+      // Note: Watermark text not supported by expo-image-manipulator.
+      // Consider using react-native-canvas or another library for text overlays.
+      // if (watermarkText.trim()) {
+      //   actions.push({ flip: { horizontal: false, vertical: false } });
+      // }
       
       if (actions.length > 0) {
         const result = await ImageManipulator.manipulateAsync(
           currentEditingImage,
           actions,
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
         );
         
         setMedia(prevMedia => 
@@ -436,7 +452,7 @@ const ImageUpload = ({ navigation }) => {
         
         beforeAfterUrls = {
           before: beforeUrl,
-          after: afterUrl
+          after: afterUrl,
         };
         
         updateProgress();
@@ -454,7 +470,7 @@ const ImageUpload = ({ navigation }) => {
         documentUrls.push({
           name: doc.name,
           url: docUrl,
-          type: doc.mimeType
+          type: doc.mimeType,
         });
         
         updateProgress();
@@ -471,13 +487,12 @@ const ImageUpload = ({ navigation }) => {
         certificateUrls.push({
           name: cert.name,
           url: certUrl,
-          type: cert.mimeType
+          type: cert.mimeType,
         });
         
         updateProgress();
       }));
 
-      // Use isVerified from UserContext if available, otherwise fetch from Firestore
       let isVerified = user.isVerified || false;
       if (typeof user.isVerified === 'undefined') {
         const userRef = doc(firestore, 'users', user.uid);
@@ -493,7 +508,7 @@ const ImageUpload = ({ navigation }) => {
         beforeAfterImages: beforeAfterUrls,
         documentUrls,
         certificates: certificateUrls,
-        username: user.name, // Use user.name directly
+        username: user.name,
         uid: user.uid,
         userImage: user.profileImage || null,
         categories,
@@ -502,18 +517,11 @@ const ImageUpload = ({ navigation }) => {
         projectCost: projectCost.trim(),
         location: useCurrentLocation && location ? location : null,
         likes: 0,
-        likedBy: []
+        likedBy: [],
       });
 
-      Alert.alert('Success', 'Your project has been posted successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            resetForm();
-            navigation.navigate('PostsScreen');
-          },
-        },
-      ]);
+      // Show success modal
+      setSuccessModalVisible(true);
     } catch (error) {
       console.error('Upload Error:', error);
       Alert.alert('Error', 'Failed to upload post. Please try again.');
@@ -561,15 +569,14 @@ const ImageUpload = ({ navigation }) => {
           style={styles.mediaButton}
           onPress={() => removeMediaItem(index)}
         >
-          <MaterialIcons name="delete" size={20} color="white" />
+          <MaterialIcons name="delete" size={20} color="#fff" />
         </TouchableOpacity>
-        
         {item.type !== 'video' && (
           <TouchableOpacity
             style={styles.mediaButton}
             onPress={() => openImageEditor(item.uri, index)}
           >
-            <MaterialIcons name="edit" size={20} color="white" />
+            <MaterialIcons name="edit" size={20} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
@@ -578,67 +585,68 @@ const ImageUpload = ({ navigation }) => {
 
   const renderDocument = ({ item, index }) => (
     <View style={styles.documentItemContainer}>
-      <MaterialIcons name="description" size={24} color={isDarkMode ? "#aaa" : "#666"} />
-      <Text style={[styles.documentName, isDarkMode ? styles.darkText : styles.lightText]} numberOfLines={1}>
+      <MaterialIcons name="description" size={24} color={COLORS.SECONDARY_TEXT} />
+      <Text style={styles.documentName} numberOfLines={1}>
         {item.name}
       </Text>
       <TouchableOpacity
         style={styles.documentButton}
         onPress={() => removeDocument(index)}
       >
-        <MaterialIcons name="delete" size={20} color={isDarkMode ? "#fff" : "#666"} />
+        <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
       </TouchableOpacity>
     </View>
   );
 
   const renderCertificate = ({ item, index }) => (
     <View style={styles.documentItemContainer}>
-      <MaterialIcons name="verified" size={24} color={isDarkMode ? "#aaa" : "#666"} />
-      <Text style={[styles.documentName, isDarkMode ? styles.darkText : styles.lightText]} numberOfLines={1}>
+      <MaterialIcons name="verified" size={24} color={COLORS.SECONDARY_TEXT} />
+      <Text style={styles.documentName} numberOfLines={1}>
         {item.name}
       </Text>
       <TouchableOpacity
         style={styles.documentButton}
         onPress={() => removeCertificate(index)}
       >
-        <MaterialIcons name="delete" size={20} color={isDarkMode ? "#fff" : "#666"} />
+        <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <ScrollView 
-      style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.postContainer, isDarkMode ? styles.darkPostContainer : styles.lightPostContainer]}>
-        <Text style={[styles.title, isDarkMode ? styles.darkTitle : styles.lightTitle]}>Create Project Post</Text>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <View style={styles.headerSection}>
+        <Text style={styles.headerTitle}>Create Project Post</Text>
+      </View>
 
+      <View style={styles.postContainer}>
+        {/* Caption Input */}
         <TextInput
-          style={[styles.input, isDarkMode ? styles.darkInput : styles.lightInput]}
+          style={styles.input}
           placeholder="Describe your project or update..."
-          placeholderTextColor={isDarkMode ? '#ccc' : '#888'}
+          placeholderTextColor={COLORS.PLACEHOLDER}
           multiline
           value={caption}
           onChangeText={setCaption}
         />
 
+        {/* Before & After Toggle */}
         <View style={styles.toggleContainer}>
-          <Text style={[styles.toggleLabel, isDarkMode ? styles.darkText : styles.lightText]}>
-            Before & After Mode
-          </Text>
+          <Text style={styles.toggleLabel}>Before & After Mode</Text>
           <Switch
             value={beforeAfterMode}
             onValueChange={setBeforeAfterMode}
-            trackColor={{ false: '#767577', true: '#81b0ff' }}
-            thumbColor={beforeAfterMode ? '#1877f2' : '#f4f3f4'}
+            trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
+            thumbColor={beforeAfterMode ? COLORS.PRIMARY : '#fff'}
           />
         </View>
 
+        {/* Before & After Section */}
         {beforeAfterMode && (
           <View style={styles.beforeAfterContainer}>
             <View style={styles.beforeAfterColumn}>
-              <Text style={[styles.beforeAfterLabel, isDarkMode ? styles.darkText : styles.lightText]}>Before</Text>
+              <Text style={styles.beforeAfterLabel}>Before</Text>
               {beforeImage ? (
                 <View style={styles.beforeAfterImageContainer}>
                   <Image source={{ uri: beforeImage }} style={styles.beforeAfterImage} />
@@ -646,24 +654,21 @@ const ImageUpload = ({ navigation }) => {
                     style={styles.beforeAfterRemoveButton}
                     onPress={() => setBeforeImage(null)}
                   >
-                    <MaterialIcons name="close" size={20} color="white" />
+                    <MaterialIcons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={[styles.beforeAfterPlaceholder, { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }]}
+                  style={styles.beforeAfterPlaceholder}
                   onPress={handleBeforeImagePick}
                 >
-                  <MaterialIcons name="add-photo-alternate" size={30} color={isDarkMode ? '#aaa' : '#666'} />
-                  <Text style={[styles.beforeAfterPlaceholderText, isDarkMode ? styles.darkText : styles.lightText]}>
-                    Add Before
-                  </Text>
+                  <MaterialIcons name="add-photo-alternate" size={30} color={COLORS.SECONDARY_TEXT} />
+                  <Text style={styles.beforeAfterPlaceholderText}>Add Before</Text>
                 </TouchableOpacity>
               )}
             </View>
-
             <View style={styles.beforeAfterColumn}>
-              <Text style={[styles.beforeAfterLabel, isDarkMode ? styles.darkText : styles.lightText]}>After</Text>
+              <Text style={styles.beforeAfterLabel}>After</Text>
               {afterImage ? (
                 <View style={styles.beforeAfterImageContainer}>
                   <Image source={{ uri: afterImage }} style={styles.beforeAfterImage} />
@@ -671,24 +676,23 @@ const ImageUpload = ({ navigation }) => {
                     style={styles.beforeAfterRemoveButton}
                     onPress={() => setAfterImage(null)}
                   >
-                    <MaterialIcons name="close" size={20} color="white" />
+                    <MaterialIcons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={[styles.beforeAfterPlaceholder, { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }]}
+                  style={styles.beforeAfterPlaceholder}
                   onPress={handleAfterImagePick}
                 >
-                  <MaterialIcons name="add-photo-alternate" size={30} color={isDarkMode ? '#aaa' : '#666'} />
-                  <Text style={[styles.beforeAfterPlaceholderText, isDarkMode ? styles.darkText : styles.lightText]}>
-                    Add After
-                  </Text>
+                  <MaterialIcons name="add-photo-alternate" size={30} color={COLORS.SECONDARY_TEXT} />
+                  <Text style={styles.beforeAfterPlaceholderText}>Add After</Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
         )}
 
+        {/* Media List */}
         {!beforeAfterMode && media.length > 0 && (
           <FlatList
             data={media}
@@ -700,6 +704,7 @@ const ImageUpload = ({ navigation }) => {
           />
         )}
 
+        {/* Action Buttons */}
         {!beforeAfterMode && (
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
@@ -707,79 +712,52 @@ const ImageUpload = ({ navigation }) => {
               onPress={handleCameraCapture}
               disabled={media.length >= 10}
             >
-              <Icon name="camera" size={18} color={media.length >= 10 ? '#999' : '#1877f2'} />
-              <Text style={[
-                styles.actionText,
-                isDarkMode ? styles.darkActionText : styles.lightActionText,
-                media.length >= 10 && styles.disabledText
-              ]}>
-                Camera
-              </Text>
+              <Icon name="camera" size={18} color={media.length >= 10 ? COLORS.DISABLED : COLORS.PRIMARY} />
+              <Text style={[styles.actionText, media.length >= 10 && styles.disabledText]}>Camera</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.actionButton, media.length >= 10 && styles.disabledButton]}
               onPress={handleGalleryPick}
               disabled={media.length >= 10}
             >
-              <Icon name="images" size={18} color={media.length >= 10 ? '#999' : '#1877f2'} />
-              <Text style={[
-                styles.actionText,
-                isDarkMode ? styles.darkActionText : styles.lightActionText,
-                media.length >= 10 && styles.disabledText
-              ]}>
-                Gallery ({media.length}/10)
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setDocumentsModalVisible(true)}
-            >
-              <Icon name="file-alt" size={18} color="#1877f2" />
-              <Text style={[styles.actionText, isDarkMode ? styles.darkActionText : styles.lightActionText]}>
-                Documents
-              </Text>
+              <Icon name="images" size={18} color={media.length >= 10 ? COLORS.DISABLED : COLORS.PRIMARY} />
+              <Text style={[styles.actionText, media.length >= 10 && styles.disabledText]}>Gallery ({media.length}/10)</Text>
             </TouchableOpacity>
           </View>
         )}
 
+        {/* Project Details */}
         <View style={styles.detailSection}>
-          <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-            Project Details
-          </Text>
-          
+          <Text style={styles.sectionTitle}>Project Details</Text>
           <View style={styles.detailRow}>
-            <MaterialIcons name="schedule" size={20} color={isDarkMode ? "#aaa" : "#666"} />
+            <MaterialIcons name="schedule" size={20} color={COLORS.SECONDARY_TEXT} />
             <TextInput
-              style={[styles.detailInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
+              style={styles.detailInput}
               placeholder="Timeline (e.g., 2 weeks)"
-              placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
+              placeholderTextColor={COLORS.PLACEHOLDER}
               value={projectTimeline}
               onChangeText={setProjectTimeline}
             />
           </View>
-          
           <View style={styles.detailRow}>
-            <MaterialIcons name="attach-money" size={20} color={isDarkMode ? "#aaa" : "#666"} />
+            <MaterialIcons name="money" size={20} color={COLORS.SECONDARY_TEXT} />
             <TextInput
-              style={[styles.detailInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
-              placeholder="Estimated cost (e.g., $2000-$3000)"
-              placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
+              style={styles.detailInput}
+              placeholder="Estimated cost (e.g., LKR2000-LKR3000)"
+              placeholderTextColor={COLORS.PLACEHOLDER}
               value={projectCost}
               onChangeText={setProjectCost}
               keyboardType="default"
             />
           </View>
-
           <View style={styles.detailRow}>
-            <MaterialIcons name="location-on" size={20} color={isDarkMode ? "#aaa" : "#666"} />
-            <TouchableOpacity 
+            <MaterialIcons name="location-on" size={20} color={COLORS.SECONDARY_TEXT} />
+            <TouchableOpacity
               style={styles.locationButton}
               onPress={getCurrentLocation}
               disabled={loading}
             >
-              <Text style={[styles.locationButtonText, isDarkMode ? styles.darkText : styles.lightText]}>
+              <Text style={styles.locationButtonText}>
                 {loading ? 'Getting location...' : 'Add current location'}
               </Text>
             </TouchableOpacity>
@@ -787,64 +765,55 @@ const ImageUpload = ({ navigation }) => {
               value={useCurrentLocation}
               onValueChange={setUseCurrentLocation}
               disabled={!location}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={useCurrentLocation ? '#1877f2' : '#f4f3f4'}
+              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
+              thumbColor={useCurrentLocation ? COLORS.PRIMARY : '#fff'}
             />
           </View>
         </View>
 
+        {/* Categories & Tags */}
         <View style={styles.detailSection}>
           <View style={styles.sectionTitleRow}>
-            <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-              Categories & Tags
-            </Text>
+            <Text style={styles.sectionTitle}>Categories & Tags</Text>
             <TouchableOpacity onPress={() => setCategoryModalVisible(true)}>
-              <MaterialIcons name="edit" size={20} color={isDarkMode ? "#aaa" : "#666"} />
+              <MaterialIcons name="edit" size={20} color={COLORS.SECONDARY_TEXT} />
             </TouchableOpacity>
           </View>
-
           {categories.length > 0 ? (
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.categoryScrollView}
             >
               {categories.map((category, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.categoryTag, { backgroundColor: isDarkMode ? '#2c3e50' : '#e1f5fe' }]}
+                  style={styles.categoryTag}
                   onPress={() => addCategory(category)}
                 >
-                  <Text style={[styles.categoryText, isDarkMode ? styles.darkText : styles.lightText]}>
-                    {category}
-                  </Text>
-                  <MaterialIcons name="close" size={16} color={isDarkMode ? "#eee" : "#666"} />
+                  <Text style={styles.categoryText}>{category}</Text>
+                  <MaterialIcons name="close" size={16} color={COLORS.SECONDARY_TEXT} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
-            <Text style={[styles.noCategories, isDarkMode ? styles.darkText : styles.lightText]}>
-              No categories selected
-            </Text>
+            <Text style={styles.noCategories}>No categories selected</Text>
           )}
-
           {suggestedTags.length > 0 && (
             <View style={styles.suggestedTagsContainer}>
-              <Text style={[styles.suggestedTagsTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-                <MaterialCommunityIcons name="robot-outline" size={16} color={isDarkMode ? "#aaa" : "#666"} />
+              <Text style={styles.suggestedTagsTitle}>
+                <MaterialCommunityIcons name="robot-outline" size={16} color={COLORS.SECONDARY_TEXT} />
                 {' '}AI Suggested Tags:
               </Text>
               <View style={styles.suggestedTagsRow}>
                 {suggestedTags.map((tag, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={[styles.suggestedTag, { backgroundColor: isDarkMode ? '#3d4852' : '#f0f4f8' }]}
+                    style={styles.suggestedTag}
                     onPress={() => addCategory(tag)}
                   >
-                    <Text style={[styles.suggestedTagText, isDarkMode ? styles.darkText : styles.lightText]}>
-                      {tag}
-                    </Text>
-                    <MaterialIcons name="add" size={16} color={isDarkMode ? "#eee" : "#666"} />
+                    <Text style={styles.suggestedTagText}>{tag}</Text>
+                    <MaterialIcons name="add" size={16} color={COLORS.SECONDARY_TEXT} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -852,48 +821,16 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
+        {/* Additional Documents */}
         <View style={styles.detailSection}>
-          <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-            Professional Details
-          </Text>
-          
-          <View style={styles.detailRow}>
-            <MaterialIcons name="verified" size={20} color={isDarkMode ? "#aaa" : "#666"} />
-            <Text style={[styles.detailLabel, isDarkMode ? styles.darkText : styles.lightText]}>
-              Certificate Uploads
-            </Text>
-            <TouchableOpacity
-              style={styles.uploadButton}
-              onPress={handleCertificatePick}
-            >
-              <Text style={styles.uploadButtonText}>Upload</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {certificates.length > 0 && (
-            <FlatList
-              data={certificates}
-              renderItem={renderCertificate}
-              keyExtractor={(_, index) => `cert-${index}`}
-              style={styles.documentsList}
-            />
-          )}
-        </View>
-
-        <View style={styles.detailSection}>
-          <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-            Additional Documents
-          </Text>
-          <TouchableOpacity 
-            style={[styles.fullWidthButton, { backgroundColor: isDarkMode ? '#3d4852' : '#f0f4f8' }]}
+          <Text style={styles.sectionTitle}>Additional Documents</Text>
+          <TouchableOpacity
+            style={styles.fullWidthButton}
             onPress={handleDocumentPick}
           >
-            <MaterialIcons name="upload-file" size={20} color={isDarkMode ? "#eee" : "#666"} />
-            <Text style={[styles.fullWidthButtonText, isDarkMode ? styles.darkText : styles.lightText]}>
-              Upload Documents (blueprints, designs, etc.)
-            </Text>
+            <MaterialIcons name="upload-file" size={20} color={COLORS.SECONDARY_TEXT} />
+            <Text style={styles.fullWidthButtonText}>Upload Documents (blueprints, designs, etc.)</Text>
           </TouchableOpacity>
-          
           {documents.length > 0 && (
             <FlatList
               data={documents}
@@ -904,52 +841,33 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
+        {/* Interaction Settings */}
         <View style={styles.detailSection}>
-          <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-            Interaction Settings
-          </Text>
-          
+          <Text style={styles.sectionTitle}>Interaction Settings</Text>
           <View style={styles.toggleContainer}>
-            <Text style={[styles.toggleLabel, isDarkMode ? styles.darkText : styles.lightText]}>
-              Allow Comments
-            </Text>
+            <Text style={styles.toggleLabel}>Allow Comments</Text>
             <Switch
               value={true}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={'#1877f2'}
+              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
+              thumbColor={COLORS.PRIMARY}
             />
           </View>
-          
           <View style={styles.toggleContainer}>
-            <Text style={[styles.toggleLabel, isDarkMode ? styles.darkText : styles.lightText]}>
-              Allow Direct Hiring
-            </Text>
+            <Text style={styles.toggleLabel}>Allow Direct Hiring</Text>
             <Switch
               value={true}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={'#1877f2'}
-            />
-          </View>
-          
-          <View style={styles.toggleContainer}>
-            <Text style={[styles.toggleLabel, isDarkMode ? styles.darkText : styles.lightText]}>
-              Add to Portfolio
-            </Text>
-            <Switch
-              value={true}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={'#1877f2'}
+              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
+              thumbColor={COLORS.PRIMARY}
             />
           </View>
         </View>
 
+        {/* Upload/Cancel Buttons */}
         <View style={styles.uploadButtonsContainer}>
           {uploading ? (
             <View style={styles.uploadingContainer}>
-              <ActivityIndicator size="large" color="#1877f2" />
-              <Text style={[styles.uploadingText, isDarkMode ? styles.darkText : styles.lightText]}>
-                Uploading... {uploadProgress}%
-              </Text>
+              <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+              <Text style={styles.uploadingText}>Uploading... {uploadProgress}%</Text>
             </View>
           ) : (
             <>
@@ -969,6 +887,30 @@ const ImageUpload = ({ navigation }) => {
           )}
         </View>
 
+        {/* Success Modal */}
+        <Modal
+          visible={successModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSuccessModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <MaterialIcons
+                name="check-circle"
+                size={50}
+                color={COLORS.SUCCESS}
+                style={styles.successIcon}
+              />
+              <Text style={styles.modalTitle}>Success</Text>
+              <Text style={styles.modalMessage}>
+                Your project has been posted successfully!
+              </Text>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Image Editor Modal */}
         <Modal
           visible={isEditModalVisible}
           transparent={true}
@@ -976,60 +918,51 @@ const ImageUpload = ({ navigation }) => {
           onRequestClose={() => setIsEditModalVisible(false)}
         >
           <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, isDarkMode ? styles.darkModalContent : styles.lightModalContent]}>
-              <Text style={[styles.modalTitle, isDarkMode ? styles.darkText : styles.lightText]}>Edit Image</Text>
-              
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Image</Text>
               {currentEditingImage && (
                 <Image source={{ uri: currentEditingImage }} style={styles.editorPreview} />
               )}
-              
               <View style={styles.editorControl}>
-                <Text style={[styles.editorLabel, isDarkMode ? styles.darkText : styles.lightText]}>Brightness</Text>
+                <Text style={styles.editorLabel}>Brightness</Text>
                 <View style={styles.sliderContainer}>
-                  <MaterialIcons name="brightness-low" size={20} color={isDarkMode ? "#aaa" : "#666"} />
-                  <View style={styles.slider}>
-                    <TextInput
-                      style={[styles.sliderInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
-                      placeholder="0"
-                      placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
-                      value={brightness.toString()}
-                      onChangeText={(value) => setBrightness(parseInt(value) || 0)}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <MaterialIcons name="brightness-high" size={20} color={isDarkMode ? "#aaa" : "#666"} />
+                  <MaterialIcons name="brightness-low" size={20} color={COLORS.SECONDARY_TEXT} />
+                  <TextInput
+                    style={styles.sliderInput}
+                    placeholder="0"
+                    placeholderTextColor={COLORS.PLACEHOLDER}
+                    value={brightness.toString()}
+                    onChangeText={(value) => setBrightness(parseInt(value) || 0)}
+                    keyboardType="number-pad"
+                  />
+                  <MaterialIcons name="brightness-high" size={20} color={COLORS.SECONDARY_TEXT} />
                 </View>
               </View>
-              
               <View style={styles.editorControl}>
-                <Text style={[styles.editorLabel, isDarkMode ? styles.darkText : styles.lightText]}>Rotation</Text>
+                <Text style={styles.editorLabel}>Rotation</Text>
                 <View style={styles.sliderContainer}>
-                  <MaterialIcons name="rotate-left" size={20} color={isDarkMode ? "#aaa" : "#666"} />
-                  <View style={styles.slider}>
-                    <TextInput
-                      style={[styles.sliderInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
-                      placeholder="0"
-                      placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
-                      value={rotation.toString()}
-                      onChangeText={(value) => setRotation(parseInt(value) || 0)}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <MaterialIcons name="rotate-right" size={20} color={isDarkMode ? "#aaa" : "#666"} />
+                  <MaterialIcons name="rotate-left" size={20} color={COLORS.SECONDARY_TEXT} />
+                  <TextInput
+                    style={styles.sliderInput}
+                    placeholder="0"
+                    placeholderTextColor={COLORS.PLACEHOLDER}
+                    value={rotation.toString()}
+                    onChangeText={(value) => setRotation(parseInt(value) || 0)}
+                    keyboardType="number-pad"
+                  />
+                  <MaterialIcons name="rotate-right" size={20} color={COLORS.SECONDARY_TEXT} />
                 </View>
               </View>
-              
               <View style={styles.editorControl}>
-                <Text style={[styles.editorLabel, isDarkMode ? styles.darkText : styles.lightText]}>Watermark</Text>
+                <Text style={styles.editorLabel}>Watermark</Text>
                 <TextInput
-                  style={[styles.watermarkInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
+                  style={styles.watermarkInput}
                   placeholder="Add watermark text"
-                  placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
+                  placeholderTextColor={COLORS.PLACEHOLDER}
                   value={watermarkText}
                   onChangeText={setWatermarkText}
                 />
               </View>
-              
               <View style={styles.editorButtons}>
                 <TouchableOpacity
                   style={styles.editorCancelButton}
@@ -1053,6 +986,7 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </Modal>
 
+        {/* Documents Modal */}
         <Modal
           visible={documentsModalVisible}
           transparent={true}
@@ -1060,9 +994,8 @@ const ImageUpload = ({ navigation }) => {
           onRequestClose={() => setDocumentsModalVisible(false)}
         >
           <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, isDarkMode ? styles.darkModalContent : styles.lightModalContent]}>
-              <Text style={[styles.modalTitle, isDarkMode ? styles.darkText : styles.lightText]}>Documents</Text>
-              
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Documents</Text>
               {documents.length > 0 ? (
                 <FlatList
                   data={documents}
@@ -1071,18 +1004,14 @@ const ImageUpload = ({ navigation }) => {
                   style={styles.documentsList}
                 />
               ) : (
-                <Text style={[styles.noDocuments, isDarkMode ? styles.darkText : styles.lightText]}>
-                  No documents added yet
-                </Text>
+                <Text style={styles.noDocuments}>No documents added yet</Text>
               )}
-              
               <TouchableOpacity
                 style={styles.addDocumentButton}
                 onPress={handleDocumentPick}
               >
                 <Text style={styles.addDocumentButtonText}>Add Document</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity
                 style={styles.closeModalButton}
                 onPress={() => setDocumentsModalVisible(false)}
@@ -1093,6 +1022,7 @@ const ImageUpload = ({ navigation }) => {
           </View>
         </Modal>
 
+        {/* Category Modal */}
         <Modal
           visible={categoryModalVisible}
           transparent={true}
@@ -1100,14 +1030,13 @@ const ImageUpload = ({ navigation }) => {
           onRequestClose={() => setCategoryModalVisible(false)}
         >
           <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, isDarkMode ? styles.darkModalContent : styles.lightModalContent]}>
-              <Text style={[styles.modalTitle, isDarkMode ? styles.darkText : styles.lightText]}>Categories</Text>
-              
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Categories</Text>
               <View style={styles.customCategoryContainer}>
                 <TextInput
-                  style={[styles.customCategoryInput, isDarkMode ? styles.darkDetailInput : styles.lightDetailInput]}
+                  style={styles.customCategoryInput}
                   placeholder="Enter custom category"
-                  placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
+                  placeholderTextColor={COLORS.PLACEHOLDER}
                   value={newCategory}
                   onChangeText={setNewCategory}
                 />
@@ -1118,37 +1047,23 @@ const ImageUpload = ({ navigation }) => {
                   <Text style={styles.addCustomCategoryButtonText}>Add</Text>
                 </TouchableOpacity>
               </View>
-              
-              <Text style={[styles.commonCategoriesTitle, isDarkMode ? styles.darkText : styles.lightText]}>
-                Common Categories
-              </Text>
+              <Text style={styles.commonCategoriesTitle}>Common Categories</Text>
               <View style={styles.commonCategoriesContainer}>
                 {commonCategories.map((category, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={[
-                      styles.commonCategory,
-                      categories.includes(category) ? styles.selectedCategory : null,
-                      { backgroundColor: isDarkMode ? '#2c3e50' : '#e1f5fe' }
-                    ]}
+                    style={[styles.commonCategory, categories.includes(category) && styles.selectedCategory]}
                     onPress={() => addCategory(category)}
                   >
-                    <Text 
-                      style={[
-                        styles.commonCategoryText, 
-                        categories.includes(category) ? styles.selectedCategoryText : null,
-                        isDarkMode ? styles.darkText : styles.lightText
-                      ]}
-                    >
+                    <Text style={[styles.commonCategoryText, categories.includes(category) && styles.selectedCategoryText]}>
                       {category}
                     </Text>
                     {categories.includes(category) && (
-                      <MaterialIcons name="check" size={16} color="#1877f2" />
+                      <MaterialIcons name="check" size={16} color={COLORS.PRIMARY} />
                     )}
                   </TouchableOpacity>
                 ))}
               </View>
-              
               <TouchableOpacity
                 style={styles.closeModalButton}
                 onPress={() => setCategoryModalVisible(false)}
@@ -1166,542 +1081,9 @@ const ImageUpload = ({ navigation }) => {
 ImageUpload.propTypes = {
   navigation: PropTypes.shape({
     navigate: PropTypes.func.isRequired,
+    replace: PropTypes.func.isRequired,
+    goBack: PropTypes.func.isRequired,
   }).isRequired,
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  darkContainer: {
-    backgroundColor: '#121212',
-  },
-  lightContainer: {
-    backgroundColor: '#f5f5f5',
-  },
-  postContainer: {
-    padding: 16,
-    borderRadius: 10,
-    margin: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  darkPostContainer: {
-    backgroundColor: '#1e1e1e',
-    shadowColor: '#000',
-  },
-  lightPostContainer: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#ddd',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  darkTitle: {
-    color: '#ffffff',
-  },
-  lightTitle: {
-    color: '#333333',
-  },
-  darkText: {
-    color: '#ffffff',
-  },
-  lightText: {
-    color: '#333333',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  darkInput: {
-    backgroundColor: '#333',
-    borderColor: '#555',
-    color: '#fff',
-  },
-  lightInput: {
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ddd',
-    color: '#333',
-  },
-  detailInput: {
-    flex: 1,
-    padding: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    fontSize: 14,
-    marginLeft: 10,
-  },
-  darkDetailInput: {
-    backgroundColor: '#333',
-    borderColor: '#555',
-    color: '#fff',
-  },
-  lightDetailInput: {
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ddd',
-    color: '#333',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  beforeAfterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  beforeAfterColumn: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  beforeAfterLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  beforeAfterImageContainer: {
-    position: 'relative',
-    borderRadius: 8,
-    overflow: 'hidden',
-    height: 150,
-  },
-  beforeAfterImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  beforeAfterRemoveButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  beforeAfterPlaceholder: {
-    height: 150,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-  },
-  beforeAfterPlaceholderText: {
-    marginTop: 8,
-    fontSize: 14,
-  },
-  mediaList: {
-    marginBottom: 16,
-  },
-  mediaItemContainer: {
-    position: 'relative',
-    marginRight: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  mediaPreview: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-  },
-  mediaButtonsContainer: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    flexDirection: 'column',
-  },
-  mediaButton: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-    paddingVertical: 8,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  actionText: {
-    marginLeft: 5,
-    fontSize: 14,
-  },
-  darkActionText: {
-    color: '#ddd',
-  },
-  lightActionText: {
-    color: '#333',
-  },
-  disabledText: {
-    color: '#999',
-  },
-  detailSection: {
-    marginBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    paddingTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  detailLabel: {
-    marginLeft: 10,
-    fontSize: 16,
-    flex: 1,
-  },
-  locationButton: {
-    flex: 1,
-    padding: 8,
-    marginLeft: 10,
-  },
-  locationButtonText: {
-    fontSize: 14,
-    color: '#1877f2',
-  },
-  categoryScrollView: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  categoryTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  categoryText: {
-    marginRight: 5,
-    fontSize: 14,
-  },
-  noCategories: {
-    fontStyle: 'italic',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  suggestedTagsContainer: {
-    marginTop: 8,
-  },
-  suggestedTagsTitle: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  suggestedTagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  suggestedTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  suggestedTagText: {
-    marginRight: 5,
-    fontSize: 14,
-  },
-  uploadButton: {
-    backgroundColor: '#1877f2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  uploadButtonText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  fullWidthButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  fullWidthButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
-  },
-  documentsList: {
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  documentItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: 'rgba(200, 200, 200, 0.1)',
-  },
-  documentName: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 14,
-  },
-  documentButton: {
-    padding: 5,
-  },
-  noDocuments: {
-    fontStyle: 'italic',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  uploadButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  uploadingContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  uploadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  uploadSubmitButton: {
-    flex: 2,
-    backgroundColor: '#1877f2',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  uploadSubmitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    padding: 20,
-  },
-  modalContent: {
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    maxHeight: '90%',
-  },
-  darkModalContent: {
-    backgroundColor: '#1e1e1e',
-  },
-  lightModalContent: {
-    backgroundColor: '#fff',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  editorPreview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  editorControl: {
-    marginBottom: 15,
-  },
-  editorLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  slider: {
-    flex: 1,
-    marginHorizontal: 10,
-  },
-  sliderInput: {
-    padding: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  watermarkInput: {
-    padding: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    fontSize: 14,
-  },
-  editorButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  editorCancelButton: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-    padding: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  editorCancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  editorApplyButton: {
-    flex: 1,
-    backgroundColor: '#1877f2',
-    padding: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  editorApplyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  addDocumentButton: {
-    backgroundColor: '#1877f2',
-    padding: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginVertical: 15,
-  },
-  addDocumentButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  closeModalButton: {
-    backgroundColor: '#f0f0f0',
-    padding: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  closeModalButtonText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  customCategoryContainer: {
-    flexDirection: 'row',
-    marginBottom: 15,
-  },
-  customCategoryInput: {
-    flex: 1,
-    padding: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    fontSize: 14,
-    marginRight: 10,
-  },
-  addCustomCategoryButton: {
-    backgroundColor: '#1877f2',
-    paddingHorizontal: 15,
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  addCustomCategoryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  commonCategoriesTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 10,
-  },
-  commonCategoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 15,
-  },
-  commonCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectedCategory: {
-    borderWidth: 1,
-    borderColor: '#1877f2',
-  },
-  commonCategoryText: {
-    marginRight: 5,
-    fontSize: 14,
-  },
-  selectedCategoryText: {
-    fontWeight: '500',
-  }
-});
 
 export default ImageUpload;

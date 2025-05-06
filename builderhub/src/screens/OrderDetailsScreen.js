@@ -8,10 +8,12 @@ import { doc, getDoc } from 'firebase/firestore';
 const OrderDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { order, orderId } = route.params; // Support both order and orderId
+  const { order, orderId, showBill } = route.params; // Support showBill prop
   const [orderData, setOrderData] = useState(order);
+  const [customerName, setCustomerName] = useState('');
 
   useEffect(() => {
+    // Fetch order data if only orderId is provided
     if (orderId && !order) {
       const fetchOrder = async () => {
         try {
@@ -27,6 +29,28 @@ const OrderDetailsScreen = () => {
       fetchOrder();
     }
   }, [orderId, order]);
+
+  useEffect(() => {
+    // Fetch customer name using userId from orderData
+    if (orderData?.userId) {
+      const fetchCustomerName = async () => {
+        try {
+          const userRef = doc(firestore, 'users', orderData.userId);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            setCustomerName(userData.name || 'Unknown User');
+          } else {
+            setCustomerName('Unknown User');
+          }
+        } catch (error) {
+          console.error('Error fetching customer name:', error);
+          setCustomerName('Unknown User');
+        }
+      };
+      fetchCustomerName();
+    }
+  }, [orderData]);
 
   const handleOpenGoogleMaps = () => {
     if (orderData.location) {
@@ -68,7 +92,7 @@ const OrderDetailsScreen = () => {
           <Text style={styles.detailText}>
             Placed: {orderData.createdAt?.toDate().toLocaleDateString() || 'N/A'}
           </Text>
-          <Text style={styles.detailText}>Customer ID: {orderData.userId}</Text>
+          <Text style={styles.detailText}>Customer Name: {customerName}</Text>
         </View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Items</Text>
@@ -80,6 +104,30 @@ const OrderDetailsScreen = () => {
             </View>
           ))}
         </View>
+        {showBill && orderData.bill && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Bill Details</Text>
+            <View style={styles.billHeader}>
+              <Text style={styles.billHeaderText}>Item</Text>
+              <Text style={styles.billHeaderText}>Qty</Text>
+              <Text style={styles.billHeaderText}>Price (Rs)</Text>
+              <Text style={styles.billHeaderText}>Total (Rs)</Text>
+            </View>
+            {orderData.bill.items.map((item, index) => (
+              <View key={index} style={styles.billItem}>
+                <Text style={styles.billItemText}>{item.name}</Text>
+                <Text style={styles.billItemText}>{item.quantity}</Text>
+                <Text style={styles.billItemText}>{item.price.toFixed(2)}</Text>
+                <Text style={styles.billItemText}>{(item.price * item.quantity).toFixed(2)}</Text>
+              </View>
+            ))}
+            <View style={styles.billTotalContainer}>
+              <Text style={styles.billTotalLabel}>Total:</Text>
+              <Text style={styles.billTotalAmount}>Rs{orderData.bill.total.toFixed(2)}</Text>
+            </View>
+            <Text style={styles.deliveryNote}>Pay the bill to our delivery person</Text>
+          </View>
+        )}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Delivery Details</Text>
           <View style={styles.locationContainer}>
@@ -104,7 +152,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#0095f6',
+    backgroundColor: '#F4B018',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -150,6 +198,59 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 15,
     color: '#333',
+  },
+  billHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f9f9f9',
+  },
+  billHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+  },
+  billItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  billItemText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+  },
+  billTotalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    marginTop: 8,
+  },
+  billTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  billTotalAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F4B018',
+  },
+  deliveryNote: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   locationContainer: {
     marginBottom: 8,

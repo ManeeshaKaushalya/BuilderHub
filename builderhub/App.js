@@ -66,6 +66,10 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HireUserScreen from './src/screens/HireUserScreen';
 import HireRequestDetailsScreen from './src/screens/HireRequestDetailsScreen';
 
+import OrdersScreen from './src/screens/MarketScreens/OrderScreen';
+import OrderItemDetails from './src/screens/MarketScreens/OrderDetails';
+
+
 
 const Stack = createStackNavigator();
 
@@ -123,6 +127,10 @@ export default function App() {
                 <Stack.Screen name="forgetpassword" component={ForgotPasswordScreen} />
                 <Stack.Screen name="HireUserScreen" component={HireUserScreen} />
                 <Stack.Screen name="HireRequestDetailsScreen" component={HireRequestDetailsScreen} />
+                <Stack.Screen name="OrdersScreen" component={OrdersScreen} />
+                <Stack.Screen name="OrderItemDetails" component={OrderItemDetails} />
+                
+                
 
                 
               </Stack.Navigator>

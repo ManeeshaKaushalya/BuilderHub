@@ -15,7 +15,7 @@ const ItemDetails = ({ route, navigation }) => {
   const [averageSellerRating, setAverageSellerRating] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingSellerReviews, setLoadingSellerReviews] = useState(true);
-  const [showReviews, setShowReviews] = useState(false); // Toggle reviews visibility
+  const [showReviews, setShowReviews] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const flatListRef = useRef(null);
   const { user } = useUser();
@@ -91,7 +91,7 @@ const ItemDetails = ({ route, navigation }) => {
     if (!timestamp) return 'Just now';
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      if (isNaN(date.getTime())) return 'Just now'; // Invalid date
+      if (isNaN(date.getTime())) return 'Just now';
       const now = new Date();
       const diff = now - date;
       if (diff < 60000) return 'Just now';
@@ -110,7 +110,7 @@ const ItemDetails = ({ route, navigation }) => {
           <Image source={{ uri: item.reviewerProfileImage }} style={styles.reviewerImage} />
         ) : (
           <View style={styles.reviewerImagePlaceholder}>
-            <Icon name="account-circle" size={40} color="#6c757d" />
+            <Icon name="account-circle" size={40} color="#78909C" />
           </View>
         )}
         <View style={styles.reviewHeaderText}>
@@ -121,7 +121,7 @@ const ItemDetails = ({ route, navigation }) => {
                 key={index}
                 name={index < item.rating ? 'star' : 'star-border'}
                 size={16}
-                color="#ffc107"
+                color="#F4B400"
               />
             ))}
             <Text style={styles.reviewTimestamp}>{formatTimestamp(item.timestamp)}</Text>
@@ -133,7 +133,6 @@ const ItemDetails = ({ route, navigation }) => {
   );
 
   useEffect(() => {
-    // Listen for item updates
     const itemRef = doc(firestore, 'items', item.id);
     const unsubscribeItem = onSnapshot(
       itemRef,
@@ -147,7 +146,6 @@ const ItemDetails = ({ route, navigation }) => {
       }
     );
 
-    // Listen for seller data
     const setupSellerListener = () => {
       if (!item.itemOwnerId) return null;
       const usersRef = collection(firestore, 'users');
@@ -171,7 +169,6 @@ const ItemDetails = ({ route, navigation }) => {
       );
     };
 
-    // Listen for seller reviews
     const setupSellerReviewsListener = () => {
       if (!item.itemOwnerId) return null;
       const reviewsRef = collection(firestore, 'users', item.itemOwnerId, 'reviews');
@@ -211,7 +208,7 @@ const ItemDetails = ({ route, navigation }) => {
       return (
         <View style={styles.outOfStockContainer}>
           <View style={styles.outOfStockBadge}>
-            <Icon name="remove-shopping-cart" size={20} color="#dc3545" />
+            <Icon name="remove-shopping-cart" size={20} color="#D32F2F" />
             <Text style={styles.outOfStockText}>Out of Stock</Text>
           </View>
         </View>
@@ -219,13 +216,13 @@ const ItemDetails = ({ route, navigation }) => {
     }
     return (
       <View style={styles.stockInfoContainer}>
-        <View style={styles.stockStatusRow}>
+        <View style site={styles.stockStatusRow}>
           <View style={styles.inStockBadge}>
-            <Icon name="check-circle" size={20} color="#28a745" />
+            <Icon name="check-circle" size={20} color="#2E7D32" />
             <Text style={styles.inStockText}>In Stock</Text>
           </View>
           <View style={styles.stockCountBadge}>
-            <Icon name="inventory-2" size={20} color="#666" />
+            <Icon name="inventory-2" size={20} color="#616161" />
             <Text style={styles.stockCount}>
               {item.Stock} {item.Stock === 1 ? 'unit' : 'units'} available
             </Text>
@@ -241,20 +238,29 @@ const ItemDetails = ({ route, navigation }) => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Icon name="arrow-back" size={24} color="#333" />
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Icon name="arrow-back" size={20} color="#212121" />
             </TouchableOpacity>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-              <Icon name="share" size={24} color="#333" />
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={handleShare}
+              activeOpacity={0.7}
+            >
+              <Icon name="share" size={20} color="#212121" />
             </TouchableOpacity>
             {isOwner && (
               <TouchableOpacity
-                onPress={handleDelete}
                 style={[styles.headerButton, styles.deleteButton]}
+                onPress={handleDelete}
+                activeOpacity={0.7}
               >
-                <Icon name="delete" size={24} color="#dc3545" />
+                <Icon name="delete" size={20} color="#D32F2F" />
               </TouchableOpacity>
             )}
           </View>
@@ -278,7 +284,7 @@ const ItemDetails = ({ route, navigation }) => {
           </View>
         ) : (
           <View style={styles.noImageContainer}>
-            <Icon name="image-not-supported" size={48} color="#6c757d" />
+            <Icon name="image-not-supported" size={48} color="#78909C" />
             <Text style={styles.noImageText}>No Image Available</Text>
           </View>
         )}
@@ -289,7 +295,7 @@ const ItemDetails = ({ route, navigation }) => {
 
           {/* Price Section */}
           <View style={styles.priceContainer}>
-            <Icon name="attach-money" size={24} color="#28a745" />
+            <Icon name="money" size={24} color="#2E7D32" />
             <Text style={styles.price}>Rs. {Number(item.price).toLocaleString()}</Text>
           </View>
 
@@ -302,11 +308,11 @@ const ItemDetails = ({ route, navigation }) => {
           {/* Item Status and Availability */}
           <View style={styles.statusContainer}>
             <View style={styles.statusItem}>
-              <Icon name="verified" size={20} color="#007bff" />
+              <Icon name="verified" size={20} color="#1976D2" />
               <Text style={styles.statusText}>Verified Item</Text>
             </View>
             <View style={styles.statusItem}>
-              <Icon name="local-shipping" size={20} color="#28a745" />
+              <Icon name="local-shipping" size={20} color="#2E7D32" />
               <Text style={styles.statusText}>Free Delivery</Text>
             </View>
           </View>
@@ -323,19 +329,19 @@ const ItemDetails = ({ route, navigation }) => {
             <View style={styles.sellerInfo}>
               {loading ? (
                 <View style={styles.sellerImagePlaceholder}>
-                  <Icon name="account-circle" size={40} color="#6c757d" />
+                  <Icon name="account-circle" size={40} color="#78909C" />
                 </View>
               ) : sellerData ? (
                 sellerData.profileImage ? (
                   <Image source={{ uri: sellerData.profileImage }} style={styles.sellerImage} />
                 ) : (
                   <View style={styles.sellerImagePlaceholder}>
-                    <Icon name="account-circle" size={40} color="#6c757d" />
+                    <Icon name="account-circle" size={40} color="#78909C" />
                   </View>
                 )
               ) : (
                 <View style={styles.sellerImagePlaceholder}>
-                  <Icon name="account-circle" size={40} color="#6c757d" />
+                  <Icon name="account-circle" size={40} color="#78909C" />
                 </View>
               )}
               <View style={styles.sellerDetails}>
@@ -347,15 +353,18 @@ const ItemDetails = ({ route, navigation }) => {
                     {loadingSellerReviews ? (
                       <Text style={styles.sellerRating}>Loading reviews...</Text>
                     ) : (
-                      <TouchableOpacity onPress={() => setShowReviews(!showReviews)}>
+                      <TouchableOpacity
+                        onPress={() => setShowReviews(!showReviews)}
+                        activeOpacity={0.7}
+                      >
                         <Text style={styles.sellerRating}>
-                          <Icon name="star" size={16} color="#ffc107" /> {averageSellerRating}{' '}
+                          <Icon name="star" size={16} color="#F4B400" /> {averageSellerRating}{' '}
                           ({sellerReviews.length}{' '}
                           {sellerReviews.length === 1 ? 'review' : 'reviews'})
                           <Icon
                             name={showReviews ? 'expand-less' : 'expand-more'}
                             size={16}
-                            color="#6c757d"
+                            color="#78909C"
                           />
                         </Text>
                       </TouchableOpacity>
@@ -390,6 +399,7 @@ const ItemDetails = ({ route, navigation }) => {
             <TouchableOpacity
               style={styles.editButton}
               onPress={() => navigation.navigate('EditItem', { item })}
+              activeOpacity={0.7}
             >
               <Icon name="edit" size={20} color="#fff" />
               <Text style={styles.editButtonText}>Edit Item</Text>
@@ -410,6 +420,7 @@ const ItemDetails = ({ route, navigation }) => {
               ]}
               disabled={item.Stock === 0}
               onPress={() => navigation.navigate('ChatScreen', { item, sellerData })}
+              activeOpacity={0.7}
             >
               <Icon name="chat" size={24} color="#fff" />
               <Text style={styles.contactButtonText}>
@@ -420,6 +431,7 @@ const ItemDetails = ({ route, navigation }) => {
               style={[styles.buyButton, { flex: 1 }, item.Stock === 0 && styles.disabledButton]}
               onPress={handleBuyNow}
               disabled={item.Stock === 0}
+              activeOpacity={0.7}
             >
               <Icon name="shopping-cart" size={24} color="#fff" />
               <Text style={styles.buyButtonText}>
@@ -438,10 +450,9 @@ const ItemDetails = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // Existing styles (unchanged)
   mainContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   container: {
     flex: 1,
@@ -450,8 +461,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: 10,
+    backgroundColor: '#F4B018',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -462,16 +478,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerButton: {
-    marginLeft: 16,
-    padding: 8,
+    padding: 12,
+    borderRadius: 24,
+    backgroundColor: '#F4B018',
   },
   deleteButton: {
-    marginLeft: 8,
+    marginLeft: 12,
+    backgroundColor: '#F4B018',
   },
   imageSliderContainer: {
     height: 300,
     width: width,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ECEFF1',
   },
   imageSlide: {
     width: width,
@@ -486,16 +504,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 16,
     alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     marginHorizontal: 4,
   },
   paginationDotActive: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -505,21 +527,27 @@ const styles = StyleSheet.create({
     height: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ECEFF1',
   },
   noImageText: {
     fontSize: 16,
-    color: '#6c757d',
+    color: '#78909C',
     marginTop: 8,
+    fontWeight: '500',
   },
   detailsContainer: {
     padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    margin: 16,
+    elevation: 2,
   },
   itemName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#212121',
+    lineHeight: 36,
   },
   priceContainer: {
     flexDirection: 'row',
@@ -527,14 +555,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   price: {
-    fontSize: 22,
-    color: '#28a745',
-    fontWeight: '600',
-    marginLeft: 4,
+    fontSize: 24,
+    color: '#2E7D32',
+    fontWeight: '700',
+    marginLeft: 8,
+    lineHeight: 32,
   },
   stockInfoContainer: {
     marginBottom: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F5F5',
     borderRadius: 8,
     padding: 12,
   },
@@ -546,67 +575,66 @@ const styles = StyleSheet.create({
   inStockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 16,
   },
   inStockText: {
-    color: '#28a745',
-    marginLeft: 6,
+    color: '#2E7D32',
+    marginLeft: 8,
     fontWeight: '600',
     fontSize: 14,
   },
   stockCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: '#E0E0E0',
   },
   stockCount: {
-    marginLeft: 6,
-    color: '#666',
+    marginLeft: 8,
+    color: '#616161',
     fontSize: 14,
     fontWeight: '500',
   },
   outOfStockContainer: {
     marginBottom: 16,
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#FFEBEE',
     borderRadius: 8,
     padding: 12,
   },
   outOfStockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffebee',
+    backgroundColor: '#FFCDD2',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 16,
     alignSelf: 'flex-start',
   },
   outOfStockText: {
-    color: '#dc3545',
-    marginLeft: 6,
+    color: '#D32F2F',
+    marginLeft: 8,
     fontWeight: '600',
     fontSize: 14,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e9ecef',
-    marginBottom: 16,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 16,
   },
   statusContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 16,
     paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e9ecef',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
   },
   statusItem: {
     flexDirection: 'row',
@@ -614,21 +642,24 @@ const styles = StyleSheet.create({
   },
   statusText: {
     marginLeft: 8,
-    color: '#495057',
+    color: '#424242',
+    fontSize: 14,
+    fontWeight: '500',
   },
   descriptionContainer: {
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#212529',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#212121',
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#495057',
+    color: '#424242',
+    fontWeight: '400',
   },
   sellerContainer: {
     marginBottom: 16,
@@ -636,7 +667,7 @@ const styles = StyleSheet.create({
   sellerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 8,
   },
@@ -644,54 +675,60 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   sellerImagePlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ECEFF1',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   sellerDetails: {
     marginLeft: 12,
     flex: 1,
   },
   sellerName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#212529',
+    color: '#212121',
   },
   sellerRating: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#616161',
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   ownerActionsContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#E0E0E0',
   },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007bff',
+    backgroundColor: '#1976D2',
     padding: 12,
     borderRadius: 8,
   },
   editButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
   },
   bottomContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#E0E0E0',
   },
   buyActionsContainer: {
     flexDirection: 'row',
@@ -702,64 +739,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#28a745',
+    backgroundColor: '#2E7D32',
     padding: 12,
     borderRadius: 8,
     elevation: 2,
   },
   buyButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginLeft: 8,
   },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007bff',
+    backgroundColor: '#1976D2',
     padding: 12,
     borderRadius: 8,
     elevation: 2,
   },
   contactButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginLeft: 8,
   },
   disabledButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#78909C',
     opacity: 0.7,
   },
   ownerBottomContainer: {
     padding: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
+    borderRadius: 8,
   },
   ownerItemText: {
     fontSize: 16,
-    color: '#6c757d',
+    color: '#616161',
+    fontWeight: '500',
     fontStyle: 'italic',
   },
-  // New styles for seller reviews
   sellerReviewsContainer: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
   },
   noReviewsText: {
     fontSize: 16,
-    color: '#6c757d',
+    color: '#78909C',
     textAlign: 'center',
     marginVertical: 8,
+    fontWeight: '500',
   },
   reviewsList: {
     marginTop: 8,
   },
   reviewContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -774,15 +813,19 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   reviewerImagePlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ECEFF1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   reviewHeaderText: {
     flex: 1,
@@ -790,7 +833,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#212529',
+    color: '#212121',
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -799,13 +842,15 @@ const styles = StyleSheet.create({
   },
   reviewTimestamp: {
     fontSize: 12,
-    color: '#6c757d',
+    color: '#78909C',
     marginLeft: 8,
+    fontWeight: '400',
   },
   reviewComment: {
     fontSize: 14,
-    color: '#495057',
+    color: '#424242',
     lineHeight: 20,
+    fontWeight: '400',
   },
 });
 
