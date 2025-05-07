@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal, Linking } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
 import { firestore } from '../../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { MaterialIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import styles from '../styles/HomeScreenStyles';
 
 // Constants
 const GOOGLE_API_KEY = 'AIzaSyBDEAmbHkQokLum169Nr4aY_FpIf80TuCE';
@@ -122,11 +123,19 @@ const HomeScreen = () => {
     let filtered = [...locations];
     
     if (searchText) {
-      filtered = filtered.filter(user => 
-        user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        user.profession.toLowerCase().includes(searchText.toLowerCase()) ||
-        user.skills.toLowerCase().includes(searchText.toLowerCase())
-      );
+      filtered = filtered.filter(user => {
+        const skillsString = Array.isArray(user.skills)
+          ? user.skills.join(' ').toLowerCase()
+          : typeof user.skills === 'string'
+          ? user.skills.toLowerCase()
+          : '';
+        
+        return (
+          user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+          user.profession.toLowerCase().includes(searchText.toLowerCase()) ||
+          skillsString.includes(searchText.toLowerCase())
+        );
+      });
     }
     
     filtered = filtered.filter(user => 
@@ -201,10 +210,9 @@ const HomeScreen = () => {
         profession = 'All';
     }
 
-    // Filter users by profession
     const filteredProfessionals = userLocations
       .filter(user => user.profession === profession)
-      .slice(0, 5); // Take top 5
+      .slice(0, 5);
 
     if (filteredProfessionals.length === 0) {
       Alert.alert(
@@ -425,7 +433,7 @@ const HomeScreen = () => {
                 {[0, 1, 2, 3, 4].map((rating) => (
                   <TouchableOpacity
                     key={rating}
-                    onPress={() => setMinRating(rating)}
+                    onPress={() => setMinRating(rating + 1 === minRating ? 0 : rating + 1)}
                   >
                     <FontAwesome
                       name={rating < minRating ? "star" : "star-o"}
@@ -710,401 +718,5 @@ const HomeScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F6FA',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F6FA',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  map: {
-    flex: 1,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    padding: 15,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  searchInput: {
-    flex: 1,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#FFFFFF',
-    fontSize: 15,
-    color: '#374151',
-  },
-  filterButton: {
-    marginLeft: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 44,
-    height: 44,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-  },
-  filtersContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    maxHeight: 300,
-  },
-  filterItem: {
-    marginHorizontal: 10,
-    marginBottom: 15,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#1F2A44',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sliderTrack: {
-    height: 6,
-    width: 120,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 3,
-    marginHorizontal: 10,
-  },
-  sliderFill: {
-    height: 6,
-    backgroundColor: '#3B82F6',
-    borderRadius: 3,
-  },
-  accordionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    marginHorizontal: 10,
-    marginBottom: 5,
-  },
-  accordionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2A44',
-  },
-  accordionContent: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginHorizontal: 10,
-    marginBottom: 15,
-  },
-  professionChip: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-  },
-  selectedProfessionChip: {
-    backgroundColor: '#3B82F6',
-  },
-  professionChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  selectedProfessionChipText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  availabilityContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  availabilityButton: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectedAvailabilityButton: {
-    backgroundColor: '#3B82F6',
-  },
-  availabilityButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#F3F4F6',
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-  },
-  calloutContainer: {
-    width: 220,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  calloutImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignSelf: 'center',
-    marginBottom: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  calloutName: {
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#1F2A44',
-    marginBottom: 4,
-  },
-  calloutProfession: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  starIcon: {
-    marginHorizontal: 2,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 6,
-  },
-  calloutDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  calloutDetailText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 6,
-  },
-  availabilityBadge: {
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  availabilityText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  contactButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    elevation: 2,
-  },
-  contactButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  locationInputButton: {
-    position: 'absolute',
-    bottom: 90,
-    right: 20,
-    backgroundColor: '#3B82F6',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-  },
-  emergencyButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#EF4444',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-  },
-  emergencyButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-    marginLeft: 6,
-  },
-  resultCountContainer: {
-    position: 'absolute',
-    top: 70,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  resultCountText: {
-    backgroundColor: 'rgba(31, 41, 68, 0.8)',
-    color: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '85%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#1F2A44',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  emergencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-  },
-  emergencyOptionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 16,
-    color: '#1F2A44',
-  },
-  closeButton: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  closeButtonText: {
-    color: '#1F2A44',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  resultsContainer: {
-    maxHeight: 300,
-    marginBottom: 16,
-  },
-  professionalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    elevation: 2,
-  },
-  professionalImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  professionalDetails: {
-    flex: 1,
-  },
-  professionalName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2A44',
-    marginBottom: 4,
-  },
-  professionalInfo: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-});
 
 export default HomeScreen;
