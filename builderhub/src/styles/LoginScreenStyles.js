@@ -13,25 +13,26 @@ const COLORS = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
     justifyContent: 'flex-start',
+    // Removed paddingHorizontal to allow full width header
   },
   headerSection: {
-    width: '120%',
-    alignSelf: 'center',
-    paddingTop: 300,
-    paddingBottom: 0,
+    width: '100%',
+    backgroundColor: '#F4B018',
+    paddingTop: 100,
+    paddingBottom: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomLeftRadius: 70,
-    borderBottomRightRadius: 70,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     elevation: 5,
-    backgroundColor: '#F4B018',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    marginTop: -180,
+    // Ensure the header extends fully
+    marginLeft: 0,
+    marginRight: 0,
   },
   logo: {
     width: 150,
@@ -52,6 +53,7 @@ const styles = StyleSheet.create({
   formContainer: {
     width: '100%',
     marginTop: 30,
+    paddingHorizontal: 24, // Added padding only to the form container
   },
   inputWrapper: {
     flexDirection: 'row',
