@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import { firestore } from '../../firebase/firebaseConfig';
+import { useTheme } from '../../context/ThemeContext';
+import { firestore } from '../../../firebase/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { MaterialIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';

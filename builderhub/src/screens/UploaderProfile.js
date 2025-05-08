@@ -20,7 +20,7 @@ import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@e
 import { LinearGradient } from 'expo-linear-gradient';
 import { firestore, auth } from '../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
-import Post from './Posts';
+import Post from './posts/Posts';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 

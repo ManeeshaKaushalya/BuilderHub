@@ -4,6 +4,7 @@ const { width } = Dimensions.get('window');
 
 export const COLORS = {
   PRIMARY: '#F4B018', // Orange for buttons
+  ACCENT: '#F4B018',
   BACKGROUND: '#fff', // White background
   TEXT: '#333', // Primary text
   SECONDARY_TEXT: '#666', // Secondary text/icons
@@ -24,9 +25,20 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.BACKGROUND,
   },
   headerSection: {
-    alignItems: 'center',
-    marginBottom: 20,
+    width: '120%',
+    alignSelf: 'center',
     paddingTop: 10,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomLeftRadius: 70,
+    borderBottomRightRadius: 70,
+    elevation: 5,
+    backgroundColor: COLORS.ACCENT,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   headerTitle: {
     fontSize: 24,

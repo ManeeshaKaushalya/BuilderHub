@@ -13,7 +13,7 @@ import { firestore } from '../../firebase/firebaseConfig';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Post from './Posts';
+import Post from './posts/Posts';
 import styles from '../styles/UsersPostsScreenStyles';
 
 function UsersPostsScreen() {

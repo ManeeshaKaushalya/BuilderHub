@@ -9,24 +9,37 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { firestore, storage } from '../../firebase/firebaseConfig';
+import { firestore, storage } from '../../../firebase/firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Video, VideoFullscreenUpdate } from 'expo-av';
-import { useUser } from '../context/UserContext';
+import { useUser } from '../../context/UserContext';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import PropTypes from 'prop-types';
-import { styles, COLORS } from '../styles/ImageUploadStyles'; // Adjust the import path as necessary
-
-// Ensure dependencies are installed:
-// expo install expo-av expo-image-picker expo-document-picker expo-image-manipulator expo-location
-// npm install firebase react-native-vector-icons prop-types
+import { styles, COLORS } from '../../styles/ImageUploadStyles'; // Adjust the import path as necessary
 
 const { width } = Dimensions.get('window');
 
 const ImageUpload = ({ navigation }) => {
+  // Suppress console logs within this component
+  useEffect(() => {
+    const originalConsoleLog = console.log;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleError = console.error;
+
+    console.log = () => {};
+    console.warn = () => {};
+    console.error = () => {};
+
+    return () => {
+      console.log = originalConsoleLog;
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   const [media, setMedia] = useState([]);
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -38,12 +51,12 @@ const ImageUpload = ({ navigation }) => {
   const [beforeImage, setBeforeImage] = useState(null);
   const [afterImage, setAfterImage] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [certificates, setCertificates] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suggestedTags, setSuggestedTags] = useState([]);
   const [projectTimeline, setProjectTimeline] = useState('');
   const [projectCost, setProjectCost] = useState('');
   const [location, setLocation] = useState(null);
+  const [locationName, setLocationName] = useState('');
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentEditingImage, setCurrentEditingImage] = useState(null);
@@ -161,8 +174,12 @@ const ImageUpload = ({ navigation }) => {
 
       const geocode = await Location.reverseGeocodeAsync(newLocation);
       if (geocode.length > 0) {
-        const locationName = `${geocode[0].city || ''}, ${geocode[0].region || ''}`;
-        Alert.alert('Location added', `Added location: ${locationName}`);
+        const locationText = `${geocode[0].city || ''}, ${geocode[0].region || ''}`.trim();
+        setLocationName(locationText);
+        Alert.alert('Location Added', `Location set to: ${locationText}`);
+      } else {
+        setLocationName('Unknown Location');
+        Alert.alert('Location Added', 'Location coordinates saved, but address could not be resolved.');
       }
     } catch (error) {
       console.error('Location Error:', error);
@@ -248,27 +265,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  const handleCertificatePick = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled === false && result.assets) {
-        const newCerts = result.assets.map(asset => ({
-          uri: asset.uri,
-          name: asset.name || `certificate_${Date.now()}`,
-          mimeType: asset.mimeType || 'application/pdf',
-        }));
-        setCertificates(prevCerts => [...prevCerts, ...newCerts]);
-      }
-    } catch (error) {
-      console.error('Certificate pick error:', error);
-      Alert.alert('Error', 'Failed to select certificate');
-    }
-  };
-
   const handleBeforeImagePick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -313,10 +309,6 @@ const ImageUpload = ({ navigation }) => {
     setDocuments(prevDocs => prevDocs.filter((_, index) => index !== indexToRemove));
   };
 
-  const removeCertificate = (indexToRemove) => {
-    setCertificates(prevCerts => prevCerts.filter((_, index) => index !== indexToRemove));
-  };
-
   const openImageEditor = (uri, index) => {
     setCurrentEditingImage(uri);
     setCurrentEditingIndex(index);
@@ -340,12 +332,6 @@ const ImageUpload = ({ navigation }) => {
       if (rotation !== 0) {
         actions.push({ rotate: rotation });
       }
-      
-      // Note: Watermark text not supported by expo-image-manipulator.
-      // Consider using react-native-canvas or another library for text overlays.
-      // if (watermarkText.trim()) {
-      //   actions.push({ flip: { horizontal: false, vertical: false } });
-      // }
       
       if (actions.length > 0) {
         const result = await ImageManipulator.manipulateAsync(
@@ -412,9 +398,7 @@ const ImageUpload = ({ navigation }) => {
       let videoUrl = null;
       let beforeAfterUrls = null;
       const documentUrls = [];
-      const certificateUrls = [];
-      const totalUploads = media.length + documents.length + certificates.length + 
-        (beforeAfterMode ? 2 : 0);
+      const totalUploads = media.length + documents.length + (beforeAfterMode ? 2 : 0);
       let uploadCount = 0;
 
       const updateProgress = () => {
@@ -476,23 +460,6 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }));
 
-      await Promise.all(certificates.map(async (cert) => {
-        const response = await fetch(cert.uri);
-        const blob = await response.blob();
-        const certRef = ref(storage, `certificates/${user.uid}/${cert.name}`);
-        
-        await uploadBytes(certRef, blob);
-        const certUrl = await getDownloadURL(certRef);
-        
-        certificateUrls.push({
-          name: cert.name,
-          url: certUrl,
-          type: cert.mimeType,
-        });
-        
-        updateProgress();
-      }));
-
       let isVerified = user.isVerified || false;
       if (typeof user.isVerified === 'undefined') {
         const userRef = doc(firestore, 'users', user.uid);
@@ -507,7 +474,6 @@ const ImageUpload = ({ navigation }) => {
         videoUrl,
         beforeAfterImages: beforeAfterUrls,
         documentUrls,
-        certificates: certificateUrls,
         username: user.name,
         uid: user.uid,
         userImage: user.profileImage || null,
@@ -536,13 +502,13 @@ const ImageUpload = ({ navigation }) => {
     setBeforeImage(null);
     setAfterImage(null);
     setDocuments([]);
-    setCertificates([]);
     setCategories([]);
     setSuggestedTags([]);
     setProjectTimeline('');
     setProjectCost('');
     setBeforeAfterMode(false);
     setLocation(null);
+    setLocationName('');
     setUseCurrentLocation(false);
   };
 
@@ -592,21 +558,6 @@ const ImageUpload = ({ navigation }) => {
       <TouchableOpacity
         style={styles.documentButton}
         onPress={() => removeDocument(index)}
-      >
-        <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderCertificate = ({ item, index }) => (
-    <View style={styles.documentItemContainer}>
-      <MaterialIcons name="verified" size={24} color={COLORS.SECONDARY_TEXT} />
-      <Text style={styles.documentName} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <TouchableOpacity
-        style={styles.documentButton}
-        onPress={() => removeCertificate(index)}
       >
         <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
       </TouchableOpacity>
@@ -740,7 +691,7 @@ const ImageUpload = ({ navigation }) => {
             />
           </View>
           <View style={styles.detailRow}>
-            <MaterialIcons name="money" size={20} color={COLORS.SECONDARY_TEXT} />
+            <MaterialIcons name="attach-money" size={20} color={COLORS.SECONDARY_TEXT} />
             <TextInput
               style={styles.detailInput}
               placeholder="Estimated cost (e.g., LKR2000-LKR3000)"
@@ -752,13 +703,20 @@ const ImageUpload = ({ navigation }) => {
           </View>
           <View style={styles.detailRow}>
             <MaterialIcons name="location-on" size={20} color={COLORS.SECONDARY_TEXT} />
+            <TextInput
+              style={[styles.detailInput, { backgroundColor: COLORS.BACKGROUND_SECONDARY }]}
+              placeholder="Location (e.g., Colombo, Western Province)"
+              placeholderTextColor={COLORS.PLACEHOLDER}
+              value={locationName}
+              editable={false}
+            />
             <TouchableOpacity
               style={styles.locationButton}
               onPress={getCurrentLocation}
               disabled={loading}
             >
               <Text style={styles.locationButtonText}>
-                {loading ? 'Getting location...' : 'Add current location'}
+                {loading ? 'Getting Location...' : 'Get Location'}
               </Text>
             </TouchableOpacity>
             <Switch
@@ -839,27 +797,6 @@ const ImageUpload = ({ navigation }) => {
               style={styles.documentsList}
             />
           )}
-        </View>
-
-        {/* Interaction Settings */}
-        <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Interaction Settings</Text>
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>Allow Comments</Text>
-            <Switch
-              value={true}
-              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
-              thumbColor={COLORS.PRIMARY}
-            />
-          </View>
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>Allow Direct Hiring</Text>
-            <Switch
-              value={true}
-              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
-              thumbColor={COLORS.PRIMARY}
-            />
-          </View>
         </View>
 
         {/* Upload/Cancel Buttons */}
@@ -967,6 +904,7 @@ const ImageUpload = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.editorCancelButton}
                   onPress={() => setIsEditModalVisible(false)}
+                  disabled={loading}
                 >
                   <Text style={styles.editorCancelButtonText}>Cancel</Text>
                 </TouchableOpacity>

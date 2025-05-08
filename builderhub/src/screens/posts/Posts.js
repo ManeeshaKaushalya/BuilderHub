@@ -6,23 +6,24 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { firestore } from '../../firebase/firebaseConfig';
+import { firestore } from '../../../firebase/firebaseConfig';
 import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Video } from 'expo-av';
-import styles from '../styles/PostStyles'; // Adjust the import path as necessary
+import styles from '../../styles/PostStyles'; // Adjust the import path as necessary
 
 const { width } = Dimensions.get('window');
 
-function Post({ 
-  postId, 
-  username, 
-  caption, 
-  imageList = [], 
-  videoUrl, 
-  userImage, 
-  uploadDate, 
-  initialLikes = 0, 
+function Post({
+  postId,
+  username,
+  caption,
+  imageList = [],
+  videoUrl,
+  userImage,
+  uploadDate,
+  likes = 0,
+  likedBy = [],
   ownerId,
   categories = [],
   isVerified = false,
@@ -31,7 +32,26 @@ function Post({
   projectCost = null,
   documentUrls = [],
   certificates = [],
+  allowComments = true, // Default to true for backward compatibility
+  allowDirectHiring = true, // Default to true for backward compatibility
 }) {
+  // Suppress console logs within this component
+  useEffect(() => {
+    const originalConsoleLog = console.log;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleError = console.error;
+
+    console.log = () => {};
+    console.warn = () => {};
+    console.error = () => {};
+
+    return () => {
+      console.log = originalConsoleLog;
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   const auth = getAuth();
   const user = auth.currentUser;
   const userId = user?.uid;
@@ -39,12 +59,10 @@ function Post({
   const videoRef = useRef(null);
 
   // State variables
-  const [likes, setLikes] = useState(initialLikes);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(likedBy.includes(userId));
   const [commentsCount, setCommentsCount] = useState(0);
   const [comments, setComments] = useState([]);
   const [pinnedComment, setPinnedComment] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showBeforeAfter, setShowBeforeAfter] = useState(false);
   const [beforeAfterPosition] = useState(new Animated.Value(0));
@@ -54,53 +72,20 @@ function Post({
 
   useEffect(() => {
     if (!postId) {
-      console.error("No postId provided!");
-      setLoading(false);
+      console.error('No postId provided!');
       return;
     }
 
     if (!userId) {
-      console.log("No authenticated user for Post component!");
-      setLoading(false);
+      console.log('No authenticated user for Post component!');
       return;
     }
 
-    console.log("Setting up listener for post:", postId);
-    const postRef = doc(firestore, 'posts', postId);
-
-    const unsubscribe = onSnapshot(postRef, async (snapshot) => {
-      try {
-        if (snapshot.exists()) {
-          const postData = snapshot.data();
-          console.log("Post data received:", JSON.stringify(postData, null, 2));
-          setLikes(postData.likes || 0);
-          setIsLiked(postData.likedBy?.includes(userId) || false);
-          
-          if (postData.beforeAfterImages) {
-            console.log("Before/After images data:", postData.beforeAfterImages);
-          } else {
-            console.log("No beforeAfterImages found in post data");
-          }
-          
-          setLoading(false);
-        } else {
-          console.log("Post document does not exist:", postId);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error processing snapshot:', error);
-        setLoading(false);
-      }
-    }, (error) => {
-      console.error('Error in Post snapshot listener:', error);
-      setLoading(false);
-    });
-
+    // Fetch comments
     const unsubscribeComments = fetchComments();
 
     return () => {
-      console.log("Unsubscribing from post:", postId);
-      unsubscribe();
+      console.log('Unsubscribing from comments for post:', postId);
       unsubscribeComments();
     };
   }, [postId, userId]);
@@ -109,19 +94,19 @@ function Post({
     try {
       const commentsRef = collection(firestore, 'posts', postId, 'comments');
       const unsubscribe = onSnapshot(commentsRef, (snapshot) => {
-        const commentsData = snapshot.docs.map(doc => ({
+        const commentsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        
-        const pinned = commentsData.find(comment => comment.isCubePinned);
+
+        const pinned = commentsData.find((comment) => comment.isCubePinned);
         setPinnedComment(pinned || null);
         setComments(commentsData);
         setCommentsCount(commentsData.length);
       }, (error) => {
         console.error('Error fetching comments:', error);
       });
-      
+
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up comments listener:', error);
@@ -138,11 +123,13 @@ function Post({
           likes: likes - 1,
           likedBy: arrayRemove(userId),
         });
+        setIsLiked(false);
       } else {
         await updateDoc(postRef, {
           likes: likes + 1,
           likedBy: arrayUnion(userId),
         });
+        setIsLiked(true);
         if (ownerId !== userId) {
           const notificationsRef = collection(firestore, 'users', ownerId, 'notifications');
           await addDoc(notificationsRef, {
@@ -188,45 +175,38 @@ function Post({
   };
 
   const renderMediaContent = () => {
-    console.log("Rendering media content, beforeAfterImages:", beforeAfterImages);
-
     if (beforeAfterImages && beforeAfterImages.before && beforeAfterImages.after) {
       return (
         <View style={styles.beforeAfterContainer}>
-          {/* Debug information */}
-          <Text style={styles.debugText}>
-            Before: {beforeAfterImages.before.substring(0, 30)}...
-            {'\n'}
-            After: {beforeAfterImages.after.substring(0, 30)}...
-          </Text>
-
           {showBeforeAfter ? (
             <>
               {!imageErrors.before ? (
-                <Image 
-                  source={{ uri: beforeAfterImages.before }} 
+                <Image
+                  source={{ uri: beforeAfterImages.before }}
                   style={styles.beforeAfterImage}
                   onError={() => {
                     console.error('Failed to load before image:', beforeAfterImages.before);
-                    setImageErrors(prev => ({ ...prev, before: true }));
+                    setImageErrors((prev) => ({ ...prev, before: true }));
                   }}
                   onLoad={() => console.log('Before image loaded successfully')}
                 />
               ) : (
                 <Text style={styles.errorText}>Failed to load before image</Text>
               )}
-              
-              <Animated.View style={[
-                styles.afterImageContainer,
-                { transform: [{ translateX: beforeAfterPosition }] },
-              ]}>
+
+              <Animated.View
+                style={[
+                  styles.afterImageContainer,
+                  { transform: [{ translateX: beforeAfterPosition }] },
+                ]}
+              >
                 {!imageErrors.after ? (
-                  <Image 
-                    source={{ uri: beforeAfterImages.after }} 
+                  <Image
+                    source={{ uri: beforeAfterImages.after }}
                     style={styles.beforeAfterImage}
                     onError={() => {
                       console.error('Failed to load after image:', beforeAfterImages.after);
-                      setImageErrors(prev => ({ ...prev, after: true }));
+                      setImageErrors((prev) => ({ ...prev, after: true }));
                     }}
                     onLoad={() => console.log('After image loaded successfully')}
                   />
@@ -234,15 +214,15 @@ function Post({
                   <Text style={styles.errorText}>Failed to load after image</Text>
                 )}
               </Animated.View>
-              
+
               <View style={styles.sliderContainer}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.sliderButton}
                   onPress={() => animateBeforeAfter(0)}
                 >
                   <Text style={styles.sliderText}>Before</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.sliderButton}
                   onPress={() => animateBeforeAfter(-width * 0.75)}
                 >
@@ -253,19 +233,19 @@ function Post({
           ) : (
             <View style={styles.beforeAfterGallery}>
               {!imageErrors.before ? (
-                <Image 
-                  source={{ uri: beforeAfterImages.before }} 
+                <Image
+                  source={{ uri: beforeAfterImages.before }}
                   style={styles.beforeAfterGalleryImage}
-                  onError={() => setImageErrors(prev => ({ ...prev, before: true }))}
+                  onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
                 />
               ) : (
                 <Text style={styles.errorText}>Before Image Error</Text>
               )}
               {!imageErrors.after ? (
-                <Image 
-                  source={{ uri: beforeAfterImages.after }} 
+                <Image
+                  source={{ uri: beforeAfterImages.after }}
                   style={styles.beforeAfterGalleryImage}
-                  onError={() => setImageErrors(prev => ({ ...prev, after: true }))}
+                  onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
                 />
               ) : (
                 <Text style={styles.errorText}>After Image Error</Text>
@@ -290,40 +270,40 @@ function Post({
             />
           </View>
         )}
-        
+
         {imageList?.length > 0 && (
           <View>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               pagingEnabled
-              showsHorizontalScrollIndicator={false} 
+              showsHorizontalScrollIndicator={false}
               style={styles.imageContainer}
               onMomentumScrollEnd={(event) => {
                 const slideIndex = Math.floor(
                   event.nativeEvent.contentOffset.x / (width * 0.8)
                 );
-                setCurrentImageIndex(slideIndex);
+                setImageErrors(slideIndex);
               }}
             >
               {imageList.map((img, index) => (
-                <Image 
-                  key={index} 
-                  source={{ uri: img }} 
-                  style={[styles.postImage, { width: width * 0.8 }]} 
+                <Image
+                  key={index}
+                  source={{ uri: img }}
+                  style={[styles.postImage, { width: width * 0.8 }]}
                   onError={(e) => console.error('Image error:', e.nativeEvent.error)}
                 />
               ))}
             </ScrollView>
-            
+
             {imageList.length > 1 && (
               <View style={styles.paginationContainer}>
                 {imageList.map((_, index) => (
-                  <View 
-                    key={index} 
+                  <View
+                    key={index}
                     style={[
                       styles.paginationDot,
                       currentImageIndex === index ? styles.paginationDotActive : null,
-                    ]} 
+                    ]}
                   />
                 ))}
               </View>
@@ -348,7 +328,7 @@ function Post({
             data={[...(Array.isArray(documentUrls) ? documentUrls : []), ...(Array.isArray(certificates) ? certificates : [])]}
             keyExtractor={(item, index) => `doc-${index}`}
             renderItem={({ item }) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.documentItem}
                 onPress={() => {
                   if (item.url) {
@@ -368,7 +348,7 @@ function Post({
             )}
             ListEmptyComponent={<Text style={styles.documentName}>No documents available</Text>}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={() => setIsDocumentsModalVisible(false)}
           >
@@ -379,17 +359,13 @@ function Post({
     </Modal>
   );
 
-  if (loading) {
-    return <ActivityIndicator size="large" color={styles.closeButton.backgroundColor} style={styles.loader} />;
-  }
-
   return (
     <View style={styles.postContainer}>
       {/* User info section */}
       <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile}>
-        <Image 
-          source={{ uri: userImage || 'https://via.placeholder.com/40' }} 
-          style={styles.userImage} 
+        <Image
+          source={{ uri: userImage || 'https://via.placeholder.com/40' }}
+          style={styles.userImage}
         />
         <View style={styles.userInfoText}>
           <View style={styles.usernameContainer}>
@@ -410,8 +386,8 @@ function Post({
       {categories.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
           {categories.map((category, idx) => (
-            <TouchableOpacity 
-              key={idx} 
+            <TouchableOpacity
+              key={idx}
               style={styles.categoryTag}
               onPress={() => navigation.navigate('CategorySearch', { category })}
             >
@@ -435,7 +411,7 @@ function Post({
           )}
         </TouchableOpacity>
       ) : null}
-      
+
       {/* Project timeline and cost */}
       {(projectTimeline || projectCost) && (
         <View style={styles.projectInfoContainer}>
@@ -460,27 +436,27 @@ function Post({
 
       {/* Media content */}
       {renderMediaContent()}
-      
+
       {/* Before/After toggle button */}
       {beforeAfterImages && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.beforeAfterButton}
           onPress={() => setShowBeforeAfter(!showBeforeAfter)}
         >
-          <MaterialCommunityIcons 
-            name="compare" 
-            size={18} 
-            color="#fff" 
+          <MaterialCommunityIcons
+            name="compare"
+            size={18}
+            color="#fff"
           />
           <Text style={styles.beforeAfterButtonText}>
             {showBeforeAfter ? "Show Gallery" : "Before & After"}
           </Text>
         </TouchableOpacity>
       )}
-      
+
       {/* Documents button */}
       {(documentUrls.length > 0 || certificates.length > 0) && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.documentsButton}
           onPress={() => setIsDocumentsModalVisible(true)}
         >
@@ -496,8 +472,8 @@ function Post({
 
       {/* Action buttons */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.actionButton} 
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={handleLike}
           accessible={true}
           accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
@@ -511,29 +487,31 @@ function Post({
           <Text style={[styles.actionText, isLiked ? styles.likedText : null]}>Like</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('CommentScreen', { postId })}
-        >
-          <FontAwesome name="comment-o" size={22} style={styles.unlikedIcon} />
-          <Text style={styles.actionText}>Comment</Text>
-        </TouchableOpacity>
-        
-        {userId !== ownerId && (
+        {allowComments && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('CommentScreen', { postId })}
+          >
+            <FontAwesome name="comment-o" size={22} style={styles.unlikedIcon} />
+            <Text style={styles.actionText}>Comment</Text>
+          </TouchableOpacity>
+        )}
+
+        {allowDirectHiring && userId !== ownerId && (
           <TouchableOpacity style={styles.actionButton} onPress={handleHireNow}>
             <MaterialIcons name="work" size={22} style={styles.unlikedIcon} />
             <Text style={styles.actionText}>Hire</Text>
           </TouchableOpacity>
         )}
-        
+
         <TouchableOpacity style={styles.actionButton} onPress={handleSharePost}>
           <FontAwesome name="share" size={22} style={styles.unlikedIcon} />
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
       </View>
-      
+
       {/* Pinned comment */}
-      {pinnedComment && pinnedComment.username && pinnedComment.text && (
+      {pinnedComment && pinnedComment.username && pinnedComment.text && allowComments && (
         <View style={styles.pinnedCommentContainer}>
           <View style={styles.pinnedCommentHeader}>
             <MaterialIcons name="push-pin" size={16} color={styles.pinnedCommentLabel.color} />

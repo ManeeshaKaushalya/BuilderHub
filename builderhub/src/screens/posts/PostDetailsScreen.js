@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { firestore } from '../../firebase/firebaseConfig';
+import { firestore } from '../../../firebase/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import Post from './Posts';
 

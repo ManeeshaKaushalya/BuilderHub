@@ -30,8 +30,8 @@ import ForgetPassword from './src/screens/ForgetPassword';
 import Sidebar from './src/screens/Sidebar';
 import SidebarRow from './src/screens/SidebarRow';
 import DarkModeScreen from './src/screens/DarkModeScreen';
-import ImageUpload from './src/screens/ImageUpload';
-import Posts from './src/screens/Posts';
+import ImageUpload from './src/screens/posts/ImageUpload';
+import Posts from './src/screens/posts/Posts';
 import UserProfile from './src/screens/UserProfile';
 import FilterSection from './src/screens/MarketScreens/FilterSection';
 import FormatPrice from './src/screens/MarketScreens/FormatPrice';
@@ -48,12 +48,12 @@ import ContactProfessional from './src/screens/ContactProfessional';
 import JobRequestForm from './src/screens/JobRequestForm';
 import WorkerChatScreen from './src/screens/WorkerChatScreen';
 import WorkerChatsList from './src/screens/WorkerChatList';
-import PostDetailsScreen from './src/screens/PostDetailsScreen';
+import PostDetailsScreen from './src/screens/posts/PostDetailsScreen';
 import MakeOrderScreen from './src/screens/MakeOrderScreen';
 import ShopOrdersScreen from './src/screens/ShopOrdersScreen';
 import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 import ChatBot from './src/screens/ChatBot';
-import PostCards from './src/screens/PostCards';
+import PostCards from './src/screens/posts/PostCards';
 import OrderAddressMap from './src/screens/OrderAddressMap';
 import EditProfile from './src/screens/EditProfile';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -61,6 +61,7 @@ import HireUserScreen from './src/screens/HireUserScreen';
 import HireRequestDetailsScreen from './src/screens/HireRequestDetailsScreen';
 import OrdersScreen from './src/screens/MarketScreens/OrderScreen';
 import OrderItemDetails from './src/screens/MarketScreens/OrderDetails';
+import PostListScreen from './src/screens/posts/PostListScreen';
 
 const Stack = createStackNavigator();
 
@@ -141,6 +142,7 @@ export default function App() {
                   <Stack.Screen name="HireRequestDetailsScreen" component={HireRequestDetailsScreen} />
                   <Stack.Screen name="OrdersScreen" component={OrdersScreen} />
                   <Stack.Screen name="OrderItemDetails" component={OrderItemDetails} />
+                  <Stack.Screen name="PostList" component={PostListScreen} />
                 </Stack.Navigator>
               </NavigationContainer>
               <Toast />

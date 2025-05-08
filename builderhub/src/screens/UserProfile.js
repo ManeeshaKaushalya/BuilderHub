@@ -8,7 +8,7 @@ import { getAuth } from "firebase/auth";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { firestore } from "../../firebase/firebaseConfig";
 import { ArrowLeft } from "lucide-react-native";
-import Post from "./Posts";
+import Post from "./posts/Posts";
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
