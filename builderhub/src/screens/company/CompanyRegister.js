@@ -1,187 +1,324 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { createUserWithEmailAndPassword } from '@firebase/auth';
-import { doc, setDoc, getFirestore } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
-import styles from '../../styles/ClientRegisterStyle';
+import styles, { COLORS } from '../../styles/UserRegisterStyles'; // Use UserRegisterStyles for consistency
+import { getStatusBarHeight } from 'react-native-status-bar-height';
+import { Linking } from 'react-native';
+
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
+if (!GOOGLE_API_KEY) {
+  throw new Error('Google API Key is missing. Set GOOGLE_API_KEY in .env');
+}
+const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const CompanyRegister = ({ navigation }) => {
-  const route = useRoute();
-
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
-  const [location, setLocation] = useState(route?.params?.location || '');
-  const [accountType, setAccountType] = useState('Company');
+  const [location, setLocation] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Handle location updates from MapScreen
-  useEffect(() => {
-    if (route.params?.location) {
-      setLocation(route.params.location);
-    }
-  }, [route.params?.location]);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [isMapLoading, setIsMapLoading] = useState(true);
+  const autocompleteRef = useRef(null);
+  const watchSubscription = useRef(null);
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     requestPermissions();
   }, []);
 
-  // Add useEffect to handle auto-navigation
   useEffect(() => {
-    let navigationTimer;
+    let timer;
     if (showSuccessModal) {
-      navigationTimer = setTimeout(() => {
+      timer = setTimeout(() => {
         setShowSuccessModal(false);
         navigation.navigate('Login');
       }, 2000);
     }
-    return () => {
-      if (navigationTimer) {
-        clearTimeout(navigationTimer);
-      }
-    };
+    return () => clearTimeout(timer);
   }, [showSuccessModal, navigation]);
 
-  const requestPermissions = async () => {
+  useEffect(() => {
+    let mounted = true;
+
+    if (showMapModal) {
+      (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            if (mounted) {
+              Alert.alert(
+                'Permission Denied',
+                'Location access is required. Please enable it in settings.',
+                [
+                  { text: 'Cancel', onPress: () => setShowMapModal(false) },
+                  { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                ]
+              );
+            }
+            return;
+          }
+
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          if (mounted) {
+            setCurrentLocation({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+          }
+
+          const subscription = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 5000,
+              distanceInterval: 20,
+            },
+            (newLocation) => {
+              if (mounted) {
+                setCurrentLocation({
+                  latitude: newLocation.coords.latitude,
+                  longitude: newLocation.coords.longitude,
+                });
+              }
+            }
+          );
+          if (mounted) watchSubscription.current = subscription;
+        } catch (error) {
+          if (mounted) {
+            console.error('Location error:', error);
+            Alert.alert('Error', 'Failed to access location. Please try again.');
+          }
+        } finally {
+          if (mounted) setIsMapLoading(false);
+        }
+      })();
+    }
+
+    return () => {
+      mounted = false;
+      if (watchSubscription.current) {
+        watchSubscription.current.remove();
+      }
+    };
+  }, [showMapModal]);
+
+  const requestPermissions = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Camera roll access is needed to upload profile images.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, []);
+
+  const handleImageUpload = useCallback(async () => {
     try {
+      setIsUploadingImage(true);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'We need camera roll permissions to upload images.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Permission Denied', 'Camera roll access is required.');
+        return null;
       }
-    } catch (error) {
-      console.error('Error requesting permissions:', error);
-      Alert.alert('Error', 'Failed to request permissions');
-    }
-  };
 
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const handleImageUpload = async () => {
-    try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1,
+        quality: 0.8,
       });
 
-      if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        setProfileImage(uri);
+      if (result.canceled) return null;
 
-        // Upload image to Firebase Storage
-        const storage = getStorage();
-        const storageRef = ref(storage, `profileImages/${new Date().getTime()}`);
-        const response = await fetch(uri);
-        const blob = await response.blob();
+      const uri = result.assets[0].uri;
+      setProfileImage(uri);
 
-        const uploadTask = uploadBytesResumable(storageRef, blob);
+      const storage = getStorage();
+      const imageRef = ref(storage, `profileImages/${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`);
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      if (blob.size > MAX_FILE_SIZE) {
+        Alert.alert('Error', 'Image size exceeds 5MB.');
+        return null;
+      }
+
+      const uploadTask = uploadBytesResumable(imageRef, blob);
+      return new Promise((resolve, reject) => {
         uploadTask.on(
           'state_changed',
-          snapshot => { },
-          error => {
-            console.error('Image upload failed:', error);
-            Alert.alert('Error', 'Failed to upload image');
+          null,
+          (error) => {
+            console.error('Image upload error:', error);
+            Alert.alert('Error', 'Failed to upload image.');
+            reject(error);
           },
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             setProfileImage(downloadURL);
+            resolve(downloadURL);
           }
         );
-      }
+      });
     } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image');
+      console.error('Image upload failed:', error);
+      Alert.alert('Error', 'Unable to upload image.');
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, []);
+
+  const validateForm = useCallback(() => {
+    const errors = [];
+    if (!companyName.trim()) errors.push('Company name is required.');
+    if (!email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      errors.push('A valid email is required.');
+    }
+    if (!password.trim() || password.length < 6) errors.push('Password must be at least 6 characters.');
+    if (!location.trim()) errors.push('Location is required.');
+    return errors;
+  }, [companyName, email, password, location]);
+
+  const toggleShowPassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
+
+  const retryOperation = async (operation, maxAttempts = 3) => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
     }
   };
 
-  // Success Modal Component
-  const SuccessModal = () => (
-    <Modal
-      transparent={true}
-      visible={showSuccessModal}
-      animationType="fade"
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Icon name="check-circle" size={50} color={styles.modalContent.backgroundColor} />
-          <Text style={styles.modalTitle}>Registration Successful!</Text>
-          <Text style={styles.modalText}>Your account has been created successfully.</Text>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const handleRegister = async () => {
-    if (!companyName || !email || !password) {
-      Alert.alert('Error', 'Please fill in all required fields');
+  const handleRegister = useCallback(async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
       return;
     }
 
-    if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Register user with Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await retryOperation(() =>
+        createUserWithEmailAndPassword(auth, email.trim(), password)
+      );
       const user = userCredential.user;
+      const imageUrl = profileImage?.startsWith('http') ? profileImage : await handleImageUpload();
 
-      // Prepare company data
       const companyData = {
-        name: companyName,
-        email,
-        accountType,
-        companyDescription,
-        location,
-        profileImage: profileImage || '',
+        uid: user.uid,
+        name: companyName.trim(),
+        email: email.trim(),
+        accountType: 'Company',
+        companyDescription: companyDescription.trim() || '',
+        location: location.trim(),
+        profileImage: imageUrl || '',
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      // Create document reference directly using the firestore instance
-      const userDocRef = doc(firestore, 'users', user.uid);
-
-      // Save company data to Firestore
-      await setDoc(userDocRef, companyData);
-
-      setIsLoading(false);
+      await retryOperation(() => setDoc(doc(firestore, 'users', user.uid), companyData));
       setShowSuccessModal(true);
     } catch (error) {
-      setIsLoading(false);
-      console.error('Registration error:', error);
-      let errorMessage = 'Failed to register';
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please use a different email.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password should be at least 6 characters long.';
+      let errorMessage = 'Registration failed.';
+      switch (error.code) {
+        case 'auth/email-already-in-use': errorMessage = 'Email already in use.'; break;
+        case 'auth/invalid-email': errorMessage = 'Invalid email format.'; break;
+        case 'auth/weak-password': errorMessage = 'Password must be at least 6 characters.'; break;
+        case 'auth/network-request-failed': errorMessage = 'Network error. Please try again.'; break;
+        default: errorMessage = error.message;
       }
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Registration Error', errorMessage);
+      if (__DEV__) console.error('Registration error:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [companyName, email, password, companyDescription, location, profileImage, handleImageUpload, validateForm]);
 
-  const handleLocationSelect = () => {
-    navigation.navigate('MapScreen', {
-      registrationType: 'company',
-      previousLocation: location
+  const handleLocationSelect = useCallback(() => {
+    setShowMapModal(true);
+  }, []);
+
+  const handleMapLocationSelect = useCallback((data, details) => {
+    const { lat, lng } = details.geometry.location;
+    setSelectedLocation({ latitude: lat, longitude: lng });
+    autocompleteRef.current?.blur();
+  }, []);
+
+  const handleMapPress = useCallback((event) => {
+    setSelectedLocation(event.nativeEvent.coordinate);
+  }, []);
+
+  const handleConfirmLocation = useCallback(async () => {
+    let locationString;
+    if (selectedLocation) {
+      locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+    } else if (currentLocation) {
+      Alert.alert(
+        'No Location Selected',
+        'Would you like to use your current location?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes',
+            onPress: () => {
+              locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+              setLocation(locationString);
+              setShowMapModal(false);
+            },
+          },
+        ]
+      );
+      return;
+    } else {
+      Alert.alert('Error', 'No location available. Please try again.');
+      return;
+    }
+
+    setLocation(locationString);
+    setShowMapModal(false);
+  }, [selectedLocation, currentLocation]);
+
+  const handleInputFocus = (index) => {
+    scrollViewRef.current?.scrollTo({
+      y: index * 80,
+      animated: true,
     });
   };
 
@@ -189,105 +326,273 @@ const CompanyRegister = ({ navigation }) => {
     <>
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={styles.button.backgroundColor} />
-          <Text style={styles.modalText}>Creating your account...</Text>
+          <ActivityIndicator size="large" color={COLORS.ACCENT} />
+          <Text style={styles.loadingText}>Creating your account...</Text>
         </View>
       )}
-      <SuccessModal />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Create Your Account</Text>
 
-        <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+      <Modal transparent visible={showSuccessModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Icon name="check-circle" size={50} color={COLORS.SUCCESS} />
+            <Text style={styles.modalTitle}>Registration Successful!</Text>
+            <Text style={styles.modalText}>Redirecting to login...</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        onRequestClose={() => setShowMapModal(false)}
+      >
+        <View style={styles.mapContainer}>
+          {isMapLoading || !currentLocation ? (
+            <View style={styles.mapLoadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+              <Text style={styles.mapLoadingText}>Loading map...</Text>
+            </View>
           ) : (
-            <Icon name="camera" size={50} color={styles.uploadText.color} />
+            <>
+              <View style={styles.searchContainer} pointerEvents="box-none">
+                <GooglePlacesAutocomplete
+                  ref={autocompleteRef}
+                  placeholder="Search for a place"
+                  fetchDetails={true}
+                  debounce={300}
+                  enablePoweredByContainer={false}
+                  onPress={handleMapLocationSelect}
+                  onFail={(error) => console.error('GooglePlacesAutocomplete error:', error)}
+                  query={{
+                    key: GOOGLE_API_KEY,
+                    language: 'en',
+                  }}
+                  styles={{
+                    container: {
+                      flex: 0,
+                      position: 'absolute',
+                      width: '100%',
+                      zIndex: 9999,
+                    },
+                    textInput: styles.searchInput,
+                    listView: {
+                      backgroundColor: COLORS.LIGHT_BG,
+                      zIndex: 10000,
+                    },
+                  }}
+                  textInputProps={{
+                    autoCorrect: false,
+                    autoCapitalize: 'none',
+                    accessibilityLabel: 'Search location',
+                    accessibilityHint: 'Enter a place name to find it on the map',
+                  }}
+                  keyboardShouldPersistTaps="handled"
+                />
+              </View>
+
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.map}
+                initialRegion={{ ...currentLocation, ...INITIAL_DELTA }}
+                region={selectedLocation ? { ...selectedLocation, ...INITIAL_DELTA } : undefined}
+                showsUserLocation
+                showsMyLocationButton
+                onPress={handleMapPress}
+                accessibilityLabel="Interactive map for selecting a location"
+              >
+                {currentLocation && (
+                  <Marker
+                    coordinate={currentLocation}
+                    title="Your Location"
+                    pinColor="blue"
+                    accessibilityLabel="Your current location marker"
+                    accessibilityHint="Your current location on the map"
+                  />
+                )}
+                {selectedLocation && (
+                  <Marker
+                    coordinate={selectedLocation}
+                    title="Selected Location"
+                    pinColor="red"
+                    accessibilityLabel="Selected location marker"
+                    accessibilityHint="Tap to view or change the selected location"
+                  />
+                )}
+              </MapView>
+
+              <TouchableOpacity
+                style={styles.mapButton}
+                onPress={handleConfirmLocation}
+                accessibilityLabel="Confirm selected location"
+                accessibilityRole="button"
+              >
+                <Text style={styles.mapButtonText}>Confirm Location</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.mapButton, styles.cancelButton]}
+                onPress={() => setShowMapModal(false)}
+                accessibilityLabel="Cancel location selection"
+                accessibilityRole="button"
+              >
+                <Text style={styles.mapButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
           )}
-        </TouchableOpacity>
-        <Text style={styles.uploadText}>Upload Profile Picture</Text>
-
-        <View style={styles.inputContainer}>
-          <Icon name="user" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
-          <TextInput
-            style={styles.input}
-            placeholder="Name"
-            placeholderTextColor={styles.uploadText.color}
-            value={companyName}
-            onChangeText={setCompanyName}
-          />
         </View>
+      </Modal>
 
-        <View style={styles.inputContainer}>
-          <Icon name="envelope" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={styles.uploadText.color}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Icon name="lock" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={styles.uploadText.color}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            accessibilityLabel="Password input"
-          />
-          <TouchableOpacity
-            onPress={toggleShowPassword}
-            style={styles.eyeIcon}
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-          >
-            <Icon
-              name={showPassword ? 'eye' : 'eye-slash'}
-              size={20}
-              color={styles.inputContainer.borderColor}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Icon name="info-circle" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
-          <TextInput
-            style={styles.input}
-            placeholder="Bio"
-            placeholderTextColor={styles.uploadText.color}
-            value={companyDescription}
-            onChangeText={setCompanyDescription}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.inputContainer} onPress={handleLocationSelect}>
-          <Icon name="map-marker" size={20} style={[styles.icon, { color: styles.inputContainer.borderColor }]} />
-          <TextInput
-            style={styles.input}
-            placeholder="Select Location"
-            placeholderTextColor={styles.uploadText.color}
-            value={location}
-            editable={false}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Register</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>
-            Already have an account? <Text style={styles.linkBold}>Login here</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={getStatusBarHeight() + 20}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 20,
+            paddingBottom: 100,
+            alignItems: 'center',
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.title} accessibilityLabel="Create Your Company Account">
+            Create Your Company Account
           </Text>
-        </TouchableOpacity>
-      </ScrollView>
+
+          <View style={{ alignItems: 'center', width: '100%' }}>
+            <TouchableOpacity
+              style={styles.imageUploadContainer}
+              onPress={handleImageUpload}
+              disabled={isUploadingImage}
+              accessibilityLabel="Upload company profile picture"
+              accessibilityRole="button"
+            >
+              {isUploadingImage ? (
+                <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+              ) : profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.profileImage}
+                  accessibilityRole="image"
+                  accessibilityLabel="Company profile picture"
+                />
+              ) : (
+                <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.uploadText}>Upload Company Logo</Text>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="building" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Company Name"
+              value={companyName}
+              onChangeText={setCompanyName}
+              onFocus={() => handleInputFocus(0)}
+              accessibilityLabel="Company name input"
+              accessibilityRole="text"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="envelope" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              onFocus={() => handleInputFocus(1)}
+              accessibilityLabel="Email input"
+              accessibilityRole="text"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="lock" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              onFocus={() => handleInputFocus(2)}
+              accessibilityLabel="Password input"
+              accessibilityRole="text"
+            />
+            <TouchableOpacity
+              onPress={toggleShowPassword}
+              style={styles.eyeIcon}
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              accessibilityRole="button"
+            >
+              <Icon
+                name={showPassword ? 'eye' : 'eye-slash'}
+                size={20}
+                color={styles.inputContainer.borderColor}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="info-circle" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Company Description (optional)"
+              value={companyDescription}
+              onChangeText={setCompanyDescription}
+              onFocus={() => handleInputFocus(3)}
+              accessibilityLabel="Company description input"
+              accessibilityRole="text"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="map-marker" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TouchableOpacity
+              onPress={handleLocationSelect}
+              style={styles.locationInputWrapper}
+              accessibilityLabel="Select company location"
+              accessibilityRole="button"
+            >
+              <TextInput
+                style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
+                placeholder="Location"
+                value={location}
+                editable={false}
+                onFocus={() => handleInputFocus(4)}
+                accessibilityLabel="Location input"
+                accessibilityRole="text"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, isLoading && { opacity: 0.7 }]}
+            onPress={handleRegister}
+            disabled={isLoading}
+            accessibilityLabel="Register company button"
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Register</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.link}>
+              Already have an account? <Text style={styles.linkBold}>Login here</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 20 }} /> {/* Spacer */}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 };
 
-export default CompanyRegister;
+export default React.memo(CompanyRegister);
