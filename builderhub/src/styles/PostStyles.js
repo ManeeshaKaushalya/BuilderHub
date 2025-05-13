@@ -16,10 +16,10 @@ const COLORS = {
 };
 
 const styles = StyleSheet.create({
-  postContainer: { 
-    padding: 15, 
-    borderRadius: 12, 
-    marginBottom: 20, 
+  postContainer: {
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -27,9 +27,9 @@ const styles = StyleSheet.create({
     elevation: 3,
     backgroundColor: COLORS.LIGHT_BG,
   },
-  userInfo: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
     padding: 5,
   },
@@ -40,22 +40,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  userImage: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
+  userImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginRight: 10,
   },
-  username: { 
-    fontWeight: 'bold', 
+  username: {
+    fontWeight: 'bold',
     fontSize: 16,
     color: COLORS.LIGHT_TEXT,
   },
-  verifiedIcon: { 
+  verifiedIcon: {
     marginLeft: 4,
   },
-  uploadDate: { 
-    fontSize: 12, 
+  uploadDate: {
+    fontSize: 12,
     color: COLORS.GRAY,
   },
   categoriesContainer: {
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.ACCENT,
   },
-  caption: { 
-    marginTop: 5, 
-    fontSize: 15, 
+  caption: {
+    marginTop: 5,
+    fontSize: 15,
     lineHeight: 22,
     color: COLORS.LIGHT_TEXT,
   },
@@ -103,14 +103,15 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     color: COLORS.LIGHT_TEXT,
   },
-  imageContainer: { 
+  imageContainer: {
     marginTop: 10,
   },
-  postImage: { 
-    height: 240, 
-    borderRadius: 8, 
+  postImage: {
+    borderRadius: 8,
     marginRight: 10,
     marginTop: 5,
+    resizeMode: 'contain', // Show full image
+    maxHeight: 400, // Cap max height
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -128,18 +129,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.PRIMARY,
   },
   videoContainer: {
-    height: 240,
     borderRadius: 8,
     marginTop: 10,
     overflow: 'hidden',
   },
   video: {
     width: '100%',
-    height: '100%',
+    height: 240, // Fixed height for videos, adjust if needed
   },
   beforeAfterContainer: {
     position: 'relative',
-    height: 240,
     marginTop: 10,
     overflow: 'hidden',
     borderRadius: 8,
@@ -147,15 +146,13 @@ const styles = StyleSheet.create({
   },
   beforeAfterImage: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain', // Show full image
   },
   afterImageContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     width: '100%',
-    height: '100%',
   },
   sliderContainer: {
     position: 'absolute',
@@ -182,9 +179,9 @@ const styles = StyleSheet.create({
   },
   beforeAfterGalleryImage: {
     width: width * 0.38,
-    height: 200,
     borderRadius: 8,
-    resizeMode: 'cover',
+    resizeMode: 'contain', // Show full image
+    maxHeight: 300, // Cap max height
   },
   beforeAfterButton: {
     flexDirection: 'row',
@@ -216,40 +213,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
-  statsText: { 
-    marginTop: 15, 
-    paddingVertical: 10, 
+  statsText: {
+    marginTop: 15,
+    paddingVertical: 10,
     fontSize: 14,
     color: COLORS.GRAY,
   },
-  actionButtons: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 5,
     borderTopWidth: 1,
     borderTopColor: COLORS.BORDER,
     paddingTop: 10,
   },
-  actionButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 8,
     flex: 1,
     justifyContent: 'center',
   },
-  actionText: { 
-    marginLeft: 8, 
+  actionText: {
+    marginLeft: 8,
     fontSize: 12,
     color: COLORS.LIGHT_TEXT,
   },
   likedIcon: {
-    color: COLORS.ERROR, // Red color for liked heart
+    color: COLORS.ERROR,
   },
   unlikedIcon: {
-    color: COLORS.LIGHT_TEXT, // Default color for unliked heart
+    color: COLORS.LIGHT_TEXT,
   },
   likedText: {
-    color: COLORS.ERROR, // Red color for "Like" text when liked
+    color: COLORS.ERROR,
   },
   pinnedCommentContainer: {
     marginTop: 15,
@@ -281,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    width: '80%',
+    width: Math.min(width * 0.9, 400), // Responsive width
     borderRadius: 12,
     padding: 20,
     maxHeight: '70%',
@@ -317,7 +314,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  loader: { 
+  loader: {
     marginVertical: 20,
   },
   debugText: {

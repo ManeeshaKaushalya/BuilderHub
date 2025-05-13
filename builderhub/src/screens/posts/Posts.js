@@ -32,10 +32,10 @@ function Post({
   projectCost = null,
   documentUrls = [],
   certificates = [],
-  allowComments = true, // Default to true for backward compatibility
-  allowDirectHiring = true, // Default to true for backward compatibility
+  allowComments = true,
+  allowDirectHiring = true,
 }) {
-  // Suppress console logs within this component
+  // Suppress console logs within this component (consider removing for debugging)
   useEffect(() => {
     const originalConsoleLog = console.log;
     const originalConsoleWarn = console.warn;
@@ -69,26 +69,84 @@ function Post({
   const [isDocumentsModalVisible, setIsDocumentsModalVisible] = useState(false);
   const [showFullCaption, setShowFullCaption] = useState(false);
   const [imageErrors, setImageErrors] = useState({ before: false, after: false });
+  const [imageDimensions, setImageDimensions] = useState({}); // Store dimensions for imageList
+  const [beforeAfterDimensions, setBeforeAfterDimensions] = useState({
+    before: { width: 1, height: 1 },
+    after: { width: 1, height: 1 },
+  });
 
+  // Fetch comments and handle cleanup
   useEffect(() => {
     if (!postId) {
-      console.error('No postId provided!');
+      Alert.alert('Error', 'No post ID provided!');
       return;
     }
 
     if (!userId) {
-      console.log('No authenticated user for Post component!');
+      Alert.alert('Error', 'No authenticated user!');
       return;
     }
 
-    // Fetch comments
     const unsubscribeComments = fetchComments();
 
     return () => {
-      console.log('Unsubscribing from comments for post:', postId);
       unsubscribeComments();
     };
   }, [postId, userId]);
+
+  // Fetch image dimensions for imageList
+  useEffect(() => {
+    if (imageList?.length > 0) {
+      imageList.forEach((uri, index) => {
+        Image.getSize(
+          uri,
+          (width, height) => {
+            setImageDimensions((prev) => ({
+              ...prev,
+              [index]: { width, height },
+            }));
+          },
+          (error) => {
+            console.error(`Failed to get size for image ${uri}:`, error);
+            setImageDimensions((prev) => ({
+              ...prev,
+              [index]: { width: 1, height: 1 }, // Fallback
+            }));
+          }
+        );
+      });
+    }
+  }, [imageList]);
+
+  // Fetch dimensions for before/after images
+  useEffect(() => {
+    if (beforeAfterImages?.before && beforeAfterImages?.after) {
+      Image.getSize(
+        beforeAfterImages.before,
+        (width, height) => {
+          setBeforeAfterDimensions((prev) => ({
+            ...prev,
+            before: { width, height },
+          }));
+        },
+        (error) => {
+          console.error(`Failed to get size for before image:`, error);
+        }
+      );
+      Image.getSize(
+        beforeAfterImages.after,
+        (width, height) => {
+          setBeforeAfterDimensions((prev) => ({
+            ...prev,
+            after: { width, height },
+          }));
+        },
+        (error) => {
+          console.error(`Failed to get size for after image:`, error);
+        }
+      );
+    }
+  }, [beforeAfterImages]);
 
   const fetchComments = () => {
     try {
@@ -105,6 +163,7 @@ function Post({
         setCommentsCount(commentsData.length);
       }, (error) => {
         console.error('Error fetching comments:', error);
+        Alert.alert('Error', 'Failed to fetch comments');
       });
 
       return unsubscribe;
@@ -143,6 +202,7 @@ function Post({
       }
     } catch (error) {
       console.error('Error liking post:', error);
+      Alert.alert('Error', 'Failed to like post');
     }
   };
 
@@ -153,6 +213,7 @@ function Post({
       });
     } catch (error) {
       console.error('Error sharing post:', error);
+      Alert.alert('Error', 'Failed to share post');
     }
   };
 
@@ -176,45 +237,43 @@ function Post({
 
   const renderMediaContent = () => {
     if (beforeAfterImages && beforeAfterImages.before && beforeAfterImages.after) {
+      const maxAspectRatio = Math.max(
+        beforeAfterDimensions.before.height / beforeAfterDimensions.before.width,
+        beforeAfterDimensions.after.height / beforeAfterDimensions.after.width
+      );
+      const containerHeight = Math.min((width * 0.8) * maxAspectRatio, 400); // Cap max height
+
       return (
-        <View style={styles.beforeAfterContainer}>
+        <View style={[styles.beforeAfterContainer, { height: containerHeight }]}>
           {showBeforeAfter ? (
             <>
               {!imageErrors.before ? (
                 <Image
                   source={{ uri: beforeAfterImages.before }}
-                  style={styles.beforeAfterImage}
-                  onError={() => {
-                    console.error('Failed to load before image:', beforeAfterImages.before);
-                    setImageErrors((prev) => ({ ...prev, before: true }));
-                  }}
-                  onLoad={() => console.log('Before image loaded successfully')}
+                  style={[styles.beforeAfterImage, { height: containerHeight }]}
+                  onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
+                  accessibilityLabel="Before image of the project"
                 />
               ) : (
                 <Text style={styles.errorText}>Failed to load before image</Text>
               )}
-
               <Animated.View
                 style={[
                   styles.afterImageContainer,
-                  { transform: [{ translateX: beforeAfterPosition }] },
+                  { transform: [{ translateX: beforeAfterPosition }], height: containerHeight },
                 ]}
               >
                 {!imageErrors.after ? (
                   <Image
                     source={{ uri: beforeAfterImages.after }}
-                    style={styles.beforeAfterImage}
-                    onError={() => {
-                      console.error('Failed to load after image:', beforeAfterImages.after);
-                      setImageErrors((prev) => ({ ...prev, after: true }));
-                    }}
-                    onLoad={() => console.log('After image loaded successfully')}
+                    style={[styles.beforeAfterImage, { height: containerHeight }]}
+                    onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
+                    accessibilityLabel="After image of the project"
                   />
                 ) : (
                   <Text style={styles.errorText}>Failed to load after image</Text>
                 )}
               </Animated.View>
-
               <View style={styles.sliderContainer}>
                 <TouchableOpacity
                   style={styles.sliderButton}
@@ -235,8 +294,16 @@ function Post({
               {!imageErrors.before ? (
                 <Image
                   source={{ uri: beforeAfterImages.before }}
-                  style={styles.beforeAfterGalleryImage}
+                  style={[
+                    styles.beforeAfterGalleryImage,
+                    {
+                      height:
+                        (width * 0.38) *
+                        (beforeAfterDimensions.before.height / beforeAfterDimensions.before.width),
+                    },
+                  ]}
                   onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
+                  accessibilityLabel="Before image of the project"
                 />
               ) : (
                 <Text style={styles.errorText}>Before Image Error</Text>
@@ -244,8 +311,16 @@ function Post({
               {!imageErrors.after ? (
                 <Image
                   source={{ uri: beforeAfterImages.after }}
-                  style={styles.beforeAfterGalleryImage}
+                  style={[
+                    styles.beforeAfterGalleryImage,
+                    {
+                      height:
+                        (width * 0.38) *
+                        (beforeAfterDimensions.after.height / beforeAfterDimensions.after.width),
+                    },
+                  ]}
                   onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
+                  accessibilityLabel="After image of the project"
                 />
               ) : (
                 <Text style={styles.errorText}>After Image Error</Text>
@@ -267,6 +342,7 @@ function Post({
               resizeMode="contain"
               style={styles.video}
               onError={(e) => console.error('Video error:', e)}
+              accessibilityLabel="Video content of the project"
             />
           </View>
         )}
@@ -282,17 +358,22 @@ function Post({
                 const slideIndex = Math.floor(
                   event.nativeEvent.contentOffset.x / (width * 0.8)
                 );
-                setImageErrors(slideIndex);
+                setCurrentImageIndex(slideIndex);
               }}
             >
-              {imageList.map((img, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: img }}
-                  style={[styles.postImage, { width: width * 0.8 }]}
-                  onError={(e) => console.error('Image error:', e.nativeEvent.error)}
-                />
-              ))}
+              {imageList.map((img, index) => {
+                const aspectRatio = imageDimensions[index]?.height / imageDimensions[index]?.width || 1;
+                const imageHeight = Math.min((width * 0.8) * aspectRatio, 400); // Cap max height
+                return (
+                  <Image
+                    key={index}
+                    source={{ uri: img }}
+                    style={[styles.postImage, { width: width * 0.8, height: imageHeight }]}
+                    onError={(e) => console.error('Image error:', e.nativeEvent.error)}
+                    accessibilityLabel={`Image ${index + 1} of the project`}
+                  />
+                );
+              })}
             </ScrollView>
 
             {imageList.length > 1 && (
@@ -335,10 +416,11 @@ function Post({
                     navigation.navigate('DocumentViewer', { url: item.url });
                     setIsDocumentsModalVisible(false);
                   } else {
-                    console.error('Invalid document URL:', item);
                     Alert.alert('Error', 'Invalid document URL');
                   }
                 }}
+                accessibilityLabel={`View document: ${item.name || 'Document'}`}
+                accessibilityRole="button"
               >
                 <MaterialIcons name="description" size={24} color={styles.documentName.color} />
                 <Text style={styles.documentName}>
@@ -351,6 +433,8 @@ function Post({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => setIsDocumentsModalVisible(false)}
+            accessibilityLabel="Close documents modal"
+            accessibilityRole="button"
           >
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
@@ -362,7 +446,7 @@ function Post({
   return (
     <View style={styles.postContainer}>
       {/* User info section */}
-      <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile}>
+      <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile} accessibilityLabel={`View ${username}'s profile`} accessibilityRole="button">
         <Image
           source={{ uri: userImage || 'https://via.placeholder.com/40' }}
           style={styles.userImage}
@@ -390,6 +474,8 @@ function Post({
               key={idx}
               style={styles.categoryTag}
               onPress={() => navigation.navigate('CategorySearch', { category })}
+              accessibilityLabel={`Search for ${category} category`}
+              accessibilityRole="button"
             >
               <Text style={styles.categoryText}>#{category}</Text>
             </TouchableOpacity>
@@ -399,7 +485,7 @@ function Post({
 
       {/* Caption */}
       {caption ? (
-        <TouchableOpacity onPress={() => setShowFullCaption(!showFullCaption)}>
+        <TouchableOpacity onPress={() => setShowFullCaption(!showFullCaption)} accessibilityLabel={showFullCaption ? "Collapse caption" : "Expand caption"} accessibilityRole="button">
           <Text style={[
             styles.caption,
             !showFullCaption && styles.captionTruncated,
@@ -442,6 +528,8 @@ function Post({
         <TouchableOpacity
           style={styles.beforeAfterButton}
           onPress={() => setShowBeforeAfter(!showBeforeAfter)}
+          accessibilityLabel={showBeforeAfter ? "Show gallery view" : "Show before and after view"}
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="compare"
@@ -459,6 +547,8 @@ function Post({
         <TouchableOpacity
           style={styles.documentsButton}
           onPress={() => setIsDocumentsModalVisible(true)}
+          accessibilityLabel={`View ${documentUrls.length + certificates.length} documents`}
+          accessibilityRole="button"
         >
           <MaterialIcons name="attach-file" size={18} color="#fff" />
           <Text style={styles.documentsButtonText}>
@@ -491,6 +581,8 @@ function Post({
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('CommentScreen', { postId })}
+            accessibilityLabel="View and add comments"
+            accessibilityRole="button"
           >
             <FontAwesome name="comment-o" size={22} style={styles.unlikedIcon} />
             <Text style={styles.actionText}>Comment</Text>
@@ -498,13 +590,13 @@ function Post({
         )}
 
         {allowDirectHiring && userId !== ownerId && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleHireNow}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleHireNow} accessibilityLabel="Hire this user" accessibilityRole="button">
             <MaterialIcons name="work" size={22} style={styles.unlikedIcon} />
             <Text style={styles.actionText}>Hire</Text>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.actionButton} onPress={handleSharePost}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleSharePost} accessibilityLabel="Share this post" accessibilityRole="button">
           <FontAwesome name="share" size={22} style={styles.unlikedIcon} />
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>

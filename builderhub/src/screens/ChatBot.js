@@ -1,10 +1,11 @@
 // ChatBot.js
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { OPENAIAPI_KEY } from "@env";
 
 export default function ChatBot({ navigation }) {
   const [message, setMessage] = useState('');
@@ -14,8 +15,8 @@ export default function ChatBot({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const flatListRef = useRef();
 
-  // Replace with your actual OpenAI API key
-  const OPENAI_API_KEY = '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';
+  // Replace with your actual OpenAI API key (securely stored, e.g., in environment variables)
+  const OPENAI_API_KEY = OPENAIAPI_KEY ;
 
   // Load chat history on component mount
   useEffect(() => {
@@ -24,7 +25,6 @@ export default function ChatBot({ navigation }) {
         const savedMessages = await AsyncStorage.getItem('constructionAssistantChat');
         if (savedMessages) {
           const parsedMessages = JSON.parse(savedMessages);
-          // Only set messages if there are saved messages
           if (parsedMessages && parsedMessages.length > 0) {
             setMessages(parsedMessages);
           }
@@ -53,23 +53,20 @@ export default function ChatBot({ navigation }) {
   const sendMessage = async () => {
     if (message.trim() === '') return;
     
-    // Add user message to the chat
     const userMessage = { id: Date.now().toString(), text: message, sender: 'user' };
     setMessages(prevMessages => [...prevMessages, userMessage]);
     setMessage('');
     setIsLoading(true);
 
     try {
-      // Create a construction-focused system prompt
       const systemPrompt = `You are a knowledgeable assistant specializing in the construction industry. 
       Provide accurate, helpful information about construction materials, techniques, safety regulations, 
       building codes, project management, and cost estimation. Keep answers concise and practical.`;
 
-      // Call OpenAI API
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: 'gpt-4-turbo', // or another appropriate model
+          model: 'gpt-4-turbo',
           messages: [
             { role: 'system', content: systemPrompt },
             ...messages.map(msg => ({
@@ -88,7 +85,6 @@ export default function ChatBot({ navigation }) {
         }
       );
 
-      // Add bot response to chat
       const botMessage = {
         id: (Date.now() + 1).toString(),
         text: response.data.choices[0].message.content.trim(),
@@ -98,7 +94,6 @@ export default function ChatBot({ navigation }) {
       setMessages(prevMessages => [...prevMessages, botMessage]);
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
-      // Add error message
       const errorMessage = {
         id: (Date.now() + 1).toString(),
         text: "Sorry, I'm having trouble connecting right now. Please try again later.",
@@ -112,7 +107,6 @@ export default function ChatBot({ navigation }) {
 
   const clearConversation = async () => {
     try {
-      // Keep only the initial greeting message
       const initialMessage = [{ 
         id: '1', 
         text: 'Hello! I am your Construction Assistant. How can I help you today?', 
@@ -124,6 +118,18 @@ export default function ChatBot({ navigation }) {
     } catch (error) {
       console.error('Error clearing conversation:', error);
     }
+  };
+
+  // Show confirmation dialog before clearing chat
+  const confirmClearChat = () => {
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear the conversation? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: clearConversation }
+      ]
+    );
   };
 
   return (
@@ -141,7 +147,7 @@ export default function ChatBot({ navigation }) {
         <Text style={styles.headerText}>Construction Assistant</Text>
         <TouchableOpacity 
           style={styles.clearButton}
-          onPress={clearConversation}
+          onPress={confirmClearChat} // Updated to use confirmation dialog
         >
           <Ionicons name="trash-outline" size={24} color="#fff" />
         </TouchableOpacity>
@@ -205,7 +211,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 15,
-    backgroundColor: '#F4B018', // Construction orange
+    backgroundColor: '#F4B018',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
