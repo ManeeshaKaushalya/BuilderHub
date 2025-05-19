@@ -19,7 +19,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
 import styles, { COLORS } from '../../styles/UserRegisterStyles';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
@@ -33,11 +33,11 @@ if (!GOOGLE_API_KEY) {
 const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-const ShopRegister = ({ navigation }) => {
-  const [shopName, setShopName] = useState('');
-  const [shopEmail, setShopEmail] = useState('');
-  const [shopPassword, setShopPassword] = useState('');
-  const [shopDescription, setShopDescription] = useState('');
+const ClientRegister = ({ navigation }) => {
+  const [clientName, setClientName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [clientDescription, setClientDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   const [location, setLocation] = useState(''); // Stores latitude,longitude for DB
   const [locationAddress, setLocationAddress] = useState(''); // Stores human-readable address for UI and DB
@@ -55,6 +55,11 @@ const ShopRegister = ({ navigation }) => {
 
   useEffect(() => {
     requestPermissions();
+    return () => {
+      if (watchSubscription.current) {
+        watchSubscription.current.remove();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -151,7 +156,7 @@ const ShopRegister = ({ navigation }) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Camera roll access is required.');
-        return null;
+        return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -161,19 +166,27 @@ const ShopRegister = ({ navigation }) => {
         quality: 0.8,
       });
 
-      if (result.canceled) return null;
+      if (result.canceled) return;
 
       const uri = result.assets[0].uri;
       setProfileImage(uri);
+    } catch (error) {
+      console.error('Image selection error:', error);
+      Alert.alert('Error', 'Unable to select image.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, []);
 
+  const uploadImageToStorage = useCallback(async (uri, userId) => {
+    try {
       const storage = getStorage();
-      const imageRef = ref(storage, `profileImages/${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`);
+      const imageRef = ref(storage, `profileImages/${userId}.jpg`);
       const response = await fetch(uri);
       const blob = await response.blob();
 
       if (blob.size > MAX_FILE_SIZE) {
-        Alert.alert('Error', 'Image size exceeds 5MB.');
-        return null;
+        throw new Error('Image size exceeds 5MB.');
       }
 
       const uploadTask = uploadBytesResumable(imageRef, blob);
@@ -183,36 +196,31 @@ const ShopRegister = ({ navigation }) => {
           null,
           (error) => {
             console.error('Image upload error:', error);
-            Alert.alert('Error', 'Failed to upload image.');
             reject(error);
           },
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            setProfileImage(downloadURL);
             resolve(downloadURL);
           }
         );
       });
     } catch (error) {
       console.error('Image upload failed:', error);
-      Alert.alert('Error', 'Unable to upload image.');
-      return null;
-    } finally {
-      setIsUploadingImage(false);
+      throw error;
     }
   }, []);
 
   const validateForm = useCallback(() => {
     const errors = [];
-    if (!shopName.trim()) errors.push('Shop name is required.');
-    if (!shopEmail.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(shopEmail)) {
+    if (!clientName.trim()) errors.push('Client name is required.');
+    if (!email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
       errors.push('A valid email is required.');
     }
-    if (!shopPassword.trim() || shopPassword.length < 8) errors.push('Password must be at least 8 characters.');
+    if (!password.trim() || password.length < 6) errors.push('Password must be at least 6 characters.');
     if (!location.trim()) errors.push('Location is required.');
     if (!locationAddress.trim()) errors.push('Location address is required.');
     return errors;
-  }, [shopName, shopEmail, shopPassword, location, locationAddress]);
+  }, [clientName, email, password, location, locationAddress]);
 
   const toggleShowPassword = useCallback(() => {
     setShowPassword((prev) => !prev);
@@ -229,7 +237,7 @@ const ShopRegister = ({ navigation }) => {
     }
   };
 
-  const handleShopRegister = useCallback(async () => {
+  const handleRegister = useCallback(async () => {
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation Error', errors.join('\n'));
@@ -239,41 +247,63 @@ const ShopRegister = ({ navigation }) => {
     setIsLoading(true);
     try {
       const userCredential = await retryOperation(() =>
-        createUserWithEmailAndPassword(auth, shopEmail.trim(), shopPassword)
+        createUserWithEmailAndPassword(auth, email.trim(), password)
       );
       const user = userCredential.user;
-      const imageUrl = profileImage?.startsWith('http') ? profileImage : await handleImageUpload();
 
-      const shopData = {
+      let imageUrl = null;
+      if (profileImage && !profileImage.startsWith('http')) {
+        imageUrl = await retryOperation(() => uploadImageToStorage(profileImage, user.uid));
+      }
+
+      const clientData = {
         uid: user.uid,
-        name: shopName.trim(),
-        email: shopEmail.trim(),
-        accountType: 'Shop',
-        description: shopDescription.trim() || '',
-        location: location.trim(), // Stores latitude,longitude
-        locationAddress: locationAddress.trim(), // Stores human-readable address
+        clientName: clientName.trim(),
+        email: email.trim(),
+        accountType: 'Client',
+        clientDescription: clientDescription.trim() || '',
+        location: location.trim(),
+        locationAddress: locationAddress.trim(),
         profileImage: imageUrl || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
-      await retryOperation(() => setDoc(doc(firestore, 'users', user.uid), shopData));
+      await retryOperation(() => setDoc(doc(firestore, 'users', user.uid), clientData));
       setShowSuccessModal(true);
     } catch (error) {
       let errorMessage = 'Registration failed.';
       switch (error.code) {
-        case 'auth/email-already-in-use': errorMessage = 'Email already in use.'; break;
-        case 'auth/invalid-email': errorMessage = 'Invalid email format.'; break;
-        case 'auth/weak-password': errorMessage = 'Password must be at least 8 characters.'; break;
-        case 'auth/network-request-failed': errorMessage = 'Network error. Please try again.'; break;
-        default: errorMessage = error.message;
+        case 'auth/email-already-in-use':
+          errorMessage = 'Email is already in use.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email format.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Password must be at least 6 characters.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your connection.';
+          break;
+        default:
+          errorMessage = error.message;
       }
       Alert.alert('Registration Error', errorMessage);
       if (__DEV__) console.error('Registration error:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [shopName, shopEmail, shopPassword, shopDescription, location, locationAddress, profileImage, handleImageUpload, validateForm]);
+  }, [
+    clientName,
+    email,
+    password,
+    clientDescription,
+    location,
+    locationAddress,
+    profileImage,
+    validateForm,
+  ]);
 
   const handleLocationSelect = useCallback(() => {
     setShowMapModal(true);
@@ -282,8 +312,8 @@ const ShopRegister = ({ navigation }) => {
   const handleMapLocationSelect = useCallback((data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({ latitude: lat, longitude: lng });
-    setLocationAddress(details.formatted_address || data.description); // Set human-readable address
-    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); // Set coordinates for DB
+    setLocationAddress(details.formatted_address || data.description);
+    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     autocompleteRef.current?.blur();
   }, []);
 
@@ -292,7 +322,6 @@ const ShopRegister = ({ navigation }) => {
     setSelectedLocation(coords);
     setLocation(`${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`);
 
-    // Reverse geocoding to get address
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coords.latitude},${coords.longitude}&key=${GOOGLE_API_KEY}`
@@ -309,29 +338,10 @@ const ShopRegister = ({ navigation }) => {
     }
   }, []);
 
-  const handleConfirmLocation = useCallback(async () => {
-    let locationString;
-    let addressString = locationAddress;
-
+  const handleConfirmLocation = useCallback(() => {
     if (selectedLocation) {
-      locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
-      if (!addressString) {
-        // Fetch address if not already set
-        try {
-          const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.latitude},${selectedLocation.longitude}&key=${GOOGLE_API_KEY}`
-          );
-          const data = await response.json();
-          if (data.results && data.results.length > 0) {
-            addressString = data.results[0].formatted_address;
-          } else {
-            addressString = 'Unknown location';
-          }
-        } catch (error) {
-          console.error('Reverse geocoding error:', error);
-          addressString = 'Unable to fetch address';
-        }
-      }
+      setLocation(`${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`);
+      setShowMapModal(false);
     } else if (currentLocation) {
       Alert.alert(
         'No Location Selected',
@@ -341,20 +351,23 @@ const ShopRegister = ({ navigation }) => {
           {
             text: 'Yes',
             onPress: async () => {
-              locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
-              try {
-                const response = await fetch(
-                  `https://maps.googleapis.com/maps/api/geocode/json?latlng=${currentLocation.latitude},${currentLocation.longitude}&key=${GOOGLE_API_KEY}`
-                );
-                const data = await response.json();
-                if (data.results && data.results.length > 0) {
-                  addressString = data.results[0].formatted_address;
-                } else {
-                  addressString = 'Unknown location';
+              const locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+              let addressString = locationAddress;
+              if (!addressString) {
+                try {
+                  const response = await fetch(
+                    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${currentLocation.latitude},${currentLocation.longitude}&key=${GOOGLE_API_KEY}`
+                  );
+                  const data = await response.json();
+                  if (data.results && data.results.length > 0) {
+                    addressString = data.results[0].formatted_address;
+                  } else {
+                    addressString = 'Unknown location';
+                  }
+                } catch (error) {
+                  console.error('Reverse geocoding error:', error);
+                  addressString = 'Unable to fetch address';
                 }
-              } catch (error) {
-                console.error('Reverse geocoding error:', error);
-                addressString = 'Unable to fetch address';
               }
               setLocation(locationString);
               setLocationAddress(addressString);
@@ -363,15 +376,9 @@ const ShopRegister = ({ navigation }) => {
           },
         ]
       );
-      return;
     } else {
       Alert.alert('Error', 'No location available. Please try again.');
-      return;
     }
-
-    setLocation(locationString);
-    setLocationAddress(addressString);
-    setShowMapModal(false);
   }, [selectedLocation, currentLocation, locationAddress]);
 
   const handleInputFocus = (index) => {
@@ -484,6 +491,7 @@ const ShopRegister = ({ navigation }) => {
                 onPress={handleConfirmLocation}
                 accessibilityLabel="Confirm selected location"
                 accessibilityRole="button"
+                accessibilityHint="Confirm the selected location and return to the form"
               >
                 <Text style={styles.mapButtonText}>Confirm Location</Text>
               </TouchableOpacity>
@@ -493,6 +501,7 @@ const ShopRegister = ({ navigation }) => {
                 onPress={() => setShowMapModal(false)}
                 accessibilityLabel="Cancel location selection"
                 accessibilityRole="button"
+                accessibilityHint="Cancel and return to the form without selecting a location"
               >
                 <Text style={styles.mapButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -516,8 +525,8 @@ const ShopRegister = ({ navigation }) => {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title} accessibilityLabel="Create Your Shop Account">
-            Create Your Shop Account
+          <Text style={styles.title} accessibilityLabel="Create Your Client Account">
+            Create Your Client Account
           </Text>
 
           <View style={{ alignItems: 'center', width: '100%' }}>
@@ -525,8 +534,9 @@ const ShopRegister = ({ navigation }) => {
               style={styles.imageUploadContainer}
               onPress={handleImageUpload}
               disabled={isUploadingImage}
-              accessibilityLabel="Upload shop profile image"
+              accessibilityLabel="Upload client profile picture"
               accessibilityRole="button"
+              accessibilityHint="Select an image for the client profile"
             >
               {isUploadingImage ? (
                 <ActivityIndicator size="small" color={COLORS.PRIMARY} />
@@ -535,25 +545,26 @@ const ShopRegister = ({ navigation }) => {
                   source={{ uri: profileImage }}
                   style={styles.profileImage}
                   accessibilityRole="image"
-                  accessibilityLabel="Shop profile image"
+                  accessibilityLabel="Client profile picture"
                 />
               ) : (
                 <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
               )}
             </TouchableOpacity>
-            <Text style={styles.uploadText}>Upload Shop Image</Text>
+            <Text style={styles.uploadText}>Upload Client Profile Picture</Text>
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="store" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <Icon name="user" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
             <TextInput
               style={styles.input}
-              placeholder="Shop Name"
-              value={shopName}
-              onChangeText={setShopName}
+              placeholder="Client Name"
+              value={clientName}
+              onChangeText={setClientName}
               onFocus={() => handleInputFocus(0)}
-              accessibilityLabel="Shop name input"
+              accessibilityLabel="Client name input"
               accessibilityRole="text"
+              accessibilityHint="Enter the name of the client"
             />
           </View>
 
@@ -562,13 +573,14 @@ const ShopRegister = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Email"
-              value={shopEmail}
-              onChangeText={setShopEmail}
+              value={email}
+              onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               onFocus={() => handleInputFocus(1)}
               accessibilityLabel="Email input"
               accessibilityRole="text"
+              accessibilityHint="Enter the client email address"
             />
           </View>
 
@@ -577,18 +589,20 @@ const ShopRegister = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Password"
-              value={shopPassword}
-              onChangeText={setShopPassword}
+              value={password}
+              onChangeText={setPassword}
               secureTextEntry={!showPassword}
               onFocus={() => handleInputFocus(2)}
               accessibilityLabel="Password input"
               accessibilityRole="text"
+              accessibilityHint="Enter a password with at least 6 characters"
             />
             <TouchableOpacity
               onPress={toggleShowPassword}
               style={styles.eyeIcon}
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               accessibilityRole="button"
+              accessibilityHint={showPassword ? 'Hide the password' : 'Show the password'}
             >
               <Icon
                 name={showPassword ? 'eye' : 'eye-slash'}
@@ -602,12 +616,13 @@ const ShopRegister = ({ navigation }) => {
             <Icon name="info-circle" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
             <TextInput
               style={styles.input}
-              placeholder="Shop Description (optional)"
-              value={shopDescription}
-              onChangeText={setShopDescription}
+              placeholder="Client Description (optional)"
+              value={clientDescription}
+              onChangeText={setClientDescription}
               onFocus={() => handleInputFocus(3)}
-              accessibilityLabel="Shop description input"
+              accessibilityLabel="Client description input"
               accessibilityRole="text"
+              accessibilityHint="Enter an optional description of the client"
             />
           </View>
 
@@ -616,27 +631,30 @@ const ShopRegister = ({ navigation }) => {
             <TouchableOpacity
               onPress={handleLocationSelect}
               style={styles.locationInputWrapper}
-              accessibilityLabel="Select shop location"
+              accessibilityLabel="Select client location"
               accessibilityRole="button"
+              accessibilityHint="Open a map to select the client location"
             >
               <TextInput
                 style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
                 placeholder="Location"
-                value={locationAddress} // Display human-readable address
+                value={locationAddress}
                 editable={false}
                 onFocus={() => handleInputFocus(4)}
                 accessibilityLabel="Location input"
                 accessibilityRole="text"
+                accessibilityHint="Displays the selected client location address"
               />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
             style={[styles.button, isLoading && { opacity: 0.7 }]}
-            onPress={handleShopRegister}
+            onPress={handleRegister}
             disabled={isLoading}
-            accessibilityLabel="Register shop button"
+            accessibilityLabel="Register client button"
             accessibilityRole="button"
+            accessibilityHint="Submit the form to register the client"
           >
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
@@ -645,17 +663,18 @@ const ShopRegister = ({ navigation }) => {
             onPress={() => navigation.navigate('Login')}
             accessibilityLabel="Login link"
             accessibilityRole="link"
+            accessibilityHint="Navigate to the login screen"
           >
             <Text style={styles.link}>
               Already have an account? <Text style={styles.linkBold}>Login here</Text>
             </Text>
           </TouchableOpacity>
 
-          <View style={{ height: 20 }} /> {/* Spacer */}
+          <View style={{ height: 20 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </>
   );
 };
 
-export default React.memo(ShopRegister);
+export default React.memo(ClientRegister);

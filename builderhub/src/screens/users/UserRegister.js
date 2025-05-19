@@ -24,8 +24,9 @@ import { auth, firestore } from '../../../firebase/firebaseConfig';
 import styles, { COLORS } from '../../styles/UserRegisterStyles';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
 import { Linking } from 'react-native';
+import { GOOGLE_MAP_API_KEY } from "@env";
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
+const GOOGLE_API_KEY = GOOGLE_MAP_API_KEY;
 if (!GOOGLE_API_KEY) {
   console.error('Google API Key is missing. Please set GOOGLE_API_KEY in .env');
 }

@@ -62,6 +62,8 @@ import HireRequestDetailsScreen from './src/screens/HireRequestDetailsScreen';
 import OrdersScreen from './src/screens/MarketScreens/OrderScreen';
 import OrderItemDetails from './src/screens/MarketScreens/OrderDetails';
 import PostListScreen from './src/screens/posts/PostListScreen';
+import ClientRegister from './src/screens/client/ClientRegister';
+
 
 const Stack = createStackNavigator();
 
@@ -143,6 +145,7 @@ export default function App() {
                   <Stack.Screen name="OrdersScreen" component={OrdersScreen} />
                   <Stack.Screen name="OrderItemDetails" component={OrderItemDetails} />
                   <Stack.Screen name="PostList" component={PostListScreen} />
+                  <Stack.Screen name="ClientRegister" component={ClientRegister} />
                 </Stack.Navigator>
               </NavigationContainer>
               <Toast />

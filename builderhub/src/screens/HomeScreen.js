@@ -68,7 +68,7 @@ const HomeScreen = () => {
       const locations = snapshot.docs
         .filter(doc => {
           const data = doc.data();
-          return doc.id !== user?.uid && data.accountType !== 'Company';
+          return doc.id !== user?.uid &&  data.accountType !== 'Client';
         })
         .map(doc => {
           const data = doc.data();
@@ -89,7 +89,7 @@ const HomeScreen = () => {
           return {
             id: doc.id,
             ...locationObj,
-            name: data.name || 'Anonymous',
+            name: data.clientName || data.name || 'Anonymous',
             profession: data.profession || 'Unknown',
             profileImage: data.profileImage || null,
             averageRating: data.averageRating || 0,
@@ -213,7 +213,6 @@ const HomeScreen = () => {
     setShowEmergencyModal(false);
     setShowEmergencyResultsModal(true);
   };
-
 
   const handleMarkerPress = (user) => {
     console.log('Clicked user ID:', user.id);
@@ -489,8 +488,6 @@ const HomeScreen = () => {
           </Marker>
         ))}
       </MapView>
-
-      
 
       <TouchableOpacity 
         style={styles.emergencyButton}

@@ -9,7 +9,7 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import CompanyRegister from './company/CompanyRegister';
+import ClientRegister from './client/ClientRegister';
 import ShopRegister from './shops/ShopRegister';
 import UserRegister from './users/UserRegister';
 import styles from '../styles/RegisterScreenStyles';
@@ -66,7 +66,7 @@ const RegisterScreen = ({ navigation }) => {
       case ACCOUNT_TYPES.PERSON:
         return <UserRegister navigation={navigation} />;
       case ACCOUNT_TYPES.CLIENT:
-        return <CompanyRegister navigation={navigation} />;
+        return <ClientRegister navigation={navigation} />;
       case ACCOUNT_TYPES.MATERIAL_SHOP:
         return <ShopRegister navigation={navigation} />;
       default:

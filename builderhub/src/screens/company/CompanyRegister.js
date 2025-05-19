@@ -25,6 +25,7 @@ import styles, { COLORS } from '../../styles/UserRegisterStyles';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
 import { Linking } from 'react-native';
 
+
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 if (!GOOGLE_API_KEY) {
   throw new Error('Google API Key is missing. Set GOOGLE_API_KEY in .env');
