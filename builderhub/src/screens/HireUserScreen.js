@@ -4,12 +4,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ScrollView,
   ActivityIndicator,
   FlatList,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { firestore, auth, storage } from '../../firebase/firebaseConfig';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import styles from '../styles/HireFormScreenStyles';
 
 function HireFormScreen() {
   const route = useRoute();
@@ -27,10 +28,9 @@ function HireFormScreen() {
 
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-  const [files, setFiles] = useState([]); // Array of { uri, name, type }
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Request media library permissions for images
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -40,7 +40,6 @@ function HireFormScreen() {
     return true;
   };
 
-  // Pick images
   const pickImages = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
@@ -49,14 +48,14 @@ function HireFormScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
-        quality: 1,
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets) {
         const newFiles = result.assets.map(asset => ({
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
-          type: asset.mimeType || 'image/jpeg'
+          type: asset.mimeType || 'image/jpeg',
         }));
         setFiles(prevFiles => [...prevFiles, ...newFiles]);
       }
@@ -66,7 +65,6 @@ function HireFormScreen() {
     }
   };
 
-  // Pick PDF documents
   const pickDocuments = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -84,7 +82,7 @@ function HireFormScreen() {
           .map(asset => ({
             uri: asset.uri,
             name: asset.name || `document_${Date.now()}.pdf`,
-            type: 'application/pdf'
+            type: 'application/pdf',
           }));
 
         if (newFiles.length === 0) {
@@ -102,7 +100,6 @@ function HireFormScreen() {
     }
   };
 
-  // Upload a single file to Firebase Storage
   const uploadFile = async (file) => {
     try {
       const response = await fetch(file.uri);
@@ -117,7 +114,6 @@ function HireFormScreen() {
     }
   };
 
-  // Create notification for hired user
   const createHireNotification = async (hiredUserId, requestId, projectTitle) => {
     try {
       const clientRef = doc(firestore, 'users', currentUser.uid);
@@ -140,7 +136,6 @@ function HireFormScreen() {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
     if (!currentUser) {
       Alert.alert('Error', 'You must be logged in to submit a hire request.');
@@ -165,12 +160,10 @@ function HireFormScreen() {
     setLoading(true);
 
     try {
-      // Upload all files to Firebase Storage
       const uploadedFiles = await Promise.all(
         files.map(file => uploadFile(file))
       );
 
-      // Save hire request to Firestore
       const hireRequest = {
         clientId: currentUser.uid,
         hiredUserId: userId,
@@ -178,12 +171,10 @@ function HireFormScreen() {
         projectDescription: projectDescription.trim(),
         files: uploadedFiles,
         status: 'pending',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
       };
 
       const docRef = await addDoc(collection(firestore, 'hireRequests'), hireRequest);
-
-      // Create notification for the hired user
       await createHireNotification(userId, docRef.id, projectTitle.trim());
 
       Alert.alert('Success', 'Hire request submitted successfully!', [
@@ -194,8 +185,8 @@ function HireFormScreen() {
             setProjectDescription('');
             setFiles([]);
             navigation.goBack();
-          }
-        }
+          },
+        },
       ]);
     } catch (error) {
       console.error('Error submitting hire request:', error);
@@ -205,12 +196,10 @@ function HireFormScreen() {
     }
   };
 
-  // Remove a file from the list
   const removeFile = (index) => {
     setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
 
-  // Render file item
   const renderFileItem = ({ item, index }) => (
     <View style={styles.fileItem}>
       {item.type.startsWith('image') ? (
@@ -220,22 +209,20 @@ function HireFormScreen() {
           resizeMode="cover"
         />
       ) : (
-        <Ionicons
-          name="document-outline"
-          size={60}
-          color="#666"
-          style={styles.filePreview}
-        />
+        <View style={styles.documentPreview}>
+          <Ionicons name="document-outline" size={32} color="#4a6da7" />
+          <Text style={styles.documentTypeText}>PDF</Text>
+        </View>
       )}
       <Text style={styles.fileName} numberOfLines={1}>
-        {item.name}
+        {item.name.length > 15 ? `${item.name.substring(0, 12)}...` : item.name}
       </Text>
       <TouchableOpacity
         style={styles.removeFileButton}
         onPress={() => removeFile(index)}
         disabled={loading}
       >
-        <Ionicons name="trash-outline" size={20} color="#ff3b30" />
+        <Ionicons name="close-circle" size={20} color="#ff3b30" />
       </TouchableOpacity>
     </View>
   );
@@ -243,225 +230,114 @@ function HireFormScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hire User</Text>
+        <Text style={styles.headerTitle}>Create Hire Request</Text>
+        <View style={{ width: 24 }} /> {/* Spacer for balance */}
       </View>
 
-      <ScrollView style={styles.formContainer}>
-        <Text style={styles.label}>Hiring User ID: {userId}</Text>
-        <Text style={styles.label}>Your ID: {currentUser?.uid || 'Not logged in'}</Text>
+      <ScrollView
+        style={styles.formContainer}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Project Details</Text>
 
-        <Text style={styles.fieldLabel}>Project Title</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter project title"
-          placeholderTextColor="#999"
-          value={projectTitle}
-          onChangeText={setProjectTitle}
-          editable={!loading}
-        />
-
-        <Text style={styles.fieldLabel}>Project Description</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Describe the project"
-          placeholderTextColor="#999"
-          value={projectDescription}
-          onChangeText={setProjectDescription}
-          multiline
-          numberOfLines={5}
-          editable={!loading}
-        />
-
-        <Text style={styles.fieldLabel}>Upload Files</Text>
-        <View style={styles.uploadButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.uploadButton, loading && styles.uploadButtonDisabled, styles.uploadImageButton]}
-            onPress={pickImages}
-            disabled={loading}
-          >
-            <Ionicons name="image-outline" size={20} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.uploadButtonText}>Upload Images</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.uploadButton, loading && styles.uploadButtonDisabled, styles.uploadDocumentButton]}
-            onPress={pickDocuments}
-            disabled={loading}
-          >
-            <Ionicons name="document-outline" size={20} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.uploadButtonText}>Upload Documents</Text>
-          </TouchableOpacity>
-        </View>
-
-        {files.length > 0 && (
-          <View style={styles.filesContainer}>
-            <Text style={styles.filesLabel}>Uploaded Files</Text>
-            <FlatList
-              data={files}
-              renderItem={renderFileItem}
-              keyExtractor={(item, index) => `${index}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filesList}
+          <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Project Title*</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Build a Home"
+              placeholderTextColor="#999"
+              value={projectTitle}
+              onChangeText={setProjectTitle}
+              editable={!loading}
+              maxLength={60}
             />
           </View>
-        )}
 
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Submit Hire Request</Text>
-          )}
-        </TouchableOpacity>
+          <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Project Description*</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Describe the project requirements, timeline, and budget if applicable..."
+              placeholderTextColor="#999"
+              value={projectDescription}
+              onChangeText={setProjectDescription}
+              multiline
+              numberOfLines={5}
+              editable={!loading}
+              maxLength={1000}
+            />
+            <Text style={styles.charCounter}>
+              {projectDescription.length}/1000 characters
+            </Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Attachments (Optional)</Text>
+            <Text style={styles.fieldSubLabel}>Supporting documents or reference images</Text>
+
+            <View style={styles.uploadButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.uploadButton, loading && styles.uploadButtonDisabled]}
+                onPress={pickImages}
+                disabled={loading}
+              >
+                <Ionicons name="image" size={18} color="black" style={styles.buttonIcon} />
+                <Text style={styles.uploadButtonText}>Add Images</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.uploadButton, styles.uploadButtonAlt, loading && styles.uploadButtonDisabled]}
+                onPress={pickDocuments}
+                disabled={loading}
+              >
+                <Ionicons name="document-attach" size={18} color="#4a6da7" style={styles.buttonIcon} />
+                <Text style={[styles.uploadButtonText, styles.uploadButtonAltText]}>Add Documents</Text>
+              </TouchableOpacity>
+            </View>
+
+            {files.length > 0 && (
+              <View style={styles.filesContainer}>
+                <FlatList
+                  data={files}
+                  renderItem={renderFileItem}
+                  keyExtractor={(item, index) => `${index}`}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filesListContent}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="paper-plane-outline" size={18} color="black" style={styles.buttonIcon} />
+                <Text style={styles.submitButtonText}>Submit Request</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#0288D1',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  formContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  textArea: {
-    height: 120,
-    textAlignVertical: 'top',
-  },
-  uploadButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  uploadButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#0288D1',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
-  },
-  uploadImageButton: {
-    backgroundColor: '#0288D1',
-  },
-  uploadDocumentButton: {
-    backgroundColor: '#0288D1',
-  },
-  uploadButtonDisabled: {
-    backgroundColor: '#66B2E5',
-    opacity: 0.7,
-  },
-  uploadButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  filesContainer: {
-    marginBottom: 16,
-  },
-  filesLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
-  },
-  filesList: {
-    flexGrow: 0,
-  },
-  fileItem: {
-    width: 100,
-    marginRight: 12,
-    alignItems: 'center',
-  },
-  filePreview: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fileName: {
-    fontSize: 12,
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  removeFileButton: {
-    padding: 4,
-  },
-  submitButton: {
-    backgroundColor: '#0288D1',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 20,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#66B2E5',
-    opacity: 0.7,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
 
 export default HireFormScreen;
