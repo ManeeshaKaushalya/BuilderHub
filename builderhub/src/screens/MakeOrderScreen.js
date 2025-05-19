@@ -27,7 +27,7 @@ const MakeOrderScreen = () => {
   const [items, setItems] = useState([{ name: '', quantity: '' }]);
   const [contactNumber, setContactNumber] = useState('');
   const [location, setLocation] = useState(''); // Store coordinates as "lat, lng"
-  const [locationAddress, setLocationAddress] = useState(''); // Store human-readable address for UI
+  const [locationAddress, setLocationAddress] = useState(''); // Store human-readable address for UI and DB
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handle navigation to OrderAddressMap for location selection
@@ -67,9 +67,12 @@ const MakeOrderScreen = () => {
         return { valid: false, message: 'All items must have a valid quantity greater than 0.' };
       }
     }
-    // Check location
+    // Check location and locationAddress
     if (!location.trim()) {
       return { valid: false, message: 'Please select a delivery location.' };
+    }
+    if (!locationAddress.trim()) {
+      return { valid: false, message: 'Delivery address is required.' };
     }
     // Check contact number (basic validation for digits and length)
     if (!contactNumber.trim() || !/^\d{10}$/.test(contactNumber)) {
@@ -101,6 +104,7 @@ const MakeOrderScreen = () => {
           quantity: parseInt(item.quantity),
         })),
         location: location.trim(), // Store coordinates as "lat, lng"
+        locationAddress: locationAddress.trim(), // Store human-readable address
         contactNumber: contactNumber.trim(),
         status: 'pending',
         createdAt: serverTimestamp(),

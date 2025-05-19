@@ -30,7 +30,6 @@ const HomeScreen = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfession, setSelectedProfession] = useState('All');
   const [minRating, setMinRating] = useState(0);
-  const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [showEmergencyResultsModal, setShowEmergencyResultsModal] = useState(false);
   const [emergencyProfessionals, setEmergencyProfessionals] = useState([]);
@@ -64,11 +63,6 @@ const HomeScreen = () => {
     return R * c;
   };
 
-  const getRandomAvailability = () => {
-    const statuses = ['Available Now', 'Busy', 'Offline'];
-    return statuses[Math.floor(Math.random() * statuses.length)];
-  };
-
   const fetchUserLocations = () => {
     return onSnapshot(collection(firestore, 'users'), (snapshot) => {
       const locations = snapshot.docs
@@ -92,8 +86,6 @@ const HomeScreen = () => {
             );
           }
           
-          const availability = getRandomAvailability();
-          
           return {
             id: doc.id,
             ...locationObj,
@@ -104,7 +96,6 @@ const HomeScreen = () => {
             experience: data.experience || '0',
             skills: data.skills || '',
             distance: distance,
-            availability: availability
           };
         })
         .filter(location => location !== null);
@@ -149,11 +140,6 @@ const HomeScreen = () => {
     }
     
     filtered = filtered.filter(user => user.averageRating >= minRating);
-    
-    if (availabilityFilter !== 'all') {
-      const status = availabilityFilter === 'available' ? 'Available Now' : 'Busy';
-      filtered = filtered.filter(user => user.availability === status);
-    }
     
     setFilteredLocations(filtered);
   };
@@ -228,39 +214,6 @@ const HomeScreen = () => {
     setShowEmergencyResultsModal(true);
   };
 
-  const handleManualLocationInput = () => {
-    Alert.alert(
-      'Enter Location',
-      'Please enter your location coordinates (latitude, longitude):',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'OK',
-          onPress: (locationText) => {
-            try {
-              const location = parseLocation(locationText);
-              if (location) {
-                setCurrentLocation(location);
-                mapRef.current.animateToRegion({
-                  ...location,
-                  latitudeDelta: 0.05,
-                  longitudeDelta: 0.05
-                });
-              } else {
-                Alert.alert('Invalid Input', 'Please enter valid coordinates.');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to parse location.');
-            }
-          }
-        }
-      ],
-      'plain-text'
-    );
-  };
 
   const handleMarkerPress = (user) => {
     console.log('Clicked user ID:', user.id);
@@ -313,7 +266,7 @@ const HomeScreen = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [searchText, searchRadius, selectedProfession, minRating, availabilityFilter, currentLocation]);
+  }, [searchText, searchRadius, selectedProfession, minRating, currentLocation]);
 
   useEffect(() => {
     if (!currentLocation) return;
@@ -338,15 +291,6 @@ const HomeScreen = () => {
   const opacity2 = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] });
 
   const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-  const getAvailabilityColor = (status) => {
-    switch(status) {
-      case 'Available Now': return '#4CAF50';
-      case 'Busy': return '#FFC107';
-      case 'Offline': return '#9E9E9E';
-      default: return '#9E9E9E';
-    }
-  };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -445,30 +389,6 @@ const HomeScreen = () => {
               </View>
             </View>
           )}
-
-          <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>Availability</Text>
-            <View style={styles.availabilityContainer}>
-              <TouchableOpacity
-                style={[styles.availabilityButton, availabilityFilter === 'all' && styles.selectedAvailabilityButton]}
-                onPress={() => setAvailabilityFilter('all')}
-              >
-                <Text style={styles.availabilityButtonText}>All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.availabilityButton, availabilityFilter === 'available' && styles.selectedAvailabilityButton]}
-                onPress={() => setAvailabilityFilter('available')}
-              >
-                <Text style={styles.availabilityButtonText}>Available</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.availabilityButton, availabilityFilter === 'busy' && styles.selectedAvailabilityButton]}
-                onPress={() => setAvailabilityFilter('busy')}
-              >
-                <Text style={styles.availabilityButtonText}>Busy</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </ScrollView>
       )}
 
@@ -528,12 +448,6 @@ const HomeScreen = () => {
                 source={user.profileImage ? { uri: user.profileImage } : DEFAULT_PROFILE_IMAGE}
                 style={styles.profileMarker}
               />
-              <View 
-                style={[
-                  styles.statusIndicator, 
-                  { backgroundColor: getAvailabilityColor(user.availability) }
-                ]}
-              />
             </View>
             <Callout tooltip>
               <View style={styles.calloutContainer}>
@@ -567,12 +481,6 @@ const HomeScreen = () => {
                   <MaterialIcons name="build" size={14} color="#666" />
                   <Text style={styles.calloutDetailText}>{user.skills}</Text>
                 </View>
-                <View style={[
-                  styles.availabilityBadge, 
-                  { backgroundColor: getAvailabilityColor(user.availability) }
-                ]}>
-                  <Text style={styles.availabilityText}>{user.availability}</Text>
-                </View>
                 <TouchableOpacity style={styles.contactButton}>
                   <Text style={styles.contactButtonText}>Contact</Text>
                 </TouchableOpacity>
@@ -582,12 +490,7 @@ const HomeScreen = () => {
         ))}
       </MapView>
 
-      <TouchableOpacity 
-        style={styles.locationInputButton}
-        onPress={handleManualLocationInput}
-      >
-        <MaterialIcons name="edit-location" size={24} color="white" />
-      </TouchableOpacity>
+      
 
       <TouchableOpacity 
         style={styles.emergencyButton}
@@ -689,9 +592,6 @@ const HomeScreen = () => {
                       ))}
                       <Text style={styles.ratingText}>({professional.averageRating})</Text>
                     </View>
-                    <Text style={styles.professionalInfo}>
-                      Availability: {professional.availability}
-                    </Text>
                   </View>
                   <TouchableOpacity
                     style={styles.contactButton}
