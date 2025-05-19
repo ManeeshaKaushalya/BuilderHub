@@ -14,6 +14,32 @@ import styles from '../../styles/PostStyles'; // Adjust the import path as neces
 
 const { width } = Dimensions.get('window');
 
+// Helper function to format relative time
+const getRelativeTime = (timestamp) => {
+  if (!timestamp || !timestamp.seconds) return 'Unknown time';
+
+  const date = new Date(timestamp.seconds * 1000);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) {
+    return 'just now';
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} min${diffMinutes === 1 ? '' : 's'} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  } else {
+    // Fallback to absolute date for older posts
+    return date.toLocaleDateString();
+  }
+};
+
 function Post({
   postId,
   username,
@@ -60,6 +86,7 @@ function Post({
 
   // State variables
   const [isLiked, setIsLiked] = useState(likedBy.includes(userId));
+  const [likesCount, setLikesCount] = useState(likes);
   const [commentsCount, setCommentsCount] = useState(0);
   const [comments, setComments] = useState([]);
   const [pinnedComment, setPinnedComment] = useState(null);
@@ -69,11 +96,40 @@ function Post({
   const [isDocumentsModalVisible, setIsDocumentsModalVisible] = useState(false);
   const [showFullCaption, setShowFullCaption] = useState(false);
   const [imageErrors, setImageErrors] = useState({ before: false, after: false });
-  const [imageDimensions, setImageDimensions] = useState({}); // Store dimensions for imageList
+  const [imageDimensions, setImageDimensions] = useState({});
   const [beforeAfterDimensions, setBeforeAfterDimensions] = useState({
     before: { width: 1, height: 1 },
     after: { width: 1, height: 1 },
   });
+  // New state for relative time
+  const [relativeTime, setRelativeTime] = useState(getRelativeTime(uploadDate));
+
+  // Update relative time every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRelativeTime(getRelativeTime(uploadDate));
+    }, 1000); // Update every second for smooth "just now" transitions
+
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, [uploadDate]);
+
+  // Listen for real-time updates to post data
+  useEffect(() => {
+    if (!postId) return;
+
+    const postRef = doc(firestore, 'posts', postId);
+    const unsubscribe = onSnapshot(postRef, (doc) => {
+      if (doc.exists()) {
+        const postData = doc.data();
+        setLikesCount(postData.likes || 0);
+        setIsLiked((postData.likedBy || []).includes(userId));
+      }
+    }, (error) => {
+      console.error('Error getting post updates:', error);
+    });
+
+    return () => unsubscribe();
+  }, [postId, userId]);
 
   // Fetch comments and handle cleanup
   useEffect(() => {
@@ -110,7 +166,7 @@ function Post({
             console.error(`Failed to get size for image ${uri}:`, error);
             setImageDimensions((prev) => ({
               ...prev,
-              [index]: { width: 1, height: 1 }, // Fallback
+              [index]: { width: 1, height: 1 },
             }));
           }
         );
@@ -176,19 +232,23 @@ function Post({
   const handleLike = async () => {
     if (!userId) return;
     const postRef = doc(firestore, 'posts', postId);
+    
     try {
+      const newLikesCount = isLiked ? likesCount - 1 : likesCount + 1;
+      setLikesCount(newLikesCount);
+      setIsLiked(!isLiked);
+      
       if (isLiked) {
         await updateDoc(postRef, {
-          likes: likes - 1,
+          likes: newLikesCount,
           likedBy: arrayRemove(userId),
         });
-        setIsLiked(false);
       } else {
         await updateDoc(postRef, {
-          likes: likes + 1,
+          likes: newLikesCount,
           likedBy: arrayUnion(userId),
         });
-        setIsLiked(true);
+        
         if (ownerId !== userId) {
           const notificationsRef = collection(firestore, 'users', ownerId, 'notifications');
           await addDoc(notificationsRef, {
@@ -201,6 +261,8 @@ function Post({
         }
       }
     } catch (error) {
+      setLikesCount(isLiked ? likesCount : likesCount - 1);
+      setIsLiked(isLiked);
       console.error('Error liking post:', error);
       Alert.alert('Error', 'Failed to like post');
     }
@@ -237,96 +299,36 @@ function Post({
 
   const renderMediaContent = () => {
     if (beforeAfterImages && beforeAfterImages.before && beforeAfterImages.after) {
-      const maxAspectRatio = Math.max(
-        beforeAfterDimensions.before.height / beforeAfterDimensions.before.width,
-        beforeAfterDimensions.after.height / beforeAfterDimensions.after.width
-      );
-      const containerHeight = Math.min((width * 0.8) * maxAspectRatio, 400); // Cap max height
-
       return (
-        <View style={[styles.beforeAfterContainer, { height: containerHeight }]}>
-          {showBeforeAfter ? (
-            <>
-              {!imageErrors.before ? (
-                <Image
-                  source={{ uri: beforeAfterImages.before }}
-                  style={[styles.beforeAfterImage, { height: containerHeight }]}
-                  onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
-                  accessibilityLabel="Before image of the project"
-                />
-              ) : (
-                <Text style={styles.errorText}>Failed to load before image</Text>
-              )}
-              <Animated.View
-                style={[
-                  styles.afterImageContainer,
-                  { transform: [{ translateX: beforeAfterPosition }], height: containerHeight },
-                ]}
-              >
-                {!imageErrors.after ? (
-                  <Image
-                    source={{ uri: beforeAfterImages.after }}
-                    style={[styles.beforeAfterImage, { height: containerHeight }]}
-                    onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
-                    accessibilityLabel="After image of the project"
-                  />
-                ) : (
-                  <Text style={styles.errorText}>Failed to load after image</Text>
-                )}
-              </Animated.View>
-              <View style={styles.sliderContainer}>
-                <TouchableOpacity
-                  style={styles.sliderButton}
-                  onPress={() => animateBeforeAfter(0)}
-                >
-                  <Text style={styles.sliderText}>Before</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.sliderButton}
-                  onPress={() => animateBeforeAfter(-width * 0.75)}
-                >
-                  <Text style={styles.sliderText}>After</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <View style={styles.beforeAfterGallery}>
-              {!imageErrors.before ? (
-                <Image
-                  source={{ uri: beforeAfterImages.before }}
-                  style={[
-                    styles.beforeAfterGalleryImage,
-                    {
-                      height:
-                        (width * 0.38) *
-                        (beforeAfterDimensions.before.height / beforeAfterDimensions.before.width),
-                    },
-                  ]}
-                  onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
-                  accessibilityLabel="Before image of the project"
-                />
-              ) : (
-                <Text style={styles.errorText}>Before Image Error</Text>
-              )}
-              {!imageErrors.after ? (
-                <Image
-                  source={{ uri: beforeAfterImages.after }}
-                  style={[
-                    styles.beforeAfterGalleryImage,
-                    {
-                      height:
-                        (width * 0.38) *
-                        (beforeAfterDimensions.after.height / beforeAfterDimensions.after.width),
-                    },
-                  ]}
-                  onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
-                  accessibilityLabel="After image of the project"
-                />
-              ) : (
-                <Text style={styles.errorText}>After Image Error</Text>
+        <View style={styles.beforeAfterContainer}>
+          <View style={styles.beforeAfterHeader}>
+            <Text style={styles.beforeAfterLabel}>Before</Text>
+            <Text style={styles.beforeAfterLabel}>After</Text>
+          </View>
+          <View style={styles.beforeAfterContent}>
+            <View style={styles.beforeAfterImageWrapper}>
+              <Image 
+                source={{uri: beforeAfterImages.before}} 
+                style={styles.beforeAfterImage}
+                accessibilityLabel="Before image"
+                onError={() => setImageErrors((prev) => ({ ...prev, before: true }))}
+              />
+              {imageErrors.before && (
+                <Text style={styles.errorText}>Failed to load image</Text>
               )}
             </View>
-          )}
+            <View style={styles.beforeAfterImageWrapper}>
+              <Image 
+                source={{uri: beforeAfterImages.after}} 
+                style={styles.beforeAfterImage}
+                accessibilityLabel="After image"
+                onError={() => setImageErrors((prev) => ({ ...prev, after: true }))}
+              />
+              {imageErrors.after && (
+                <Text style={styles.errorText}>Failed to load image</Text>
+              )}
+            </View>
+          </View>
         </View>
       );
     }
@@ -363,7 +365,7 @@ function Post({
             >
               {imageList.map((img, index) => {
                 const aspectRatio = imageDimensions[index]?.height / imageDimensions[index]?.width || 1;
-                const imageHeight = Math.min((width * 0.8) * aspectRatio, 400); // Cap max height
+                const imageHeight = Math.min((width * 0.8) * aspectRatio, 400);
                 return (
                   <Image
                     key={index}
@@ -461,7 +463,7 @@ function Post({
             )}
           </View>
           <Text style={styles.uploadDate}>
-            {uploadDate?.seconds ? new Date(uploadDate.seconds * 1000).toLocaleDateString() : "Unknown date"}
+            {relativeTime}
           </Text>
         </View>
       </TouchableOpacity>
@@ -523,25 +525,6 @@ function Post({
       {/* Media content */}
       {renderMediaContent()}
 
-      {/* Before/After toggle button */}
-      {beforeAfterImages && (
-        <TouchableOpacity
-          style={styles.beforeAfterButton}
-          onPress={() => setShowBeforeAfter(!showBeforeAfter)}
-          accessibilityLabel={showBeforeAfter ? "Show gallery view" : "Show before and after view"}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="compare"
-            size={18}
-            color="#fff"
-          />
-          <Text style={styles.beforeAfterButtonText}>
-            {showBeforeAfter ? "Show Gallery" : "Before & After"}
-          </Text>
-        </TouchableOpacity>
-      )}
-
       {/* Documents button */}
       {(documentUrls.length > 0 || certificates.length > 0) && (
         <TouchableOpacity
@@ -558,7 +541,7 @@ function Post({
       )}
 
       {/* Stats row */}
-      <Text style={styles.statsText}>{likes} likes • {commentsCount} comments</Text>
+      <Text style={styles.statsText}>{likesCount} likes • {commentsCount} comments</Text>
 
       {/* Action buttons */}
       <View style={styles.actionButtons}>

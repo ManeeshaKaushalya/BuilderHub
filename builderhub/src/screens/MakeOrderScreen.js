@@ -26,14 +26,16 @@ const MakeOrderScreen = () => {
 
   const [items, setItems] = useState([{ name: '', quantity: '' }]);
   const [contactNumber, setContactNumber] = useState('');
-  const [location, setLocation] = useState(''); // Store location as "lat, lng"
+  const [location, setLocation] = useState(''); // Store coordinates as "lat, lng"
+  const [locationAddress, setLocationAddress] = useState(''); // Store human-readable address for UI
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handle navigation to OrderAddressMap for location selection
   const handleSelectLocation = () => {
     navigation.navigate('OrderAddressMap', {
-      onLocationSelected: (selectedLocation) => {
-        setLocation(selectedLocation);
+      onLocationSelected: ({ coordinates, address }) => {
+        setLocation(coordinates); // Store coordinates
+        setLocationAddress(address); // Store human-readable address
       },
     });
   };
@@ -98,7 +100,7 @@ const MakeOrderScreen = () => {
           name: item.name.trim(),
           quantity: parseInt(item.quantity),
         })),
-        location: location.trim(), // Store location as "lat, lng"
+        location: location.trim(), // Store coordinates as "lat, lng"
         contactNumber: contactNumber.trim(),
         status: 'pending',
         createdAt: serverTimestamp(),
@@ -117,6 +119,7 @@ const MakeOrderScreen = () => {
       // Reset form
       setItems([{ name: '', quantity: '' }]);
       setLocation('');
+      setLocationAddress('');
       setContactNumber('');
     } catch (error) {
       console.error('Error submitting order:', error);
@@ -129,10 +132,17 @@ const MakeOrderScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Place Order</Text>
+        <Text style={styles.headerTitle} accessibilityLabel="Place Order">
+          Place Order
+        </Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.formContainer}>
@@ -142,7 +152,11 @@ const MakeOrderScreen = () => {
             <View style={styles.itemHeader}>
               <Text style={styles.itemTitle}>Item {index + 1}</Text>
               {items.length > 1 && (
-                <TouchableOpacity onPress={() => removeItem(index)}>
+                <TouchableOpacity
+                  onPress={() => removeItem(index)}
+                  accessibilityLabel={`Remove item ${index + 1}`}
+                  accessibilityRole="button"
+                >
                   <Ionicons name="trash-outline" size={20} color="#ff3b30" />
                 </TouchableOpacity>
               )}
@@ -153,6 +167,8 @@ const MakeOrderScreen = () => {
               value={item.name}
               onChangeText={(text) => updateItem(index, 'name', text)}
               editable={!isSubmitting}
+              accessibilityLabel={`Item ${index + 1} name input`}
+              accessibilityRole="text"
             />
             <TextInput
               style={styles.input}
@@ -161,10 +177,18 @@ const MakeOrderScreen = () => {
               onChangeText={(text) => updateItem(index, 'quantity', text)}
               keyboardType="numeric"
               editable={!isSubmitting}
+              accessibilityLabel={`Item ${index + 1} quantity input`}
+              accessibilityRole="text"
             />
           </View>
         ))}
-        <TouchableOpacity style={styles.addButton} onPress={addItem} disabled={isSubmitting}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={addItem}
+          disabled={isSubmitting}
+          accessibilityLabel="Add another item"
+          accessibilityRole="button"
+        >
           <Ionicons name="add-circle-outline" size={18} color="#0095f6" style={styles.buttonIcon} />
           <Text style={styles.addButtonText}>Add Another Item</Text>
         </TouchableOpacity>
@@ -174,10 +198,12 @@ const MakeOrderScreen = () => {
           style={styles.locationButton}
           onPress={handleSelectLocation}
           disabled={isSubmitting}
+          accessibilityLabel="Select delivery location"
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons name="map-marker" size={18} color="#0095f6" style={styles.buttonIcon} />
           <Text style={styles.locationButtonText}>
-            {location ? `Location: ${location}` : 'Select Delivery Location'}
+            {locationAddress ? locationAddress : 'Select Delivery Location'}
           </Text>
         </TouchableOpacity>
         <TextInput
@@ -187,12 +213,16 @@ const MakeOrderScreen = () => {
           onChangeText={setContactNumber}
           keyboardType="phone-pad"
           editable={!isSubmitting}
+          accessibilityLabel="Contact number input"
+          accessibilityRole="text"
         />
 
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isSubmitting}
+          accessibilityLabel="Confirm order"
+          accessibilityRole="button"
         >
           {isSubmitting ? (
             <Text style={styles.submitButtonText}>Submitting...</Text>
@@ -284,6 +314,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
     marginLeft: 6,
+    flex: 1,
   },
   addButton: {
     flexDirection: 'row',

@@ -23,15 +23,16 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
 import styles, { COLORS } from '../../styles/UserRegisterStyles';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
+import { Linking } from 'react-native';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 if (!GOOGLE_API_KEY) {
   console.error('Google API Key is missing. Please set GOOGLE_API_KEY in .env');
 }
 const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const UserRegister = ({ navigation }) => {
-  // Your state declarations and other code remain the same...
   const [profileImage, setProfileImage] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -39,8 +40,10 @@ const UserRegister = ({ navigation }) => {
   const [profession, setProfession] = useState('');
   const [experience, setExperience] = useState('');
   const [skills, setSkills] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(''); // Stores latitude,longitude for DB
+  const [locationAddress, setLocationAddress] = useState(''); // Stores human-readable address for UI and DB
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -78,7 +81,10 @@ const UserRegister = ({ navigation }) => {
               Alert.alert(
                 'Permission Denied',
                 'Location access is required to select a location. Please enable it in settings.',
-                [{ text: 'OK', onPress: () => setShowMapModal(false) }]
+                [
+                  { text: 'Cancel', onPress: () => setShowMapModal(false) },
+                  { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                ]
               );
             }
             return;
@@ -134,7 +140,7 @@ const UserRegister = ({ navigation }) => {
     if (status !== 'granted') {
       Alert.alert(
         'Permission Required',
-        'Camera roll access is needed to upload profile images. Please enable it in settings.',
+        'Camera roll access is needed to upload profile images.',
         [{ text: 'OK' }]
       );
     }
@@ -142,6 +148,7 @@ const UserRegister = ({ navigation }) => {
 
   const handleImageUpload = useCallback(async () => {
     try {
+      setIsUploadingImage(true);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Camera roll access is required.');
@@ -165,6 +172,11 @@ const UserRegister = ({ navigation }) => {
       const response = await fetch(uri);
       const blob = await response.blob();
 
+      if (blob.size > MAX_FILE_SIZE) {
+        Alert.alert('Error', 'Image size exceeds 5MB.');
+        return null;
+      }
+
       const uploadTask = uploadBytesResumable(imageRef, blob);
       return new Promise((resolve, reject) => {
         uploadTask.on(
@@ -186,6 +198,8 @@ const UserRegister = ({ navigation }) => {
       console.error('Image upload failed:', error);
       Alert.alert('Error', 'Unable to upload image.');
       return null;
+    } finally {
+      setIsUploadingImage(false);
     }
   }, []);
 
@@ -195,16 +209,27 @@ const UserRegister = ({ navigation }) => {
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('A valid email is required.');
     if (!password.trim() || password.length < 6) errors.push('Password must be at least 6 characters.');
     if (!location.trim()) errors.push('Location is required.');
+    if (!locationAddress.trim()) errors.push('Location address is required.');
     if (experience && isNaN(experience)) errors.push('Experience must be a number.');
     return errors;
-  }, [name, email, password, location, experience]);
+  }, [name, email, password, location, locationAddress, experience]);
 
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
+  const toggleShowPassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
+
+  const retryOperation = async (operation, maxAttempts = 3) => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
   };
 
   const handleRegister = useCallback(async () => {
-    // Your registration logic remains the same...
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation Error', errors.join('\n'));
@@ -213,7 +238,9 @@ const UserRegister = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await retryOperation(() =>
+        createUserWithEmailAndPassword(auth, email.trim(), password)
+      );
       const user = userCredential.user;
       const imageUrl = profileImage?.startsWith('http') ? profileImage : await handleImageUpload();
 
@@ -225,21 +252,22 @@ const UserRegister = ({ navigation }) => {
         profession: profession.trim() || '',
         experience: experience.trim() || '',
         skills: skills.trim() || '',
-        location: location.trim(),
+        location: location.trim(), // Stores latitude,longitude
+        locationAddress: locationAddress.trim(), // Stores human-readable address
         profileImage: imageUrl || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(firestore, 'users', user.uid), userData);
+      await retryOperation(() => setDoc(doc(firestore, 'users', user.uid), userData));
       setShowSuccessModal(true);
     } catch (error) {
       let errorMessage = 'Registration failed.';
       switch (error.code) {
         case 'auth/email-already-in-use': errorMessage = 'Email already in use.'; break;
         case 'auth/invalid-email': errorMessage = 'Invalid email format.'; break;
-        case 'auth/weak-password': errorMessage = 'Password too weak.'; break;
-        case 'auth/network-request-failed': errorMessage = 'Network error.'; break;
+        case 'auth/weak-password': errorMessage = 'Password must be at least 6 characters.'; break;
+        case 'auth/network-request-failed': errorMessage = 'Network error. Please try again.'; break;
         default: errorMessage = error.message;
       }
       Alert.alert('Registration Error', errorMessage);
@@ -247,7 +275,7 @@ const UserRegister = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [name, email, password, profession, experience, skills, location, profileImage, handleImageUpload, validateForm]);
+  }, [name, email, password, profession, experience, skills, location, locationAddress, profileImage, handleImageUpload, validateForm]);
 
   const handleLocationSelect = useCallback(() => {
     setShowMapModal(true);
@@ -256,17 +284,56 @@ const UserRegister = ({ navigation }) => {
   const handleMapLocationSelect = useCallback((data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({ latitude: lat, longitude: lng });
+    setLocationAddress(details.formatted_address || data.description); // Set human-readable address
+    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); // Set coordinates for DB
     autocompleteRef.current?.blur();
   }, []);
 
-  const handleMapPress = useCallback((event) => {
-    setSelectedLocation(event.nativeEvent.coordinate);
+  const handleMapPress = useCallback(async (event) => {
+    const coords = event.nativeEvent.coordinate;
+    setSelectedLocation(coords);
+    setLocation(`${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`);
+
+    // Reverse geocoding to get address
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coords.latitude},${coords.longitude}&key=${GOOGLE_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        setLocationAddress(data.results[0].formatted_address);
+      } else {
+        setLocationAddress('Unknown location');
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      setLocationAddress('Unable to fetch address');
+    }
   }, []);
 
   const handleConfirmLocation = useCallback(async () => {
     let locationString;
+    let addressString = locationAddress;
+
     if (selectedLocation) {
       locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+      if (!addressString) {
+        // Fetch address if not already set
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.latitude},${selectedLocation.longitude}&key=${GOOGLE_API_KEY}`
+          );
+          const data = await response.json();
+          if (data.results && data.results.length > 0) {
+            addressString = data.results[0].formatted_address;
+          } else {
+            addressString = 'Unknown location';
+          }
+        } catch (error) {
+          console.error('Reverse geocoding error:', error);
+          addressString = 'Unable to fetch address';
+        }
+      }
     } else if (currentLocation) {
       Alert.alert(
         'No Location Selected',
@@ -275,9 +342,24 @@ const UserRegister = ({ navigation }) => {
           { text: 'No', style: 'cancel' },
           {
             text: 'Yes',
-            onPress: () => {
+            onPress: async () => {
               locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+              try {
+                const response = await fetch(
+                  `https://maps.googleapis.com/maps/api/geocode/json?latlng=${currentLocation.latitude},${currentLocation.longitude}&key=${GOOGLE_API_KEY}`
+                );
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                  addressString = data.results[0].formatted_address;
+                } else {
+                  addressString = 'Unknown location';
+                }
+              } catch (error) {
+                console.error('Reverse geocoding error:', error);
+                addressString = 'Unable to fetch address';
+              }
               setLocation(locationString);
+              setLocationAddress(addressString);
               setShowMapModal(false);
             },
           },
@@ -290,8 +372,9 @@ const UserRegister = ({ navigation }) => {
     }
 
     setLocation(locationString);
+    setLocationAddress(addressString);
     setShowMapModal(false);
-  }, [selectedLocation, currentLocation]);
+  }, [selectedLocation, currentLocation, locationAddress]);
 
   const handleInputFocus = (index) => {
     scrollViewRef.current?.scrollTo({
@@ -384,6 +467,7 @@ const UserRegister = ({ navigation }) => {
                     title="Your Location"
                     pinColor="blue"
                     accessibilityLabel="Your current location marker"
+                    accessibilityHint="Your current location on the map"
                   />
                 )}
                 {selectedLocation && (
@@ -392,6 +476,7 @@ const UserRegister = ({ navigation }) => {
                     title="Selected Location"
                     pinColor="red"
                     accessibilityLabel="Selected location marker"
+                    accessibilityHint="Tap to view or change the selected location"
                   />
                 )}
               </MapView>
@@ -400,6 +485,7 @@ const UserRegister = ({ navigation }) => {
                 style={styles.mapButton}
                 onPress={handleConfirmLocation}
                 accessibilityLabel="Confirm selected location"
+                accessibilityRole="button"
               >
                 <Text style={styles.mapButtonText}>Confirm Location</Text>
               </TouchableOpacity>
@@ -408,6 +494,7 @@ const UserRegister = ({ navigation }) => {
                 style={[styles.mapButton, styles.cancelButton]}
                 onPress={() => setShowMapModal(false)}
                 accessibilityLabel="Cancel location selection"
+                accessibilityRole="button"
               >
                 <Text style={styles.mapButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -416,155 +503,186 @@ const UserRegister = ({ navigation }) => {
         </View>
       </Modal>
 
-     <KeyboardAvoidingView
-  style={{ flex: 1 }}
-  behavior={Platform.OS === "ios" ? "padding" : undefined}
-  keyboardVerticalOffset={100}
->
-  <ScrollView
-    ref={scrollViewRef}
-    style={{ flex: 1 }}
-    contentContainerStyle={{
-      padding: 20,
-      paddingBottom: 100,
-      alignItems: 'center',
-    }}
-    keyboardShouldPersistTaps="handled"
-  >
-    <Text style={styles.title} accessibilityLabel="Create Your Account">
-      Create Your Account
-    </Text>
-
-    <View style={{ alignItems: 'center', width: '100%' }}>
-      <TouchableOpacity style={styles.imageUploadContainer} onPress={handleImageUpload}>
-        {profileImage ? (
-          <Image source={{ uri: profileImage }} style={styles.profileImage} />
-        ) : (
-          <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
-        )}
-      </TouchableOpacity>
-      <Text style={styles.uploadText}>Upload Profile Picture</Text>
-    </View>
-
-    <View style={styles.inputContainer}>
-      <Icon name="user" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-        onFocus={() => handleInputFocus(0)}
-        accessibilityLabel="Full name input"
-      />
-    </View>
-
-    <View style={styles.inputContainer}>
-      <Icon name="envelope" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        onFocus={() => handleInputFocus(1)}
-        accessibilityLabel="Email input"
-      />
-    </View>
-
-    <View style={styles.inputContainer}>
-      <Icon name="lock" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={!showPassword}
-        onFocus={() => handleInputFocus(2)}
-        accessibilityLabel="Password input"
-      />
-      <TouchableOpacity
-        onPress={toggleShowPassword}
-        style={styles.eyeIcon}
-        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={getStatusBarHeight() + 20}
       >
-        <Icon
-          name={showPassword ? 'eye' : 'eye-slash'}
-          size={20}
-          color={styles.inputContainer.borderColor}
-        />
-      </TouchableOpacity>
-    </View>
+        <ScrollView
+          ref={scrollViewRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 20,
+            paddingBottom: 100,
+            alignItems: 'center',
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.title} accessibilityLabel="Create Your Account">
+            Create Your Account
+          </Text>
 
-    <View style={styles.inputContainer}>
-      <Icon name="briefcase" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Profession (optional)"
-        value={profession}
-        onChangeText={setProfession}
-        onFocus={() => handleInputFocus(3)}
-        accessibilityLabel="Profession input"
-      />
-    </View>
+          <View style={{ alignItems: 'center', width: '100%' }}>
+            <TouchableOpacity
+              style={styles.imageUploadContainer}
+              onPress={handleImageUpload}
+              disabled={isUploadingImage}
+              accessibilityLabel="Upload profile picture"
+              accessibilityRole="button"
+            >
+              {isUploadingImage ? (
+                <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+              ) : profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.profileImage}
+                  accessibilityRole="image"
+                  accessibilityLabel="Profile picture"
+                />
+              ) : (
+                <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.uploadText}>Upload Profile Picture</Text>
+          </View>
 
-    <View style={styles.inputContainer}>
-      <Icon name="clock-o" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Years of Experience (optional)"
-        value={experience}
-        onChangeText={setExperience}
-        keyboardType="numeric"
-        onFocus={() => handleInputFocus(4)}
-        accessibilityLabel="Experience input"
-      />
-    </View>
+          <View style={styles.inputContainer}>
+            <Icon name="user" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Full Name"
+              value={name}
+              onChangeText={setName}
+              onFocus={() => handleInputFocus(0)}
+              accessibilityLabel="Full name input"
+              accessibilityRole="text"
+            />
+          </View>
 
-    <View style={styles.inputContainer}>
-      <Icon name="tags" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder="Skills (comma separated, optional)"
-        value={skills}
-        onChangeText={setSkills}
-        onFocus={() => handleInputFocus(5)}
-        accessibilityLabel="Skills input"
-      />
-    </View>
+          <View style={styles.inputContainer}>
+            <Icon name="envelope" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              onFocus={() => handleInputFocus(1)}
+              accessibilityLabel="Email input"
+              accessibilityRole="text"
+            />
+          </View>
 
-    <View style={styles.inputContainer}>
-      <Icon name="map-marker" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
-      <TouchableOpacity onPress={handleLocationSelect} style={styles.locationInputWrapper}>
-        <TextInput
-          style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
-          placeholder="Location"
-          value={location}
-          editable={false}
-          onFocus={() => handleInputFocus(6)}
-          accessibilityLabel="Location input"
-        />
-      </TouchableOpacity>
-    </View>
+          <View style={styles.inputContainer}>
+            <Icon name="lock" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              onFocus={() => handleInputFocus(2)}
+              accessibilityLabel="Password input"
+              accessibilityRole="text"
+            />
+            <TouchableOpacity
+              onPress={toggleShowPassword}
+              style={styles.eyeIcon}
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              accessibilityRole="button"
+            >
+              <Icon
+                name={showPassword ? 'eye' : 'eye-slash'}
+                size={20}
+                color={styles.inputContainer.borderColor}
+              />
+            </TouchableOpacity>
+          </View>
 
-    <TouchableOpacity
-      style={[styles.button, isLoading && { opacity: 0.7 }]}
-      onPress={handleRegister}
-      disabled={isLoading}
-      accessibilityLabel="Register button"
-    >
-      <Text style={styles.buttonText}>Register</Text>
-    </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <Icon name="briefcase" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Profession (optional)"
+              value={profession}
+              onChangeText={setProfession}
+              onFocus={() => handleInputFocus(3)}
+              accessibilityLabel="Profession input"
+              accessibilityRole="text"
+            />
+          </View>
 
-    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-      <Text style={styles.link}>
-        Already have an account? <Text style={styles.linkBold}>Login here</Text>
-      </Text>
-    </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <Icon name="clock-o" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Years of Experience (optional)"
+              value={experience}
+              onChangeText={setExperience}
+              keyboardType="numeric"
+              onFocus={() => handleInputFocus(4)}
+              accessibilityLabel="Experience input"
+              accessibilityRole="text"
+            />
+          </View>
 
-    <View style={{ height: 20 }} /> {/* Spacer to prevent last element from touching screen edge */}
-  </ScrollView>
-</KeyboardAvoidingView>
+          <View style={styles.inputContainer}>
+            <Icon name="tags" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Skills (comma separated, optional)"
+              value={skills}
+              onChangeText={setSkills}
+              onFocus={() => handleInputFocus(5)}
+              accessibilityLabel="Skills input"
+              accessibilityRole="text"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="map-marker" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <TouchableOpacity
+              onPress={handleLocationSelect}
+              style={styles.locationInputWrapper}
+              accessibilityLabel="Select location"
+              accessibilityRole="button"
+            >
+              <TextInput
+                style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
+                placeholder="Location"
+                value={locationAddress}
+                editable={false}
+                onFocus={() => handleInputFocus(6)}
+                accessibilityLabel="Location input"
+                accessibilityRole="text"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, isLoading && { opacity: 0.7 }]}
+            onPress={handleRegister}
+            disabled={isLoading}
+            accessibilityLabel="Register button"
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Register</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            accessibilityLabel="Login link"
+            accessibilityRole="link"
+          >
+            <Text style={styles.link}>
+              Already have an account? <Text style={styles.linkBold}>Login here</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 20 }} /> {/* Spacer */}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 };

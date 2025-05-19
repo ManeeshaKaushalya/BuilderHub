@@ -16,14 +16,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Video, VideoFullscreenUpdate } from 'expo-av';
 import { useUser } from '../../context/UserContext';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as Location from 'expo-location';
 import PropTypes from 'prop-types';
-import { styles, COLORS } from '../../styles/ImageUploadStyles'; // Adjust the import path as necessary
+import { styles, COLORS } from '../../styles/ImageUploadStyles'; 
 
 const { width } = Dimensions.get('window');
 
 const ImageUpload = ({ navigation }) => {
-  // Suppress console logs within this component
   useEffect(() => {
     const originalConsoleLog = console.log;
     const originalConsoleWarn = console.warn;
@@ -55,9 +53,6 @@ const ImageUpload = ({ navigation }) => {
   const [suggestedTags, setSuggestedTags] = useState([]);
   const [projectTimeline, setProjectTimeline] = useState('');
   const [projectCost, setProjectCost] = useState('');
-  const [location, setLocation] = useState(null);
-  const [locationName, setLocationName] = useState('');
-  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentEditingImage, setCurrentEditingImage] = useState(null);
   const [currentEditingIndex, setCurrentEditingIndex] = useState(null);
@@ -152,45 +147,6 @@ const ImageUpload = ({ navigation }) => {
   const getRandomSuggestedTags = (count) => {
     const shuffled = [...commonCategories].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
-  };
-
-  const getCurrentLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('location_permission_denied');
-      }
-
-      setLoading(true);
-      const locationResult = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const newLocation = {
-        latitude: locationResult.coords.latitude,
-        longitude: locationResult.coords.longitude,
-      };
-      setLocation(newLocation);
-
-      const geocode = await Location.reverseGeocodeAsync(newLocation);
-      if (geocode.length > 0) {
-        const locationText = `${geocode[0].city || ''}, ${geocode[0].region || ''}`.trim();
-        setLocationName(locationText);
-        Alert.alert('Location Added', `Location set to: ${locationText}`);
-      } else {
-        setLocationName('Unknown Location');
-        Alert.alert('Location Added', 'Location coordinates saved, but address could not be resolved.');
-      }
-    } catch (error) {
-      console.error('Location Error:', error);
-      let message = 'Failed to get current location';
-      if (error.message === 'location_permission_denied') {
-        message = 'Location permission is required';
-      }
-      Alert.alert('Error', message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleCameraCapture = async () => {
@@ -481,7 +437,6 @@ const ImageUpload = ({ navigation }) => {
         isVerified,
         projectTimeline: projectTimeline.trim(),
         projectCost: projectCost.trim(),
-        location: useCurrentLocation && location ? location : null,
         likes: 0,
         likedBy: [],
       });
@@ -507,9 +462,6 @@ const ImageUpload = ({ navigation }) => {
     setProjectTimeline('');
     setProjectCost('');
     setBeforeAfterMode(false);
-    setLocation(null);
-    setLocationName('');
-    setUseCurrentLocation(false);
   };
 
   const renderMediaItem = ({ item, index }) => (
@@ -534,6 +486,8 @@ const ImageUpload = ({ navigation }) => {
         <TouchableOpacity
           style={styles.mediaButton}
           onPress={() => removeMediaItem(index)}
+          accessibilityLabel={`Remove media item ${index + 1}`}
+          accessibilityRole="button"
         >
           <MaterialIcons name="delete" size={20} color="#fff" />
         </TouchableOpacity>
@@ -541,6 +495,8 @@ const ImageUpload = ({ navigation }) => {
           <TouchableOpacity
             style={styles.mediaButton}
             onPress={() => openImageEditor(item.uri, index)}
+            accessibilityLabel={`Edit media item ${index + 1}`}
+            accessibilityRole="button"
           >
             <MaterialIcons name="edit" size={20} color="#fff" />
           </TouchableOpacity>
@@ -558,6 +514,8 @@ const ImageUpload = ({ navigation }) => {
       <TouchableOpacity
         style={styles.documentButton}
         onPress={() => removeDocument(index)}
+        accessibilityLabel={`Remove document ${item.name}`}
+        accessibilityRole="button"
       >
         <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
       </TouchableOpacity>
@@ -568,7 +526,9 @@ const ImageUpload = ({ navigation }) => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.headerSection}>
-        <Text style={styles.headerTitle}>Create Project Post</Text>
+        <Text style={styles.headerTitle} accessibilityLabel="Create Project Post">
+          Create Project Post
+        </Text>
       </View>
 
       <View style={styles.postContainer}>
@@ -580,6 +540,8 @@ const ImageUpload = ({ navigation }) => {
           multiline
           value={caption}
           onChangeText={setCaption}
+          accessibilityLabel="Project description input"
+          accessibilityRole="text"
         />
 
         {/* Before & After Toggle */}
@@ -590,6 +552,8 @@ const ImageUpload = ({ navigation }) => {
             onValueChange={setBeforeAfterMode}
             trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
             thumbColor={beforeAfterMode ? COLORS.PRIMARY : '#fff'}
+            accessibilityLabel="Toggle Before and After mode"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -604,6 +568,8 @@ const ImageUpload = ({ navigation }) => {
                   <TouchableOpacity
                     style={styles.beforeAfterRemoveButton}
                     onPress={() => setBeforeImage(null)}
+                    accessibilityLabel="Remove before image"
+                    accessibilityRole="button"
                   >
                     <MaterialIcons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
@@ -612,6 +578,8 @@ const ImageUpload = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.beforeAfterPlaceholder}
                   onPress={handleBeforeImagePick}
+                  accessibilityLabel="Add before image"
+                  accessibilityRole="button"
                 >
                   <MaterialIcons name="add-photo-alternate" size={30} color={COLORS.SECONDARY_TEXT} />
                   <Text style={styles.beforeAfterPlaceholderText}>Add Before</Text>
@@ -626,6 +594,8 @@ const ImageUpload = ({ navigation }) => {
                   <TouchableOpacity
                     style={styles.beforeAfterRemoveButton}
                     onPress={() => setAfterImage(null)}
+                    accessibilityLabel="Remove after image"
+                    accessibilityRole="button"
                   >
                     <MaterialIcons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
@@ -634,6 +604,8 @@ const ImageUpload = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.beforeAfterPlaceholder}
                   onPress={handleAfterImagePick}
+                  accessibilityLabel="Add after image"
+                  accessibilityRole="button"
                 >
                   <MaterialIcons name="add-photo-alternate" size={30} color={COLORS.SECONDARY_TEXT} />
                   <Text style={styles.beforeAfterPlaceholderText}>Add After</Text>
@@ -662,6 +634,8 @@ const ImageUpload = ({ navigation }) => {
               style={[styles.actionButton, media.length >= 10 && styles.disabledButton]}
               onPress={handleCameraCapture}
               disabled={media.length >= 10}
+              accessibilityLabel="Capture media with camera"
+              accessibilityRole="button"
             >
               <Icon name="camera" size={18} color={media.length >= 10 ? COLORS.DISABLED : COLORS.PRIMARY} />
               <Text style={[styles.actionText, media.length >= 10 && styles.disabledText]}>Camera</Text>
@@ -670,6 +644,8 @@ const ImageUpload = ({ navigation }) => {
               style={[styles.actionButton, media.length >= 10 && styles.disabledButton]}
               onPress={handleGalleryPick}
               disabled={media.length >= 10}
+              accessibilityLabel="Select media from gallery"
+              accessibilityRole="button"
             >
               <Icon name="images" size={18} color={media.length >= 10 ? COLORS.DISABLED : COLORS.PRIMARY} />
               <Text style={[styles.actionText, media.length >= 10 && styles.disabledText]}>Gallery ({media.length}/10)</Text>
@@ -688,6 +664,8 @@ const ImageUpload = ({ navigation }) => {
               placeholderTextColor={COLORS.PLACEHOLDER}
               value={projectTimeline}
               onChangeText={setProjectTimeline}
+              accessibilityLabel="Project timeline input"
+              accessibilityRole="text"
             />
           </View>
           <View style={styles.detailRow}>
@@ -699,32 +677,8 @@ const ImageUpload = ({ navigation }) => {
               value={projectCost}
               onChangeText={setProjectCost}
               keyboardType="default"
-            />
-          </View>
-          <View style={styles.detailRow}>
-            <MaterialIcons name="location-on" size={20} color={COLORS.SECONDARY_TEXT} />
-            <TextInput
-              style={[styles.detailInput, { backgroundColor: COLORS.BACKGROUND_SECONDARY }]}
-              placeholder="Location (e.g., Colombo, Western Province)"
-              placeholderTextColor={COLORS.PLACEHOLDER}
-              value={locationName}
-              editable={false}
-            />
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={getCurrentLocation}
-              disabled={loading}
-            >
-              <Text style={styles.locationButtonText}>
-                {loading ? 'Getting Location...' : 'Get Location'}
-              </Text>
-            </TouchableOpacity>
-            <Switch
-              value={useCurrentLocation}
-              onValueChange={setUseCurrentLocation}
-              disabled={!location}
-              trackColor={{ false: COLORS.BORDER, true: COLORS.PRIMARY }}
-              thumbColor={useCurrentLocation ? COLORS.PRIMARY : '#fff'}
+              accessibilityLabel="Project cost input"
+              accessibilityRole="text"
             />
           </View>
         </View>
@@ -733,7 +687,11 @@ const ImageUpload = ({ navigation }) => {
         <View style={styles.detailSection}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Categories & Tags</Text>
-            <TouchableOpacity onPress={() => setCategoryModalVisible(true)}>
+            <TouchableOpacity
+              onPress={() => setCategoryModalVisible(true)}
+              accessibilityLabel="Edit categories"
+              accessibilityRole="button"
+            >
               <MaterialIcons name="edit" size={20} color={COLORS.SECONDARY_TEXT} />
             </TouchableOpacity>
           </View>
@@ -748,6 +706,8 @@ const ImageUpload = ({ navigation }) => {
                   key={index}
                   style={styles.categoryTag}
                   onPress={() => addCategory(category)}
+                  accessibilityLabel={`Remove category ${category}`}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.categoryText}>{category}</Text>
                   <MaterialIcons name="close" size={16} color={COLORS.SECONDARY_TEXT} />
@@ -769,6 +729,8 @@ const ImageUpload = ({ navigation }) => {
                     key={index}
                     style={styles.suggestedTag}
                     onPress={() => addCategory(tag)}
+                    accessibilityLabel={`Add suggested tag ${tag}`}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.suggestedTagText}>{tag}</Text>
                     <MaterialIcons name="add" size={16} color={COLORS.SECONDARY_TEXT} />
@@ -785,6 +747,8 @@ const ImageUpload = ({ navigation }) => {
           <TouchableOpacity
             style={styles.fullWidthButton}
             onPress={handleDocumentPick}
+            accessibilityLabel="Upload documents"
+            accessibilityRole="button"
           >
             <MaterialIcons name="upload-file" size={20} color={COLORS.SECONDARY_TEXT} />
             <Text style={styles.fullWidthButtonText}>Upload Documents (blueprints, designs, etc.)</Text>
@@ -811,12 +775,16 @@ const ImageUpload = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={resetForm}
+                accessibilityLabel="Cancel post"
+                accessibilityRole="button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.uploadSubmitButton}
                 onPress={handleUpload}
+                accessibilityLabel="Post project"
+                accessibilityRole="button"
               >
                 <Text style={styles.uploadSubmitButtonText}>Post Now</Text>
               </TouchableOpacity>
@@ -871,6 +839,8 @@ const ImageUpload = ({ navigation }) => {
                     value={brightness.toString()}
                     onChangeText={(value) => setBrightness(parseInt(value) || 0)}
                     keyboardType="number-pad"
+                    accessibilityLabel="Brightness adjustment input"
+                    accessibilityRole="text"
                   />
                   <MaterialIcons name="brightness-high" size={20} color={COLORS.SECONDARY_TEXT} />
                 </View>
@@ -886,6 +856,8 @@ const ImageUpload = ({ navigation }) => {
                     value={rotation.toString()}
                     onChangeText={(value) => setRotation(parseInt(value) || 0)}
                     keyboardType="number-pad"
+                    accessibilityLabel="Rotation adjustment input"
+                    accessibilityRole="text"
                   />
                   <MaterialIcons name="rotate-right" size={20} color={COLORS.SECONDARY_TEXT} />
                 </View>
@@ -898,6 +870,8 @@ const ImageUpload = ({ navigation }) => {
                   placeholderTextColor={COLORS.PLACEHOLDER}
                   value={watermarkText}
                   onChangeText={setWatermarkText}
+                  accessibilityLabel="Watermark text input"
+                  accessibilityRole="text"
                 />
               </View>
               <View style={styles.editorButtons}>
@@ -905,6 +879,8 @@ const ImageUpload = ({ navigation }) => {
                   style={styles.editorCancelButton}
                   onPress={() => setIsEditModalVisible(false)}
                   disabled={loading}
+                  accessibilityLabel="Cancel image edits"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.editorCancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
@@ -912,6 +888,8 @@ const ImageUpload = ({ navigation }) => {
                   style={styles.editorApplyButton}
                   onPress={applyImageEdits}
                   disabled={loading}
+                  accessibilityLabel="Apply image edits"
+                  accessibilityRole="button"
                 >
                   {loading ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -947,12 +925,16 @@ const ImageUpload = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.addDocumentButton}
                 onPress={handleDocumentPick}
+                accessibilityLabel="Add another document"
+                accessibilityRole="button"
               >
                 <Text style={styles.addDocumentButtonText}>Add Document</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeModalButton}
                 onPress={() => setDocumentsModalVisible(false)}
+                accessibilityLabel="Close documents modal"
+                accessibilityRole="button"
               >
                 <Text style={styles.closeModalButtonText}>Close</Text>
               </TouchableOpacity>
@@ -977,10 +959,14 @@ const ImageUpload = ({ navigation }) => {
                   placeholderTextColor={COLORS.PLACEHOLDER}
                   value={newCategory}
                   onChangeText={setNewCategory}
+                  accessibilityLabel="Custom category input"
+                  accessibilityRole="text"
                 />
                 <TouchableOpacity
                   style={styles.addCustomCategoryButton}
                   onPress={addCustomCategory}
+                  accessibilityLabel="Add custom category"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.addCustomCategoryButtonText}>Add</Text>
                 </TouchableOpacity>
@@ -992,6 +978,8 @@ const ImageUpload = ({ navigation }) => {
                     key={index}
                     style={[styles.commonCategory, categories.includes(category) && styles.selectedCategory]}
                     onPress={() => addCategory(category)}
+                    accessibilityLabel={`Select category ${category}`}
+                    accessibilityRole="button"
                   >
                     <Text style={[styles.commonCategoryText, categories.includes(category) && styles.selectedCategoryText]}>
                       {category}
@@ -1005,6 +993,8 @@ const ImageUpload = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.closeModalButton}
                 onPress={() => setCategoryModalVisible(false)}
+                accessibilityLabel="Close categories modal"
+                accessibilityRole="button"
               >
                 <Text style={styles.closeModalButtonText}>Done</Text>
               </TouchableOpacity>

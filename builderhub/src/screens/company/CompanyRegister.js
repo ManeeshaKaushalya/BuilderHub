@@ -21,7 +21,7 @@ import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../../firebase/firebaseConfig';
-import styles, { COLORS } from '../../styles/UserRegisterStyles'; // Use UserRegisterStyles for consistency
+import styles, { COLORS } from '../../styles/UserRegisterStyles';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
 import { Linking } from 'react-native';
 
@@ -38,7 +38,8 @@ const CompanyRegister = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(''); // Stores latitude,longitude for DB
+  const [locationAddress, setLocationAddress] = useState(''); // Stores human-readable address for UI and DB
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -208,8 +209,9 @@ const CompanyRegister = ({ navigation }) => {
     }
     if (!password.trim() || password.length < 6) errors.push('Password must be at least 6 characters.');
     if (!location.trim()) errors.push('Location is required.');
+    if (!locationAddress.trim()) errors.push('Location address is required.');
     return errors;
-  }, [companyName, email, password, location]);
+  }, [companyName, email, password, location, locationAddress]);
 
   const toggleShowPassword = useCallback(() => {
     setShowPassword((prev) => !prev);
@@ -247,7 +249,8 @@ const CompanyRegister = ({ navigation }) => {
         email: email.trim(),
         accountType: 'Company',
         companyDescription: companyDescription.trim() || '',
-        location: location.trim(),
+        location: location.trim(), // Stores latitude,longitude
+        locationAddress: locationAddress.trim(), // Stores human-readable address
         profileImage: imageUrl || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -269,7 +272,7 @@ const CompanyRegister = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [companyName, email, password, companyDescription, location, profileImage, handleImageUpload, validateForm]);
+  }, [companyName, email, password, companyDescription, location, locationAddress, profileImage, handleImageUpload, validateForm]);
 
   const handleLocationSelect = useCallback(() => {
     setShowMapModal(true);
@@ -278,17 +281,56 @@ const CompanyRegister = ({ navigation }) => {
   const handleMapLocationSelect = useCallback((data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({ latitude: lat, longitude: lng });
+    setLocationAddress(details.formatted_address || data.description); // Set human-readable address
+    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); // Set coordinates for DB
     autocompleteRef.current?.blur();
   }, []);
 
-  const handleMapPress = useCallback((event) => {
-    setSelectedLocation(event.nativeEvent.coordinate);
+  const handleMapPress = useCallback(async (event) => {
+    const coords = event.nativeEvent.coordinate;
+    setSelectedLocation(coords);
+    setLocation(`${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`);
+
+    // Reverse geocoding to get address
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coords.latitude},${coords.longitude}&key=${GOOGLE_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        setLocationAddress(data.results[0].formatted_address);
+      } else {
+        setLocationAddress('Unknown location');
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      setLocationAddress('Unable to fetch address');
+    }
   }, []);
 
   const handleConfirmLocation = useCallback(async () => {
     let locationString;
+    let addressString = locationAddress;
+
     if (selectedLocation) {
       locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
+      if (!addressString) {
+        // Fetch address if not already set
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.latitude},${selectedLocation.longitude}&key=${GOOGLE_API_KEY}`
+          );
+          const data = await response.json();
+          if (data.results && data.results.length > 0) {
+            addressString = data.results[0].formatted_address;
+          } else {
+            addressString = 'Unknown location';
+          }
+        } catch (error) {
+          console.error('Reverse geocoding error:', error);
+          addressString = 'Unable to fetch address';
+        }
+      }
     } else if (currentLocation) {
       Alert.alert(
         'No Location Selected',
@@ -297,9 +339,24 @@ const CompanyRegister = ({ navigation }) => {
           { text: 'No', style: 'cancel' },
           {
             text: 'Yes',
-            onPress: () => {
+            onPress: async () => {
               locationString = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+              try {
+                const response = await fetch(
+                  `https://maps.googleapis.com/maps/api/geocode/json?latlng=${currentLocation.latitude},${currentLocation.longitude}&key=${GOOGLE_API_KEY}`
+                );
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                  addressString = data.results[0].formatted_address;
+                } else {
+                  addressString = 'Unknown location';
+                }
+              } catch (error) {
+                console.error('Reverse geocoding error:', error);
+                addressString = 'Unable to fetch address';
+              }
               setLocation(locationString);
+              setLocationAddress(addressString);
               setShowMapModal(false);
             },
           },
@@ -312,8 +369,9 @@ const CompanyRegister = ({ navigation }) => {
     }
 
     setLocation(locationString);
+    setLocationAddress(addressString);
     setShowMapModal(false);
-  }, [selectedLocation, currentLocation]);
+  }, [selectedLocation, currentLocation, locationAddress]);
 
   const handleInputFocus = (index) => {
     scrollViewRef.current?.scrollTo({
@@ -482,7 +540,7 @@ const CompanyRegister = ({ navigation }) => {
                 <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
               )}
             </TouchableOpacity>
-            <Text style={styles.uploadText}>Upload Company Logo</Text>
+            <Text style={styles.uploadText}>Upload Company Profile Picture</Text>
           </View>
 
           <View style={styles.inputContainer}>
@@ -518,7 +576,7 @@ const CompanyRegister = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Password"
-              value={password}
+              value={Policy}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               onFocus={() => handleInputFocus(2)}
@@ -563,7 +621,7 @@ const CompanyRegister = ({ navigation }) => {
               <TextInput
                 style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
                 placeholder="Location"
-                value={location}
+                value={locationAddress} // Display human-readable address
                 editable={false}
                 onFocus={() => handleInputFocus(4)}
                 accessibilityLabel="Location input"
@@ -582,7 +640,11 @@ const CompanyRegister = ({ navigation }) => {
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            accessibilityLabel="Login link"
+            accessibilityRole="link"
+          >
             <Text style={styles.link}>
               Already have an account? <Text style={styles.linkBold}>Login here</Text>
             </Text>
