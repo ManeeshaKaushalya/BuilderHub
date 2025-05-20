@@ -6,17 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { firestore, storage } from '../../../firebase/firebaseConfig';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import styles from '../../styles/marketplacestyles/EditItemStyles'; 
 
 const EditItem = ({ route, navigation }) => {
   const { item } = route.params;
@@ -98,7 +98,7 @@ const EditItem = ({ route, navigation }) => {
       const blob = await response.blob();
       const filename = `items/${item.id}/${Date.now()}`;
       const storageRef = ref(storage, filename);
-      
+
       await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(storageRef);
       return downloadURL;
@@ -127,14 +127,11 @@ const EditItem = ({ route, navigation }) => {
 
       // Upload new images
       const newImageUrls = await Promise.all(
-        images.filter(img => !img.startsWith('http')).map(uploadImage)
+        images.filter((img) => !img.startsWith('http')).map(uploadImage)
       );
 
       // Combine existing and new image URLs
-      const finalImages = [
-        ...images.filter(img => img.startsWith('http')),
-        ...newImageUrls
-      ];
+      const finalImages = [...images.filter((img) => img.startsWith('http')), ...newImageUrls];
 
       // Update firestore document
       const itemRef = doc(firestore, 'items', item.id);
@@ -147,11 +144,9 @@ const EditItem = ({ route, navigation }) => {
         updatedAt: new Date(),
       });
 
-      Alert.alert(
-        'Success',
-        'Item updated successfully',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      Alert.alert('Success', 'Item updated successfully', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     } catch (error) {
       console.error('Error updating item:', error);
       Alert.alert('Error', 'Failed to update item. Please try again.');
@@ -160,10 +155,8 @@ const EditItem = ({ route, navigation }) => {
     }
   };
 
-  // ... Rest of the component remains the same ...
-
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
@@ -180,11 +173,7 @@ const EditItem = ({ route, navigation }) => {
         {/* Image Section */}
         <View style={styles.imageSection}>
           <Text style={styles.sectionTitle}>Images</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.imageScrollView}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScrollView}>
             {images.map((image, index) => (
               <View key={index} style={styles.imageContainer}>
                 <Image source={{ uri: image }} style={styles.image} />
@@ -197,18 +186,13 @@ const EditItem = ({ route, navigation }) => {
               </View>
             ))}
             {images.length < 5 && (
-              <TouchableOpacity
-                style={styles.addImageButton}
-                onPress={handleImagePick}
-              >
+              <TouchableOpacity style={styles.addImageButton} onPress={handleImagePick}>
                 <Icon name="add-photo-alternate" size={32} color="#666" />
                 <Text style={styles.addImageText}>Add Image</Text>
               </TouchableOpacity>
             )}
           </ScrollView>
-          {errors.images && (
-            <Text style={styles.errorText}>{errors.images}</Text>
-          )}
+          {errors.images && <Text style={styles.errorText}>{errors.images}</Text>}
         </View>
 
         {/* Form Fields */}
@@ -218,12 +202,10 @@ const EditItem = ({ route, navigation }) => {
             <TextInput
               style={[styles.input, errors.itemName && styles.inputError]}
               value={formData.itemName}
-              onChangeText={(text) => setFormData({...formData, itemName: text})}
+              onChangeText={(text) => setFormData({ ...formData, itemName: text })}
               placeholder="Enter item name"
             />
-            {errors.itemName && (
-              <Text style={styles.errorText}>{errors.itemName}</Text>
-            )}
+            {errors.itemName && <Text style={styles.errorText}>{errors.itemName}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
@@ -231,14 +213,12 @@ const EditItem = ({ route, navigation }) => {
             <TextInput
               style={[styles.textArea, errors.description && styles.inputError]}
               value={formData.description}
-              onChangeText={(text) => setFormData({...formData, description: text})}
+              onChangeText={(text) => setFormData({ ...formData, description: text })}
               placeholder="Enter item description"
               multiline
               numberOfLines={4}
             />
-            {errors.description && (
-              <Text style={styles.errorText}>{errors.description}</Text>
-            )}
+            {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
           </View>
 
           <View style={styles.row}>
@@ -247,13 +227,11 @@ const EditItem = ({ route, navigation }) => {
               <TextInput
                 style={[styles.input, errors.price && styles.inputError]}
                 value={formData.price}
-                onChangeText={(text) => setFormData({...formData, price: text})}
+                onChangeText={(text) => setFormData({ ...formData, price: text })}
                 keyboardType="numeric"
                 placeholder="0.00"
               />
-              {errors.price && (
-                <Text style={styles.errorText}>{errors.price}</Text>
-              )}
+              {errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -261,13 +239,11 @@ const EditItem = ({ route, navigation }) => {
               <TextInput
                 style={[styles.input, errors.Stock && styles.inputError]}
                 value={formData.Stock}
-                onChangeText={(text) => setFormData({...formData, Stock: text})}
+                onChangeText={(text) => setFormData({ ...formData, Stock: text })}
                 keyboardType="numeric"
                 placeholder="0"
               />
-              {errors.Stock && (
-                <Text style={styles.errorText}>{errors.Stock}</Text>
-              )}
+              {errors.Stock && <Text style={styles.errorText}>{errors.Stock}</Text>}
             </View>
           </View>
         </View>
@@ -293,139 +269,5 @@ const EditItem = ({ route, navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
-    backgroundColor: '#F4B018',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerRight: {
-    width: 24,
-  },
-  imageSection: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  imageScrollView: {
-    flexDirection: 'row',
-  },
-  imageContainer: {
-    marginRight: 12,
-    position: 'relative',
-  },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#ff4444',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addImageButton: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addImageText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#666',
-  },
-  formSection: {
-    padding: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  inputError: {
-    borderColor: '#ff4444',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    color: '#ff4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  bottomContainer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e1e1e1',
-    backgroundColor: '#fff',
-  },
-  submitButton: {
-    backgroundColor: '#28a745',
-    borderRadius: 8,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-});
 
 export default EditItem;

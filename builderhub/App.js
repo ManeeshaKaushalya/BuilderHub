@@ -29,10 +29,8 @@ import ForgetPassword from './src/screens/ForgetPassword';
 import DarkModeScreen from './src/screens/DarkModeScreen';
 import ImageUpload from './src/screens/posts/ImageUpload';
 import Posts from './src/screens/posts/Posts';
-import FilterSection from './src/screens/MarketScreens/FilterSection';
 import FormatPrice from './src/screens/MarketScreens/FormatPrice';
 import AddItem from './src/screens/MarketScreens/AddItem';
-import ItemList from './src/screens/MarketScreens/ItemList';
 import ItemDetails from './src/screens/MarketScreens/ItemDetails';
 import CommentScreen from './src/screens/posts/CommentScreen';
 import EditItem from './src/screens/MarketScreens/EditItem';
@@ -106,10 +104,8 @@ export default function App() {
                   <Stack.Screen name="DarkModeScreen" component={DarkModeScreen} />
                   <Stack.Screen name="ImageUpload" component={ImageUpload} />
                   <Stack.Screen name="Posts" component={Posts} />
-                  <Stack.Screen name="FilterSection" component={FilterSection} />
                   <Stack.Screen name="FormatPrice" component={FormatPrice} />
                   <Stack.Screen name="AddItem" component={AddItem} />
-                  <Stack.Screen name="ItemList" component={ItemList} />
                   <Stack.Screen name="ItemDetails" component={ItemDetails} />
                   <Stack.Screen name="CommentScreen" component={CommentScreen} />
                   <Stack.Screen name="EditItem" component={EditItem} />

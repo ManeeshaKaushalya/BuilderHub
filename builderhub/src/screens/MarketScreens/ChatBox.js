@@ -38,7 +38,6 @@ import {
 import { storage } from '../../../firebase/firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useUser } from '../../context/UserContext';
-import { getBotResponse } from './BotService';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -48,7 +47,7 @@ import { BlurView } from 'expo-blur';
 const MESSAGES_PER_LOAD = 20;
 
 const ChatScreen = ({ route, navigation }) => {
-  const { item, sellerData, isBotChat = false } = route.params;
+  const { item, sellerData } = route.params;
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -85,11 +84,11 @@ const ChatScreen = ({ route, navigation }) => {
     });
 
     return () => {
-      if (chatId && !isBotChat) {
+      if (chatId) {
         updateTypingStatus(false);
       }
     };
-  }, [navigation, chatId, isBotChat]);
+  }, [navigation, chatId]);
 
   // Set up chat connection and create chat if needed
   useEffect(() => {
@@ -123,11 +122,49 @@ const ChatScreen = ({ route, navigation }) => {
       }
 
       try {
-        if (isBotChat) {
-          await setupBotChat();
-        } else {
-          await setupUserChat();
-        }
+        const chatsRef = collection(firestore, 'chats');
+        const chatQuery = query(
+          chatsRef,
+          where('itemId', '==', item.id),
+          where('participants', 'array-contains', user.uid)
+        );
+
+        const unsubscribe = onSnapshot(chatQuery, async (querySnapshot) => {
+          let existingChat = null;
+
+          querySnapshot.forEach((doc) => {
+            const chatData = doc.data();
+            if (chatData.participants.includes(item.itemOwnerId) &&
+                chatData.participants.includes(user.uid)) {
+              existingChat = { id: doc.id, ...chatData };
+            }
+          });
+
+          if (existingChat) {
+            setChatId(existingChat.id);
+          } else {
+            const newChatRef = await addDoc(chatsRef, {
+              itemId: item.id,
+              itemName: item.itemName,
+              itemImage: item.images?.[0] || null,
+              participants: [user.uid, item.itemOwnerId],
+              createdAt: serverTimestamp(),
+              lastMessage: '',
+              lastMessageTime: serverTimestamp(),
+              lastMessageType: 'text',
+              typing: {}
+            });
+            setChatId(newChatRef.id);
+          }
+
+          setIsLoading(false);
+        }, (error) => {
+          console.error('Chat query error:', error);
+          setIsLoading(false);
+          Alert.alert('Error', 'Failed to load chat. Please try again.');
+        });
+
+        return unsubscribe;
       } catch (error) {
         console.error('Error setting up chat:', error);
         setIsLoading(false);
@@ -136,77 +173,7 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     setupChat();
-  }, [user, isAuthLoading, item, isBotChat, navigation]);
-
-  // Bot chat setup function
-  const setupBotChat = async () => {
-    const botChatId = `bot_${user.uid}`;
-    setChatId(botChatId);
-
-    const chatRef = doc(firestore, 'chats', botChatId);
-    const chatSnap = await getDoc(chatRef);
-
-    if (!chatSnap.exists()) {
-      await setDoc(chatRef, {
-        itemId: 'constructionBot',
-        itemName: 'Construction Help',
-        participants: [user.uid, 'constructionBot'],
-        createdAt: serverTimestamp(),
-        lastMessage: 'Ask me about construction!',
-        lastMessageTime: serverTimestamp(),
-        lastMessageType: 'text'
-      });
-    }
-
-    setIsLoading(false);
-  };
-
-  // User-to-user chat setup function
-  const setupUserChat = async () => {
-    const chatsRef = collection(firestore, 'chats');
-    const chatQuery = query(
-      chatsRef,
-      where('itemId', '==', item.id),
-      where('participants', 'array-contains', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(chatQuery, async (querySnapshot) => {
-      let existingChat = null;
-
-      querySnapshot.forEach((doc) => {
-        const chatData = doc.data();
-        if (chatData.participants.includes(item.itemOwnerId) &&
-            chatData.participants.includes(user.uid)) {
-          existingChat = { id: doc.id, ...chatData };
-        }
-      });
-
-      if (existingChat) {
-        setChatId(existingChat.id);
-      } else {
-        const newChatRef = await addDoc(chatsRef, {
-          itemId: item.id,
-          itemName: item.itemName,
-          itemImage: item.images?.[0] || null,
-          participants: [user.uid, item.itemOwnerId],
-          createdAt: serverTimestamp(),
-          lastMessage: '',
-          lastMessageTime: serverTimestamp(),
-          lastMessageType: 'text',
-          typing: {}
-        });
-        setChatId(newChatRef.id);
-      }
-
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Chat query error:', error);
-      setIsLoading(false);
-      Alert.alert('Error', 'Failed to load chat. Please try again.');
-    });
-
-    return unsubscribe;
-  };
+  }, [user, isAuthLoading, item, navigation]);
 
   // Listen for new messages and typing indicators
   useEffect(() => {
@@ -214,22 +181,20 @@ const ChatScreen = ({ route, navigation }) => {
 
     loadInitialMessages();
 
-    if (!isBotChat) {
-      const chatRef = doc(firestore, 'chats', chatId);
-      return onSnapshot(chatRef, (doc) => {
-        if (doc.exists()) {
-          const chatData = doc.data();
-          if (chatData.typing && chatData.typing[item.itemOwnerId]) {
-            setIsTyping(true);
-          } else {
-            setIsTyping(false);
-          }
+    const chatRef = doc(firestore, 'chats', chatId);
+    return onSnapshot(chatRef, (doc) => {
+      if (doc.exists()) {
+        const chatData = doc.data();
+        if (chatData.typing && chatData.typing[item.itemOwnerId]) {
+          setIsTyping(true);
+        } else {
+          setIsTyping(false);
         }
-      }, (error) => {
-        console.error('Typing listener error:', error);
-      });
-    }
-  }, [chatId, isBotChat, item.itemOwnerId]);
+      }
+    }, (error) => {
+      console.error('Typing listener error:', error);
+    });
+  }, [chatId, item.itemOwnerId]);
 
   // Load initial messages
   const loadInitialMessages = async () => {
@@ -373,8 +338,6 @@ const ChatScreen = ({ route, navigation }) => {
 
   // Update read status for all messages
   const updateReadStatus = (querySnapshot) => {
-    if (isBotChat) return;
-
     querySnapshot.forEach((doc) => {
       const messageData = doc.data();
       if (messageData.senderId !== user.uid && !messageData.read) {
@@ -385,8 +348,6 @@ const ChatScreen = ({ route, navigation }) => {
 
   // Update read status for a specific message
   const updateMessageReadStatus = async (messageId) => {
-    if (isBotChat) return;
-
     try {
       const messageRef = doc(firestore, 'chats', chatId, 'messages', messageId);
       await updateDoc(messageRef, { read: true });
@@ -397,7 +358,7 @@ const ChatScreen = ({ route, navigation }) => {
 
   // Update typing status
   const updateTypingStatus = async (isTyping) => {
-    if (isBotChat || !chatId) return;
+    if (!chatId) return;
 
     try {
       const chatRef = doc(firestore, 'chats', chatId);
@@ -413,19 +374,17 @@ const ChatScreen = ({ route, navigation }) => {
   const handleInputChange = (text) => {
     setInputMessage(text);
 
-    if (!isBotChat) {
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-      }
-
-      updateTypingStatus(true);
-
-      const timeout = setTimeout(() => {
-        updateTypingStatus(false);
-      }, 3000);
-
-      setTypingTimeout(timeout);
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
     }
+
+    updateTypingStatus(true);
+
+    const timeout = setTimeout(() => {
+      updateTypingStatus(false);
+    }, 3000);
+
+    setTypingTimeout(timeout);
   };
 
   // Handle image selection
@@ -572,13 +531,7 @@ const ChatScreen = ({ route, navigation }) => {
       setInputMessage('');
       setAttachment(null);
 
-      if (isBotChat && inputMessage.trim()) {
-        handleBotResponse(inputMessage.trim());
-      }
-
-      if (!isBotChat) {
-        updateTypingStatus(false);
-      }
+      updateTypingStatus(false);
 
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -588,43 +541,6 @@ const ChatScreen = ({ route, navigation }) => {
       alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
-    }
-  };
-
-  // Handle bot response
-  const handleBotResponse = async (userMessage) => {
-    try {
-      setIsTyping(true);
-
-      const botResponse = await new Promise((resolve) => {
-        setTimeout(async () => {
-          const response = await getBotResponse(userMessage);
-          resolve(response);
-        }, Math.random() * 1000 + 500);
-      });
-
-      const messagesRef = collection(firestore, 'chats', chatId, 'messages');
-      await addDoc(messagesRef, {
-        senderId: 'constructionBot',
-        senderName: 'Construction Bot',
-        text: botResponse,
-        timestamp: serverTimestamp(),
-        read: false,
-        type: 'text'
-      });
-
-      const chatRef = doc(firestore, 'chats', chatId);
-      await updateDoc(chatRef, {
-        lastMessage: botResponse,
-        lastMessageTime: serverTimestamp(),
-        lastMessageType: 'text',
-        lastMessageSenderId: 'constructionBot'
-      });
-
-      setIsTyping(false);
-    } catch (error) {
-      console.error('Error sending bot response:', error);
-      setIsTyping(false);
     }
   };
 
@@ -654,7 +570,6 @@ const ChatScreen = ({ route, navigation }) => {
   // Render message item
   const renderMessage = ({ item: message, index }) => {
     const isCurrentUser = message.senderId === user.uid;
-    const isBot = message.senderId === 'constructionBot';
     const showAvatar = !isCurrentUser &&
                       (index === 0 || messages[index - 1].senderId !== message.senderId);
     const isImage = message.type === 'image';
@@ -676,13 +591,11 @@ const ChatScreen = ({ route, navigation }) => {
 
         <View style={[
           styles.messageContainer,
-          isCurrentUser ? styles.currentUserMessage : isBot ? styles.botMessage : styles.otherUserMessage
+          isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage
         ]}>
           {!isCurrentUser && showAvatar && (
             <View style={styles.avatarContainer}>
-              {isBot ? (
-                <Image source={require('../../../assets/bot-avatar.png')} style={styles.messageAvatar} />
-              ) : sellerData?.profileImage ? (
+              {sellerData?.profileImage ? (
                 <Image source={{ uri: sellerData.profileImage }} style={styles.messageAvatar} />
               ) : (
                 <View style={styles.messageAvatarPlaceholder}>
@@ -696,7 +609,7 @@ const ChatScreen = ({ route, navigation }) => {
 
           <View style={[
             styles.messageBubble,
-            isCurrentUser ? styles.currentUserBubble : isBot ? styles.botBubble : styles.otherUserBubble,
+            isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
             (isImage || isDocument) && styles.mediaBubble
           ]}>
             {isImage && message.fileUrl && (
@@ -727,7 +640,7 @@ const ChatScreen = ({ route, navigation }) => {
             {message.text && (
               <Text style={[
                 styles.messageText,
-                isCurrentUser ? styles.currentUserText : isBot ? styles.botText : styles.otherUserText
+                isCurrentUser ? styles.currentUserText : styles.otherUserText
               ]}>
                 {message.text}
               </Text>
@@ -736,7 +649,7 @@ const ChatScreen = ({ route, navigation }) => {
             <View style={styles.messageFooter}>
               <Text style={[
                 styles.messageTime,
-                isCurrentUser ? styles.currentUserTime : isBot ? styles.botTime : styles.otherUserTime
+                isCurrentUser ? styles.currentUserTime : styles.otherUserTime
               ]}>
                 {formatMessageTime(message.timestamp)}
               </Text>
@@ -802,7 +715,7 @@ const ChatScreen = ({ route, navigation }) => {
           <View style={styles.typingDot} />
         </View>
         <Text style={styles.typingText}>
-          {isBotChat ? 'Bot is typing...' : `${sellerData?.name || 'Seller'} is typing...`}
+          {`${sellerData?.name || 'Seller'} is typing...`}
         </Text>
       </View>
     );
@@ -838,9 +751,7 @@ const ChatScreen = ({ route, navigation }) => {
 
         <View style={styles.chatHeaderInfo}>
           <View style={styles.chatHeaderLeft}>
-            {isBotChat ? (
-              <Image source={require('../../../assets/bot-avatar.png')} style={styles.sellerAvatar} />
-            ) : sellerData?.profileImage ? (
+            {sellerData?.profileImage ? (
               <Image source={{ uri: sellerData.profileImage }} style={styles.sellerAvatar} />
             ) : (
               <View style={styles.sellerAvatarPlaceholder}>
@@ -852,35 +763,27 @@ const ChatScreen = ({ route, navigation }) => {
 
             <View style={styles.chatHeaderText}>
               <Text style={styles.sellerName}>
-                {isBotChat ? 'Construction Bot' : sellerData?.name || 'Seller'}
-                {isTyping && !isBotChat && (
+                {sellerData?.name || 'Seller'}
+                {isTyping && (
                   <Text style={styles.typingStatusText}> typing...</Text>
                 )}
               </Text>
               <Text style={styles.itemName} numberOfLines={1}>
-                {isBotChat ? 'Expert construction advice' : item.itemName}
+                {item.itemName}
               </Text>
             </View>
           </View>
 
-          {!isBotChat && (
-            <View style={styles.chatHeaderRight}>
-              <View style={styles.priceBadge}>
-                <Text style={styles.priceText}>
-                  Rs. {Number(item.price).toLocaleString()}
-                </Text>
-              </View>
+          <View style={styles.chatHeaderRight}>
+            <View style={styles.priceBadge}>
+              <Text style={styles.priceText}>
+                Rs. {Number(item.price).toLocaleString()}
+              </Text>
             </View>
-          )}
+          </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.itemDetailsButton}
-          onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
-        >
-          <Text style={styles.itemDetailsText}>View Item Details</Text>
-          <Icon name="chevron-right" size={18} color="#007bff" />
-        </TouchableOpacity>
+       
       </View>
 
       {isOffline && (
@@ -938,7 +841,7 @@ const ChatScreen = ({ route, navigation }) => {
           style={styles.textInput}
           value={inputMessage}
           onChangeText={handleInputChange}
-          placeholder={isBotChat ? "Ask about construction..." : "Type a message..."}
+          placeholder="Type a message..."
           placeholderTextColor="#999"
           multiline
           maxLength={1000}
@@ -1163,10 +1066,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 8
   },
-  botMessage: {
-    alignSelf: 'flex-start',
-    marginBottom: 8
-  },
   avatarContainer: {
     marginRight: 8,
     alignSelf: 'flex-end',
@@ -1215,12 +1114,6 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderBottomLeftRadius: 4
   },
-  botBubble: {
-    backgroundColor: '#e6f3ff',
-    borderWidth: 1,
-    borderColor: '#91d5ff',
-    borderBottomLeftRadius: 4
-  },
   messageText: {
     fontSize: 16,
     lineHeight: 22
@@ -1230,9 +1123,6 @@ const styles = StyleSheet.create({
   },
   otherUserText: {
     color: '#333'
-  },
-  botText: {
-    color: '#0066cc'
   },
   messageFooter: {
     flexDirection: 'row',
@@ -1249,9 +1139,6 @@ const styles = StyleSheet.create({
   },
   otherUserTime: {
     color: '#999'
-  },
-  botTime: {
-    color: '#6699cc'
   },
   messageStatus: {
     flexDirection: 'row',

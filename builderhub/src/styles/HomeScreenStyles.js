@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   emergencyButton: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 70,
     right: 20,
     backgroundColor: '#EF4444',
     flexDirection: 'row',

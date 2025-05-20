@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Keyboard, Platform } from 'react-native'; // Import Keyboard API and Platform
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import HomeScreen from './HomeScreen';
@@ -6,7 +7,7 @@ import UsersPostsScreen from './UsersPostsScreen';
 import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
-import UploaderProfile from './UploaderProfile'; // Import UploaderProfile
+import UploaderProfile from './UploaderProfile';
 import ShopOrdersScreen from './ShopOrdersScreen';
 import { useTheme } from '../context/ThemeContext';
 import { getAuth } from 'firebase/auth';
@@ -22,6 +23,24 @@ const TabsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newOrderCount, setNewOrderCount] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Add keyboard event listeners
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchAccountType = async () => {
@@ -121,7 +140,7 @@ const TabsScreen = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#F4B018', // Changed from '#007BFF' (blue) to '#F4B018' (yellow)
+        tabBarActiveTintColor: '#F4B018',
         tabBarInactiveTintColor: isDarkMode ? '#BBBBBB' : 'gray',
         tabBarStyle: {
           height: 60,
@@ -129,7 +148,11 @@ const TabsScreen = () => {
           backgroundColor: isDarkMode ? '#121212' : '#ffffff',
           borderTopWidth: 1,
           borderTopColor: isDarkMode ? '#333' : '#f0f0f0',
+          // Keep tab bar visible when keyboard appears
+          display: keyboardVisible ? 'none' : 'flex',
+          position: 'absolute',
         },
+        tabBarHideOnKeyboard: true, // Hide tab bar when keyboard appears
         headerShown: false,
       }}
     >
@@ -181,11 +204,11 @@ const TabsScreen = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={UploaderProfile} // Use UploaderProfile instead of ProfileScreen
+        component={UploaderProfile}
         options={{
           tabBarIcon: ({ color, size }) => <Icon name="user" size={size} color={color} />,
         }}
-        initialParams={{ userId: currentUserId }} // Pass current user's ID
+        initialParams={{ userId: currentUserId }}
       />
       {accountType === 'Shop' && (
         <Tab.Screen

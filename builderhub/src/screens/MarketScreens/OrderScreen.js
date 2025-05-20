@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TouchableOpacity,
     ActivityIndicator,
     ScrollView,
@@ -10,9 +9,10 @@ import {
     Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { firestore, auth } from '../../../firebase/firebaseConfig';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import styles from '../../styles/marketplacestyles/OrdersScreenStyles'; 
 
 function OrdersScreen() {
     const route = useRoute();
@@ -22,9 +22,12 @@ function OrdersScreen() {
     const { userId } = route.params || {};
     const profileId = userId;
 
-    const [orders, setOrders] = useState([]);
+    const [boughtOrders, setBoughtOrders] = useState([]);
+    const [soldOrders, setSoldOrders] = useState([]);
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [ordersError, setOrdersError] = useState(null);
+    const [updatingOrder, setUpdatingOrder] = useState({});
+    const [activeTab, setActiveTab] = useState('buy'); // 'buy' or 'sell'
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -40,41 +43,48 @@ function OrdersScreen() {
 
             try {
                 const ordersRef = collection(firestore, 'item_orders');
-                const q1 = query(
+                const sellerQuery = query(
                     ordersRef,
                     where('itemOwnerId', '==', profileId)
                 );
-                const q2 = query(
+                const buyerQuery = query(
                     ordersRef,
                     where('buyerId', '==', profileId)
                 );
 
-                const orderList = [];
-                const ownerSnapshot = await getDocs(q1);
-                for (const docSnap of ownerSnapshot.docs) {
+                // Fetch sold orders
+                const soldOrderList = [];
+                const sellerSnapshot = await getDocs(sellerQuery);
+                for (const docSnap of sellerSnapshot.docs) {
                     const orderData = { id: docSnap.id, ...docSnap.data() };
                     const buyerDoc = await getDoc(doc(firestore, 'users', orderData.buyerId));
                     const buyerData = buyerDoc.exists() ? buyerDoc.data() : {};
-                    orderList.push({
+                    soldOrderList.push({
                         ...orderData,
                         buyerName: buyerData.name || 'Unknown Buyer',
                     });
                 }
 
-                const buyerSnapshot = await getDocs(q2);
+                // Fetch bought orders
+                const boughtOrderList = [];
+                const buyerSnapshot = await getDocs(buyerQuery);
                 for (const docSnap of buyerSnapshot.docs) {
                     const orderData = { id: docSnap.id, ...docSnap.data() };
                     const sellerDoc = await getDoc(doc(firestore, 'users', orderData.itemOwnerId));
                     const sellerData = sellerDoc.exists() ? sellerDoc.data() : {};
-                    orderList.push({
+                    boughtOrderList.push({
                         ...orderData,
                         buyerName: currentUser.displayName || 'You',
                         sellerName: sellerData.name || 'Unknown Seller',
                     });
                 }
 
-                console.log('OrdersScreen: Fetched orders', { orderCount: orderList.length, orders: orderList });
-                setOrders(orderList);
+                console.log('OrdersScreen: Fetched orders', {
+                    boughtOrderCount: boughtOrderList.length,
+                    soldOrderCount: soldOrderList.length
+                });
+                setBoughtOrders(boughtOrderList);
+                setSoldOrders(soldOrderList);
                 setOrdersLoading(false);
 
                 // Mark notifications as read
@@ -86,7 +96,9 @@ function OrdersScreen() {
                 );
                 const notifSnapshot = await getDocs(notifQuery);
                 const updates = notifSnapshot.docs
-                    .filter((docSnap) => orderList.some((order) => order.id === docSnap.data().orderId))
+                    .filter((docSnap) => 
+                        [...boughtOrderList, ...soldOrderList].some((order) => order.id === docSnap.data().orderId)
+                    )
                     .map((docSnap) =>
                         updateDoc(doc(firestore, 'users', profileId, 'notifications', docSnap.id), {
                             read: true,
@@ -105,6 +117,7 @@ function OrdersScreen() {
     }, [profileId, currentUser]);
 
     const updateOrderStatus = async (orderId, newStatus) => {
+        setUpdatingOrder((prev) => ({ ...prev, [orderId]: true }));
         try {
             await updateDoc(doc(firestore, 'item_orders', orderId), {
                 status: newStatus,
@@ -113,35 +126,45 @@ function OrdersScreen() {
             Alert.alert('Success', `Order status updated to "${newStatus}".`);
             // Refresh orders
             const ordersRef = collection(firestore, 'item_orders');
-            const q1 = query(ordersRef, where('itemOwnerId', '==', profileId));
-            const q2 = query(ordersRef, where('buyerId', '==', profileId));
-            const orderList = [];
-            const ownerSnapshot = await getDocs(q1);
-            for (const docSnap of ownerSnapshot.docs) {
+            const sellerQuery = query(ordersRef, where('itemOwnerId', '==', profileId));
+            const buyerQuery = query(ordersRef, where('buyerId', '==', profileId));
+            
+            const soldOrderList = [];
+            const sellerSnapshot = await getDocs(sellerQuery);
+            for (const docSnap of sellerSnapshot.docs) {
                 const orderData = { id: docSnap.id, ...docSnap.data() };
                 const buyerDoc = await getDoc(doc(firestore, 'users', orderData.buyerId));
                 const buyerData = buyerDoc.exists() ? buyerDoc.data() : {};
-                orderList.push({
+                soldOrderList.push({
                     ...orderData,
                     buyerName: buyerData.name || 'Unknown Buyer',
                 });
             }
-            const buyerSnapshot = await getDocs(q2);
+            
+            const boughtOrderList = [];
+            const buyerSnapshot = await getDocs(buyerQuery);
             for (const docSnap of buyerSnapshot.docs) {
                 const orderData = { id: docSnap.id, ...docSnap.data() };
                 const sellerDoc = await getDoc(doc(firestore, 'users', orderData.itemOwnerId));
                 const sellerData = sellerDoc.exists() ? sellerDoc.data() : {};
-                orderList.push({
+                boughtOrderList.push({
                     ...orderData,
                     buyerName: currentUser.displayName || 'You',
                     sellerName: sellerData.name || 'Unknown Seller',
                 });
             }
-            console.log('OrdersScreen: Refreshed orders after status update', { orderCount: orderList.length });
-            setOrders(orderList);
+            
+            console.log('OrdersScreen: Refreshed orders after status update', {
+                boughtOrderCount: boughtOrderList.length,
+                soldOrderCount: soldOrderList.length
+            });
+            setBoughtOrders(boughtOrderList);
+            setSoldOrders(soldOrderList);
         } catch (error) {
             console.error('OrdersScreen: Error updating order status:', error);
             Alert.alert('Error', 'Failed to update order status.');
+        } finally {
+            setUpdatingOrder((prev) => ({ ...prev, [orderId]: false }));
         }
     };
 
@@ -160,14 +183,14 @@ function OrdersScreen() {
                 }}
             >
                 <View style={styles.orderHeader}>
-                    <Text style={styles.orderItemName}>{order.itemName}</Text>
+                    <Text style={styles.orderItemName} numberOfLines={1}>{order.itemName}</Text>
                     <Text style={styles.orderStatus}>{order.status.toUpperCase()}</Text>
                 </View>
-                <Text style={styles.orderDetail}>Order ID: {order.id}</Text>
+                <Text style={styles.orderDetail}>Order ID: {order.id.slice(0, 8)}...</Text>
                 <Text style={styles.orderDetail}>
                     {order.buyerId === currentUser.uid ? `Seller: ${order.sellerName}` : `Buyer: ${order.buyerName}`}
                 </Text>
-                <Text style={styles.orderDetail}>Quantity: {order.quantity}</Text>
+                <Text style={styles.orderDetail}>Qty: {order.quantity}</Text>
                 <Text style={styles.orderDetail}>
                     Total: Rs. {Number(order.totalPrice).toLocaleString()}
                 </Text>
@@ -176,27 +199,39 @@ function OrdersScreen() {
                     <View style={styles.statusButtons}>
                         {order.status === 'pending' && (
                             <>
-                                <TouchableOpacity
-                                    style={[styles.statusButton, styles.shipButton]}
-                                    onPress={() => updateOrderStatus(order.id, 'shipped')}
-                                >
-                                    <Text style={styles.statusButtonText}>Mark as Shipped</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.statusButton, styles.cancelButton]}
-                                    onPress={() => updateOrderStatus(order.id, 'cancelled')}
-                                >
-                                    <Text style={styles.statusButtonText}>Cancel Order</Text>
-                                </TouchableOpacity>
+                                {updatingOrder[order.id] ? (
+                                    <ActivityIndicator size="small" color="#1976D2" />
+                                ) : (
+                                    <TouchableOpacity
+                                        style={[styles.statusButton, styles.shipButton]}
+                                        onPress={() => updateOrderStatus(order.id, 'shipped')}
+                                    >
+                                        <Text style={styles.statusButtonText}>Mark as Shipped</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {updatingOrder[order.id] ? (
+                                    <ActivityIndicator size="small" color="#D32F2F" />
+                                ) : (
+                                    <TouchableOpacity
+                                        style={[styles.statusButton, styles.cancelButton]}
+                                        onPress={() => updateOrderStatus(order.id, 'cancelled')}
+                                    >
+                                        <Text style={styles.statusButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                )}
                             </>
                         )}
                         {order.status === 'shipped' && (
-                            <TouchableOpacity
-                                style={[styles.statusButton, styles.deliverButton]}
-                                onPress={() => updateOrderStatus(order.id, 'delivered')}
-                            >
-                                <Text style={styles.statusButtonText}>Mark as Delivered</Text>
-                            </TouchableOpacity>
+                            updatingOrder[order.id] ? (
+                                <ActivityIndicator size="small" color="#2E7D32" />
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.statusButton, styles.deliverButton]}
+                                    onPress={() => updateOrderStatus(order.id, 'delivered')}
+                                >
+                                    <Text style={styles.statusButtonText}>Mark as Delivered</Text>
+                                </TouchableOpacity>
+                            )
                         )}
                     </View>
                 )}
@@ -214,6 +249,25 @@ function OrdersScreen() {
                 <View style={styles.headerPlaceholder} />
             </View>
 
+            <View style={styles.tabContainer}>
+                <TouchableOpacity
+                    style={[styles.tabButton, activeTab === 'buy' ? styles.activeTab : styles.inactiveTab]}
+                    onPress={() => setActiveTab('buy')}
+                >
+                    <Text style={[styles.tabText, activeTab === 'buy' ? styles.activeTabText : styles.inactiveTabText]}>
+                        Items Buy
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tabButton, activeTab === 'sell' ? styles.activeTab : styles.inactiveTab]}
+                    onPress={() => setActiveTab('sell')}
+                >
+                    <Text style={[styles.tabText, activeTab === 'sell' ? styles.activeTabText : styles.inactiveTabText]}>
+                        Items Sell
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             <ScrollView style={styles.scrollView}>
                 <View style={styles.ordersContainer}>
                     {ordersLoading ? (
@@ -225,137 +279,52 @@ function OrdersScreen() {
                         <View style={styles.centerContainer}>
                             <Text style={styles.errorText}>{ordersError}</Text>
                         </View>
-                    ) : orders.length === 0 ? (
-                        <View style={styles.centerContainer}>
-                            <Text style={styles.emptyText}>
-                                {currentUser && profileId === currentUser.uid
-                                    ? 'No orders found. Place an order to get started!'
-                                    : 'No orders available for this user.'}
-                            </Text>
-                        </View>
                     ) : (
-                        orders.map((order, index) => (
-                            <React.Fragment key={order.id || index}>
-                                {renderOrder(order)}
-                            </React.Fragment>
-                        ))
+                        <View style={styles.gridContainer}>
+                            {activeTab === 'buy' && (
+                                <>
+                                    {boughtOrders.length === 0 ? (
+                                        <View style={styles.centerContainer}>
+                                            <Text style={styles.emptyText}>
+                                                {currentUser && profileId === currentUser.uid
+                                                    ? 'No items bought yet. Start shopping now!'
+                                                    : 'No bought items available for this user.'}
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        boughtOrders.map((order, index) => (
+                                            <React.Fragment key={order.id || index}>
+                                                {renderOrder(order)}
+                                            </React.Fragment>
+                                        ))
+                                    )}
+                                </>
+                            )}
+                            {activeTab === 'sell' && (
+                                <>
+                                    {soldOrders.length === 0 ? (
+                                        <View style={styles.centerContainer}>
+                                            <Text style={styles.emptyText}>
+                                                {currentUser && profileId === currentUser.uid
+                                                    ? 'No items sold yet. List an item to start selling!'
+                                                    : 'No sold items available for this user.'}
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        soldOrders.map((order, index) => (
+                                            <React.Fragment key={order.id || index}>
+                                                {renderOrder(order)}
+                                            </React.Fragment>
+                                        ))
+                                    )}
+                                </>
+                            )}
+                        </View>
                     )}
                 </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    header: {
-        backgroundColor: '#F4B018',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    backButtonIcon: {
-        padding: 5,
-    },
-    headerTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    headerPlaceholder: {
-        width: 24,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    ordersContainer: {
-        margin: 16,
-        padding: 16,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
-    },
-    orderCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-    },
-    orderHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    orderItemName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        flex: 1,
-    },
-    orderStatus: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#007AFF',
-    },
-    orderDetail: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
-    },
-    statusButtons: {
-        flexDirection: 'row',
-        marginTop: 8,
-        gap: 8,
-    },
-    statusButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-    },
-    shipButton: {
-        backgroundColor: '#1976D2',
-    },
-    deliverButton: {
-        backgroundColor: '#2E7D32',
-    },
-    cancelButton: {
-        backgroundColor: '#D32F2F',
-    },
-    statusButtonText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    centerContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: '#F4B018',
-        fontWeight: '500',
-    },
-    errorText: {
-        fontSize: 16,
-        color: '#ff3b30',
-        textAlign: 'center',
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#666',
-        textAlign: 'center',
-    },
-});
 
 export default OrdersScreen;
