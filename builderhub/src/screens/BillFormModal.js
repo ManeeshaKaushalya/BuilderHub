@@ -6,24 +6,35 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../firebase/firebaseConfig';
-import { doc, updateDoc, serverTimestamp, getDoc, collection, addDoc } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  serverTimestamp,
+  getDoc,
+  collection,
+  addDoc,
+} from 'firebase/firestore';
 
 const BillFormModal = ({ visible, onClose, order, shopId }) => {
   const [billItems, setBillItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false); // New loading state
 
   useEffect(() => {
     if (order && order.items) {
-      console.log('Initializing bill items:', order.items);
-      const initialBillItems = order.items.map((item) => ({
+      const initialBillItems = order.items.map((item, index) => ({
+        id: `${item.name}-${index}`,
         name: item.name,
-        quantity: (item.quantity || 1).toString(), // Ensure quantity is a string
-        price: '', // Initialize as empty string
+        quantity: (item.quantity || 1).toString(),
+        price: '',
       }));
       setBillItems(initialBillItems);
     }
@@ -44,19 +55,19 @@ const BillFormModal = ({ visible, onClose, order, shopId }) => {
 
   const handleQuantityChange = (index, value) => {
     const updatedItems = [...billItems];
-    updatedItems[index].quantity = value.replace(/[^0-9]/g, ''); // Allow only numbers
+    updatedItems[index].quantity = value.replace(/[^0-9]/g, '');
     setBillItems(updatedItems);
   };
 
   const handlePriceChange = (index, value) => {
     const updatedItems = [...billItems];
-    updatedItems[index].price = value.replace(/[^0-9.]/g, ''); // Allow numbers and decimal
+    updatedItems[index].price = value.replace(/[^0-9.]/g, '');
     setBillItems(updatedItems);
   };
 
   const handleCompleteBill = async () => {
+    setIsLoading(true); // Start loading
     try {
-      // Validate bill items
       for (const item of billItems) {
         if (!item.quantity || parseInt(item.quantity) <= 0) {
           throw new Error('Quantity must be greater than 0 for all items.');
@@ -66,7 +77,6 @@ const BillFormModal = ({ visible, onClose, order, shopId }) => {
         }
       }
 
-      // Update order with bill details
       const orderRef = doc(firestore, 'orders', order.id);
       const billDetails = {
         items: billItems.map((item) => ({
@@ -83,12 +93,10 @@ const BillFormModal = ({ visible, onClose, order, shopId }) => {
         updatedAt: serverTimestamp(),
       });
 
-      // Fetch shop details
       const shopRef = doc(firestore, 'users', shopId);
       const shopSnap = await getDoc(shopRef);
       const shopName = shopSnap.exists() ? shopSnap.data().name || 'Shop' : 'Shop';
 
-      // Send notification to customer
       const notificationRef = collection(firestore, 'users', order.userId, 'notifications');
       await addDoc(notificationRef, {
         type: 'bill_completed',
@@ -104,11 +112,13 @@ const BillFormModal = ({ visible, onClose, order, shopId }) => {
     } catch (error) {
       console.error('Error generating bill:', error);
       Alert.alert('Error', error.message || 'Failed to generate bill.');
+    } finally {
+      setIsLoading(false); // Stop loading
     }
   };
 
   const renderBillItem = ({ item, index }) => (
-    <View style={styles.billItem}>
+    <View key={item.id} style={styles.billItem}>
       <Text style={styles.itemName}>{item.name}</Text>
       <View style={styles.inputRow}>
         <Text style={styles.inputLabel}>Quantity:</Text>
@@ -140,34 +150,45 @@ const BillFormModal = ({ visible, onClose, order, shopId }) => {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContainer}
+      >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Generate Bill for Order #{order?.id?.slice(0, 8)}</Text>
+            <Text style={styles.modalTitle}>
+              Generate Bill for Order #{order?.id?.slice(0, 8)}
+            </Text>
             <TouchableOpacity onPress={onClose}>
               <MaterialCommunityIcons name="close" size={24} color="#333" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={billItems}
-            renderItem={renderBillItem}
-            keyExtractor={(item, index) => `bill-item-${index}`}
-            contentContainerStyle={styles.billList}
-            extraData={billItems} // Ensure re-render on state change
-          />
+
+          <ScrollView contentContainerStyle={styles.billList}>
+            {billItems.map((item, index) => renderBillItem({ item, index }))}
+          </ScrollView>
+
           <View style={styles.totalContainer}>
             <Text style={styles.totalLabel}>Total:</Text>
-            <Text style={styles.totalAmount}>Rs{total.toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>Rs {total.toFixed(2)}</Text>
           </View>
+
           <TouchableOpacity
-            style={styles.completeBillButton}
+            style={[styles.completeBillButton, isLoading && styles.disabledButton]}
             onPress={handleCompleteBill}
+            disabled={isLoading}
           >
-            <MaterialCommunityIcons name="check-all" size={16} color="#fff" />
-            <Text style={styles.completeBillButtonText}>Complete Bill</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" style={styles.loader} />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="check-all" size={16} color="#fff" />
+                <Text style={styles.completeBillButtonText}>Complete Bill</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -261,6 +282,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#66b2ff', // Lighter shade when disabled/loading
+    opacity: 0.7,
+  },
+  loader: {
+    marginRight: 8,
   },
 });
 

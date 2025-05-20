@@ -94,16 +94,7 @@ const OrderDetailsScreen = () => {
           </Text>
           <Text style={styles.detailText}>Customer Name: {customerName}</Text>
         </View>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Items</Text>
-          {orderData.items.map((item, index) => (
-            <View key={index} style={styles.item}>
-              <Text style={styles.itemText}>
-                {item.name} x {item.quantity}
-              </Text>
-            </View>
-          ))}
-        </View>
+        
         {showBill && orderData.bill && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Bill Details</Text>
