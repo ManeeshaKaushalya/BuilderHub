@@ -8,7 +8,7 @@ import MarketScreen from './MarketScreen';
 import NotificationScreen from './NotificationScreen';
 import MessageScreen from './MessageScreen';
 import UploaderProfile from './UploaderProfile';
-import ShopOrdersScreen from './ShopOrdersScreen';
+import ShopOrdersScreen from './shops/ShopOrdersScreen';
 import { useTheme } from '../context/ThemeContext';
 import { getAuth } from 'firebase/auth';
 import { firestore } from '../../firebase/firebaseConfig';

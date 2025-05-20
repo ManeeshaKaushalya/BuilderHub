@@ -3,33 +3,20 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
-  Alert,
-  Platform,
   TextInput,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Linking } from 'react-native';
+import { COLORS, styles } from '../../styles/shopstyles/OrderAddressMapStyles'; 
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyB4Nm99rBDcpjDkapSc8Z51zJZ5bOU7PI0';
 if (!GOOGLE_API_KEY) {
   throw new Error('Google API Key is missing. Set GOOGLE_API_KEY in .env');
 }
-
-const COLORS = {
-  LIGHT_BG: '#fff',
-  DARK_BG: '#1a1a1a',
-  LIGHT_TEXT: '#333',
-  DARK_TEXT: '#ddd',
-  PRIMARY: '#007BFF',
-  GRAY: '#666',
-  LIGHT_GRAY: '#f9f9f9',
-  DARK_GRAY: '#333',
-};
 
 const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
 
@@ -41,6 +28,7 @@ const OrderAddressMap = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(true);
   const autocompleteRef = useRef();
   const watchSubscription = useRef(null);
+  const themedStyles = styles(isDarkMode); // Generate dynamic styles
 
   useEffect(() => {
     let mounted = true;
@@ -166,8 +154,6 @@ const OrderAddressMap = ({ navigation, route }) => {
     route.params?.onLocationSelected?.({ coordinates: locationString, address: addressString });
   }, [selectedLocation, currentLocation, locationAddress, navigation, route.params]);
 
-  const themedStyles = styles(isDarkMode);
-
   if (isLoading || !currentLocation) {
     return (
       <View style={themedStyles.loadingContainer}>
@@ -265,94 +251,5 @@ const OrderAddressMap = ({ navigation, route }) => {
     </View>
   );
 };
-
-const styles = (isDarkMode) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
-    },
-    searchContainer: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 60 : 40,
-      width: '90%',
-      alignSelf: 'center',
-      zIndex: 9999,
-    },
-    searchInput: {
-      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
-      height: 50,
-      borderRadius: 10,
-      paddingLeft: 15,
-      fontSize: 16,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#444' : COLORS.GRAY,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-    addressContainer: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 120 : 100,
-      width: '90%',
-      alignSelf: 'center',
-      zIndex: 9998,
-    },
-    addressInput: {
-      backgroundColor: isDarkMode ? COLORS.DARK_GRAY : COLORS.LIGHT_BG,
-      height: 50,
-      borderRadius: 10,
-      paddingLeft: 15,
-      fontSize: 16,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#444' : COLORS.GRAY,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-    map: {
-      flex: 1,
-      zIndex: 0,
-    },
-    button: {
-      position: 'absolute',
-      bottom: 20,
-      alignSelf: 'center',
-      backgroundColor: COLORS.PRIMARY,
-      paddingVertical: 15,
-      paddingHorizontal: 30,
-      borderRadius: 10,
-      width: '90%',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
-      zIndex: 0,
-    },
-    buttonText: {
-      color: '#fff',
-      fontWeight: '600',
-      fontSize: 16,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG,
-    },
-    loadingText: {
-      marginTop: 10,
-      fontSize: 16,
-      color: isDarkMode ? COLORS.DARK_TEXT : COLORS.LIGHT_TEXT,
-    },
-  });
 
 export default React.memo(OrderAddressMap);

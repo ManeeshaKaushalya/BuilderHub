@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import styles from '../styles/LocationScreenStyles';
 
 const LocationScreen = ({ location, registrationType }) => {
   const navigation = useNavigation();
@@ -24,31 +25,5 @@ const LocationScreen = ({ location, registrationType }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginVertical: 10,
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  locationText: {
-    fontSize: 14,
-    marginVertical: 5,
-    color: '#555',
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-});
 
 export default LocationScreen;

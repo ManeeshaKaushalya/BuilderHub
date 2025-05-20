@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { firestore } from '../../firebase/firebaseConfig';
+import { firestore } from '../../../firebase/firebaseConfig';
 import {
   doc,
   updateDoc,

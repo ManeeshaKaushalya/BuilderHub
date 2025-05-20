@@ -25,8 +25,6 @@ import NotificationScreen from './src/screens/NotificationScreen';
 import MessageScreen from './src/screens/MessageScreen';
 import TabsScreen from './src/screens/TabsScreen';
 import MapScreen from './src/screens/MapScreen';
-import ForgetPassword from './src/screens/ForgetPassword';
-import DarkModeScreen from './src/screens/DarkModeScreen';
 import ImageUpload from './src/screens/posts/ImageUpload';
 import Posts from './src/screens/posts/Posts';
 import FormatPrice from './src/screens/MarketScreens/FormatPrice';
@@ -41,13 +39,13 @@ import UploaderProfile from './src/screens/UploaderProfile';
 import WorkerChatScreen from './src/screens/WorkerChatScreen';
 import WorkerChatsList from './src/screens/WorkerChatList';
 import PostDetailsScreen from './src/screens/posts/PostDetailsScreen';
-import MakeOrderScreen from './src/screens/MakeOrderScreen';
-import ShopOrdersScreen from './src/screens/ShopOrdersScreen';
-import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
+import MakeOrderScreen from './src/screens/shops/MakeOrderScreen';
+import ShopOrdersScreen from './src/screens/shops/ShopOrdersScreen';
+import OrderDetailsScreen from './src/screens/shops/OrderDetailsScreen';
 import ChatBot from './src/screens/ChatBot';
 import PostCards from './src/screens/posts/PostCards';
-import OrderAddressMap from './src/screens/OrderAddressMap';
-import EditProfile from './src/screens/EditProfile';
+import OrderAddressMap from './src/screens/shops/OrderAddressMap';
+import EditProfile from './src/screens/users/EditProfile';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HireUserScreen from './src/screens/HireUserScreen';
 import OrdersScreen from './src/screens/MarketScreens/OrderScreen';
@@ -100,8 +98,6 @@ export default function App() {
                   <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
                   <Stack.Screen name="MessageScreen" component={MessageScreen} />
                   <Stack.Screen name="MapScreen" component={MapScreen} />
-                  <Stack.Screen name="ForgetPassword" component={ForgetPassword} />
-                  <Stack.Screen name="DarkModeScreen" component={DarkModeScreen} />
                   <Stack.Screen name="ImageUpload" component={ImageUpload} />
                   <Stack.Screen name="Posts" component={Posts} />
                   <Stack.Screen name="FormatPrice" component={FormatPrice} />
