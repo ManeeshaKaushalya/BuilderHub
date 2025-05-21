@@ -10,7 +10,8 @@ import {
     Platform,
     ActivityIndicator,
     SafeAreaView,
-    Alert
+    Alert,
+    Modal
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ import {
     increment
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
 import { firestore } from '../../firebase/firebaseConfig';
 import styles from '../styles/WorkerChatScreenStyles'; 
 
@@ -45,8 +48,11 @@ const WorkerChatScreen = () => {
     const [chatId, setChatId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imageModalVisible, setImageModalVisible] = useState(false);
     
     const flatListRef = useRef(null);
+    const storage = getStorage();
 
     useEffect(() => {
         const setupChat = async () => {
@@ -139,7 +145,7 @@ const WorkerChatScreen = () => {
                 if (unreadMessages.length > 0) {
                     const chatRef = doc(firestore, 'workerChats', chatId);
                     await updateDoc(chatRef, {
-                        [`unreadCount.${currentUser.uid}`]: 0 // Reset current user's unread count
+                        [`unreadCount.${currentUser.uid}`]: 0
                     });
                     console.log(`Reset unreadCount for ${currentUser.uid} to 0`);
                 }
@@ -171,6 +177,60 @@ const WorkerChatScreen = () => {
         return () => unsubscribe();
     }, [chatId, currentUser]);
 
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Please allow access to photos to send images.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0].uri) {
+            await uploadImage(result.assets[0].uri);
+        }
+    };
+
+    const uploadImage = async (uri) => {
+        if (!chatId || !currentUser || !firestore || !storage) return;
+        
+        try {
+            setIsSending(true);
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const imageRef = ref(storage, `chatImages/${chatId}/${Date.now()}_${currentUser.uid}`);
+            await uploadBytes(imageRef, blob);
+            const imageUrl = await getDownloadURL(imageRef);
+
+            await addDoc(collection(firestore, `workerChats/${chatId}/messages`), {
+                type: 'image',
+                imageUrl,
+                senderId: currentUser.uid,
+                timestamp: serverTimestamp(),
+                read: false
+            });
+
+            const chatRef = doc(firestore, 'workerChats', chatId);
+            await updateDoc(chatRef, {
+                lastMessage: 'Image',
+                lastMessageTime: serverTimestamp(),
+                [`unreadCount.${userId}`]: increment(1),
+                [`unreadCount.${currentUser.uid}`]: 0
+            });
+            console.log(`Sent image, incremented unreadCount for ${userId}, reset for ${currentUser.uid}`);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            Alert.alert('Error', 'Failed to send image. Please try again.');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     const sendMessage = async () => {
         if (!messageText.trim() || !chatId || !currentUser || !firestore) return;
         
@@ -178,18 +238,19 @@ const WorkerChatScreen = () => {
             setIsSending(true);
             
             await addDoc(collection(firestore, `workerChats/${chatId}/messages`), {
+                type: 'text',
                 text: messageText.trim(),
                 senderId: currentUser.uid,
                 timestamp: serverTimestamp(),
-                read: false // New message is unread for the recipient
+                read: false
             });
             
             const chatRef = doc(firestore, 'workerChats', chatId);
             await updateDoc(chatRef, {
                 lastMessage: messageText.trim(),
                 lastMessageTime: serverTimestamp(),
-                [`unreadCount.${userId}`]: increment(1), // Increment only recipient's unread count
-                [`unreadCount.${currentUser.uid}`]: 0 // Ensure sender's count stays 0
+                [`unreadCount.${userId}`]: increment(1),
+                [`unreadCount.${currentUser.uid}`]: 0
             });
             console.log(`Sent message, incremented unreadCount for ${userId}, reset for ${currentUser.uid}`);
             
@@ -221,6 +282,16 @@ const WorkerChatScreen = () => {
         }
     };
 
+    const openImageModal = (imageUrl) => {
+        setSelectedImage(imageUrl);
+        setImageModalVisible(true);
+    };
+
+    const closeImageModal = () => {
+        setImageModalVisible(false);
+        setSelectedImage(null);
+    };
+
     const renderMessageItem = ({ item }) => {
         const isCurrentUser = item.senderId === currentUser?.uid;
         
@@ -235,18 +306,30 @@ const WorkerChatScreen = () => {
                         style={styles.messageSenderImage} 
                     />
                 )}
-                <View style={[
+                <View style={item.type === 'text' ? [
                     styles.messageBubble,
                     isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
-                ]}>
-                    <Text style={[
-                        styles.messageText,
-                        isCurrentUser ? styles.currentUserMessageText : styles.otherUserMessageText
-                    ]}>
-                        {item.text}
-                    </Text>
-                    <Text style={styles.timeText}>
-                        {formatTimestamp(item.timestamp)}
+                ] : styles.imageContainer}>
+                    {item.type === 'image' ? (
+                        <TouchableOpacity onPress={() => openImageModal(item.imageUrl)}>
+                            <Image
+                                source={{ uri: item.imageUrl }}
+                                style={styles.messageImage}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={[
+                            styles.messageText,
+                            isCurrentUser ? styles.currentUserMessageText : styles.otherUserMessageText
+                        ]}>
+                            {item.text}
+                        </Text>
+                    )}
+                    <View style={styles.messageFooter}>
+                        <Text style={styles.timeText}>
+                            {formatTimestamp(item.timestamp)}
+                        </Text>
                         {isCurrentUser && (
                             <Ionicons 
                                 name={item.read ? "checkmark-done" : "checkmark"} 
@@ -255,7 +338,7 @@ const WorkerChatScreen = () => {
                                 style={{ marginLeft: 4 }} 
                             />
                         )}
-                    </Text>
+                    </View>
                 </View>
             </View>
         );
@@ -292,12 +375,10 @@ const WorkerChatScreen = () => {
                     
                     <View style={styles.headerTextContainer}>
                         <Text style={styles.headerUsername}>{recipient?.name || 'User'}</Text>
-                       
                     </View>
                 </View>
                 
                 <View style={styles.headerActions}>
-                    
                     <TouchableOpacity style={styles.headerActionButton}>
                         <Ionicons name="ellipsis-vertical" size={22} color="#fff" />
                     </TouchableOpacity>
@@ -318,7 +399,7 @@ const WorkerChatScreen = () => {
                         <Ionicons name="chatbubbles" size={50} color="#ccc" />
                         <Text style={styles.emptyText}>No messages yet</Text>
                         <Text style={styles.emptySubtext}>
-                            Send a message to start the conversation
+                            Send a message or image to start the conversation
                         </Text>
                     </View>
                 }
@@ -329,8 +410,18 @@ const WorkerChatScreen = () => {
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
                 style={styles.inputContainer}
             >
-                <TouchableOpacity style={styles.attachButton}>
-                    <Ionicons name="add-circle-outline" size={24} color="#0095f6" />
+                <TouchableOpacity 
+                    style={[styles.attachButton, isSending && styles.attachButtonDisabled]} 
+                    onPress={pickImage}
+                    disabled={isSending}
+                    accessible={true}
+                    accessibilityLabel="Attach image"
+                >
+                    <Ionicons 
+                        name="image-outline" 
+                        size={24} 
+                        color={isSending ? "#b0cfe0" : "#0095f6"} 
+                    />
                 </TouchableOpacity>
                 
                 <TextInput
@@ -340,6 +431,7 @@ const WorkerChatScreen = () => {
                     onChangeText={setMessageText}
                     multiline={true}
                     maxLength={500}
+                    editable={!isSending}
                 />
                 
                 <TouchableOpacity 
@@ -357,6 +449,29 @@ const WorkerChatScreen = () => {
                     )}
                 </TouchableOpacity>
             </KeyboardAvoidingView>
+
+            <Modal
+                visible={imageModalVisible}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={closeImageModal}
+            >
+                <SafeAreaView style={styles.imageModalContainer}>
+                    <TouchableOpacity 
+                        style={styles.imageModalBackButton} 
+                        onPress={closeImageModal}
+                        accessible={true}
+                        accessibilityLabel="Close image"
+                    >
+                        <Ionicons name="arrow-back" size={28} color="#fff" />
+                    </TouchableOpacity>
+                    <Image
+                        source={{ uri: selectedImage }}
+                        style={styles.fullScreenImage}
+                        resizeMode="contain"
+                    />
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 };

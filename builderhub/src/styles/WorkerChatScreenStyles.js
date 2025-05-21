@@ -64,10 +64,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#fff',
     },
-    headerStatus: {
-        fontSize: 12,
-        color: '#e0f7fa',
-    },
     headerActions: {
         flexDirection: 'row',
         marginLeft: 'auto',
@@ -124,10 +120,23 @@ const styles = StyleSheet.create({
     otherUserMessageText: {
         color: '#333',
     },
+    messageImage: {
+        width: 200,
+        height: 150,
+        borderRadius: 12,
+        marginBottom: 4,
+    },
+    imageContainer: {
+        backgroundColor: 'transparent',
+    },
+    messageFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+    },
     timeText: {
         fontSize: 10,
-        color: '#f0f0f0',
-        alignSelf: 'flex-end',
+        color: '#8F8F8F',
         marginTop: 4,
     },
     inputContainer: {
@@ -141,6 +150,11 @@ const styles = StyleSheet.create({
     },
     attachButton: {
         padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    attachButtonDisabled: {
+        backgroundColor: '#e0e0e0',
     },
     input: {
         flex: 1,
@@ -181,6 +195,24 @@ const styles = StyleSheet.create({
         color: '#aaa',
         textAlign: 'center',
         marginTop: 8,
+    },
+    imageModalContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    fullScreenImage: {
+        width: '100%',
+        height: '80%',
+    },
+    imageModalBackButton: {
+        position: 'absolute',
+        top: 40,
+        left: 16,
+        padding: 8,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 20,
     },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Keyboard, Platform } from 'react-native'; // Import Keyboard API and Platform
+import { Keyboard, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import HomeScreen from './HomeScreen';
@@ -23,9 +23,10 @@ const TabsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newOrderCount, setNewOrderCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0); 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
-  // Add keyboard event listeners
+  
   useEffect(() => {
     const keyboardWillShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -42,6 +43,7 @@ const TabsScreen = () => {
     };
   }, []);
 
+  // Fetch account type
   useEffect(() => {
     const fetchAccountType = async () => {
       const user = auth.currentUser;
@@ -69,6 +71,7 @@ const TabsScreen = () => {
     fetchAccountType();
   }, []);
 
+  // Fetch unread notifications
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
@@ -100,6 +103,46 @@ const TabsScreen = () => {
     };
   }, [auth.currentUser]);
 
+  // Fetch unread messages
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('No authenticated user, skipping unread messages');
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    const chatsQuery = query(
+      collection(firestore, 'workerChats'),
+      where('participants', 'array-contains', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
+      try {
+        let totalUnread = 0;
+        snapshot.forEach((chatDoc) => {
+          const chatData = chatDoc.data();
+          const unread = chatData.unreadCount?.[user.uid] || 0;
+          totalUnread += unread;
+        });
+        console.log('Total unread messages:', totalUnread);
+        setUnreadMessageCount(totalUnread);
+      } catch (error) {
+        console.error('Error fetching unread messages:', error);
+        setUnreadMessageCount(0);
+      }
+    }, (error) => {
+      console.error('Snapshot error for unread messages:', error);
+      setUnreadMessageCount(0);
+    });
+
+    return () => {
+      console.log('Unsubscribing from unread messages listener');
+      unsubscribe();
+    };
+  }, [auth.currentUser]);
+
+  // Fetch new orders (for Shop accounts)
   useEffect(() => {
     const user = auth.currentUser;
     if (!user || accountType !== 'Shop') {
@@ -132,7 +175,7 @@ const TabsScreen = () => {
   }, [auth.currentUser, accountType]);
 
   if (loading) {
-    return null; // Optionally render a loading indicator
+    return null; 
   }
 
   const currentUserId = auth.currentUser?.uid;
@@ -148,11 +191,10 @@ const TabsScreen = () => {
           backgroundColor: isDarkMode ? '#121212' : '#ffffff',
           borderTopWidth: 1,
           borderTopColor: isDarkMode ? '#333' : '#f0f0f0',
-          // Keep tab bar visible when keyboard appears
           display: keyboardVisible ? 'none' : 'flex',
           position: 'absolute',
         },
-        tabBarHideOnKeyboard: true, // Hide tab bar when keyboard appears
+        tabBarHideOnKeyboard: true,
         headerShown: false,
       }}
     >
@@ -200,6 +242,17 @@ const TabsScreen = () => {
         component={MessageScreen}
         options={{
           tabBarIcon: ({ color, size }) => <Icon name="envelope" size={size} color={color} />,
+          tabBarBadge: unreadMessageCount > 0 ? unreadMessageCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#ff6b6b',
+            color: '#fff',
+            fontSize: 12,
+            minWidth: 20,
+            height: 20,
+            borderRadius: 10,
+            lineHeight: 20,
+            textAlign: 'center',
+          },
         }}
       />
       <Tab.Screen

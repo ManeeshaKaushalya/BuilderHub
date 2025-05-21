@@ -31,7 +31,7 @@ if (!GOOGLE_API_KEY) {
   throw new Error('Google API Key is missing. Set GOOGLE_API_KEY in .env');
 }
 const INITIAL_DELTA = { latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; 
 
 const ClientRegister = ({ navigation }) => {
   const [clientName, setClientName] = useState('');
@@ -39,8 +39,8 @@ const ClientRegister = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [clientDescription, setClientDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
-  const [location, setLocation] = useState(''); // Stores latitude,longitude for DB
-  const [locationAddress, setLocationAddress] = useState(''); // Stores human-readable address for UI and DB
+  const [location, setLocation] = useState(''); 
+  const [locationAddress, setLocationAddress] = useState(''); 
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
