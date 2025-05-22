@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator, Alert, Animated, Image, TextInput, TouchableOpacity, ScrollView, Modal, Linking } from 'react-native';
+import {
+  View, Text, ActivityIndicator, Alert, Animated, Image, TextInput,
+  TouchableOpacity, ScrollView, Modal, Linking, Keyboard,
+} from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../context/ThemeContext';
@@ -35,6 +38,7 @@ const HomeScreen = () => {
   const [emergencyProfessionals, setEmergencyProfessionals] = useState([]);
   const [emergencyType, setEmergencyType] = useState('');
   const [expandedSection, setExpandedSection] = useState(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false); // New state for keyboard visibility
 
   const professions = ['All', 'Constructor', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason'];
 
@@ -68,7 +72,7 @@ const HomeScreen = () => {
       const locations = snapshot.docs
         .filter(doc => {
           const data = doc.data();
-          return doc.id !== user?.uid &&  data.accountType !== 'Client';
+          return doc.id !== user?.uid && data.accountType !== 'Client';
         })
         .map(doc => {
           const data = doc.data();
@@ -243,6 +247,21 @@ const HomeScreen = () => {
       { cancelable: true }
     );
   };
+
+  // Listen for keyboard events
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -489,13 +508,16 @@ const HomeScreen = () => {
         ))}
       </MapView>
 
-      <TouchableOpacity 
-        style={styles.emergencyButton}
-        onPress={() => setShowEmergencyModal(true)}
-      >
-        <MaterialIcons name="error" size={24} color="white" />
-        <Text style={styles.emergencyButtonText}>Emergency</Text>
-      </TouchableOpacity>
+      {/* Conditionally render Emergency button based on keyboard visibility */}
+      {!isKeyboardVisible && (
+        <TouchableOpacity 
+          style={styles.emergencyButton}
+          onPress={() => setShowEmergencyModal(true)}
+        >
+          <MaterialIcons name="error" size={24} color="white" />
+          <Text style={styles.emergencyButtonText}>Emergency</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.resultCountContainer}>
         <Text style={styles.resultCountText}>

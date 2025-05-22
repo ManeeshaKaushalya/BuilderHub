@@ -73,7 +73,7 @@ const EditItem = ({ route, navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.5, // Reduced quality for automatic compression
+        quality: 0.5,
       });
 
       if (!result.canceled && result.assets[0]) {

@@ -65,26 +65,7 @@ function PostDetailsScreen({ route }) {
       style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}
       contentContainerStyle={styles.contentContainer}
     >
-      {/* Uploader Profile Section */}
-      <TouchableOpacity style={styles.userInfo} onPress={navigateToUserProfile}>
-        <Image
-          source={{ uri: uploaderData.profileImage || 'https://via.placeholder.com/60' }}
-          style={styles.userImage}
-        />
-        <View style={styles.userInfoText}>
-          <View style={styles.usernameContainer}>
-            <Text style={[styles.username, isDarkMode ? styles.darkText : styles.lightText]}>
-              {uploaderData.name}
-            </Text>
-            {post.isVerified && (
-              <MaterialIcons name="verified" size={18} color="#1DA1F2" style={styles.verifiedIcon} />
-            )}
-          </View>
-          <Text style={[styles.bio, isDarkMode ? styles.darkText : styles.lightText]}>
-            {uploaderData.bio}
-          </Text>
-        </View>
-      </TouchableOpacity>
+  
 
       {/* Post Section */}
       <Post

@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: COLORS.GRAY,
     fontSize: 14,
-    textAlign: 'center', // Center the link text
+    textAlign: 'center', 
   },
   linkBold: {
     fontWeight: '600',

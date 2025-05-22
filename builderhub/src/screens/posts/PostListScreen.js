@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FlatList, ActivityIndicator, View } from 'react-native';
 import { firestore } from '../../../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
-import Post from './Posts'; // Adjust the import path as necessary
+import Post from './Posts'; 
 
 function PostListScreen() {
   const [posts, setPosts] = useState([]);

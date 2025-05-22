@@ -464,15 +464,14 @@ const ClientRegister = ({ navigation }) => {
                 showsUserLocation
                 showsMyLocationButton
                 onPress={handleMapPress}
-                accessibilityLabel="Interactive map for selecting a location"
+                
               >
                 {currentLocation && (
                   <Marker
                     coordinate={currentLocation}
                     title="Your Location"
                     pinColor="blue"
-                    accessibilityLabel="Your current location marker"
-                    accessibilityHint="Your current location on the map"
+                    
                   />
                 )}
                 {selectedLocation && (
@@ -480,8 +479,7 @@ const ClientRegister = ({ navigation }) => {
                     coordinate={selectedLocation}
                     title="Selected Location"
                     pinColor="red"
-                    accessibilityLabel="Selected location marker"
-                    accessibilityHint="Tap to view or change the selected location"
+                    
                   />
                 )}
               </MapView>
@@ -534,9 +532,7 @@ const ClientRegister = ({ navigation }) => {
               style={styles.imageUploadContainer}
               onPress={handleImageUpload}
               disabled={isUploadingImage}
-              accessibilityLabel="Upload client profile picture"
-              accessibilityRole="button"
-              accessibilityHint="Select an image for the client profile"
+             
             >
               {isUploadingImage ? (
                 <ActivityIndicator size="small" color={COLORS.PRIMARY} />
@@ -544,8 +540,7 @@ const ClientRegister = ({ navigation }) => {
                 <Image
                   source={{ uri: profileImage }}
                   style={styles.profileImage}
-                  accessibilityRole="image"
-                  accessibilityLabel="Client profile picture"
+             
                 />
               ) : (
                 <Icon name="camera" size={50} color={styles.uploadText.color || COLORS.GRAY} />
@@ -562,9 +557,7 @@ const ClientRegister = ({ navigation }) => {
               value={clientName}
               onChangeText={setClientName}
               onFocus={() => handleInputFocus(0)}
-              accessibilityLabel="Client name input"
-              accessibilityRole="text"
-              accessibilityHint="Enter the name of the client"
+              
             />
           </View>
 
@@ -578,9 +571,7 @@ const ClientRegister = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               onFocus={() => handleInputFocus(1)}
-              accessibilityLabel="Email input"
-              accessibilityRole="text"
-              accessibilityHint="Enter the client email address"
+              
             />
           </View>
 
@@ -593,9 +584,7 @@ const ClientRegister = ({ navigation }) => {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               onFocus={() => handleInputFocus(2)}
-              accessibilityLabel="Password input"
-              accessibilityRole="text"
-              accessibilityHint="Enter a password with at least 6 characters"
+              
             />
             <TouchableOpacity
               onPress={toggleShowPassword}
@@ -620,9 +609,7 @@ const ClientRegister = ({ navigation }) => {
               value={clientDescription}
               onChangeText={setClientDescription}
               onFocus={() => handleInputFocus(3)}
-              accessibilityLabel="Client description input"
-              accessibilityRole="text"
-              accessibilityHint="Enter an optional description of the client"
+              
             />
           </View>
 
@@ -630,10 +617,7 @@ const ClientRegister = ({ navigation }) => {
             <Icon name="map-marker" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
             <TouchableOpacity
               onPress={handleLocationSelect}
-              style={styles.locationInputWrapper}
-              accessibilityLabel="Select client location"
-              accessibilityRole="button"
-              accessibilityHint="Open a map to select the client location"
+           
             >
               <TextInput
                 style={[styles.input, { flex: 1, color: styles.linkBold.color }]}
@@ -641,9 +625,7 @@ const ClientRegister = ({ navigation }) => {
                 value={locationAddress}
                 editable={false}
                 onFocus={() => handleInputFocus(4)}
-                accessibilityLabel="Location input"
-                accessibilityRole="text"
-                accessibilityHint="Displays the selected client location address"
+                
               />
             </TouchableOpacity>
           </View>
@@ -652,18 +634,14 @@ const ClientRegister = ({ navigation }) => {
             style={[styles.button, isLoading && { opacity: 0.7 }]}
             onPress={handleRegister}
             disabled={isLoading}
-            accessibilityLabel="Register client button"
-            accessibilityRole="button"
-            accessibilityHint="Submit the form to register the client"
+          
           >
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Login')}
-            accessibilityLabel="Login link"
-            accessibilityRole="link"
-            accessibilityHint="Navigate to the login screen"
+            
           >
             <Text style={styles.link}>
               Already have an account? <Text style={styles.linkBold}>Login here</Text>

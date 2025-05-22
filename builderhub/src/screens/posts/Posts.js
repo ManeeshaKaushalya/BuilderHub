@@ -7,7 +7,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { firestore } from '../../../firebase/firebaseConfig';
-import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, addDoc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Video } from 'expo-av';
 import styles from '../../styles/PostStyles'; // Adjust the import path as necessary
@@ -35,7 +35,6 @@ const getRelativeTime = (timestamp) => {
   } else if (diffDays < 7) {
     return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
   } else {
-    // Fallback to absolute date for older posts
     return date.toLocaleDateString();
   }
 };
@@ -101,17 +100,45 @@ function Post({
     before: { width: 1, height: 1 },
     after: { width: 1, height: 1 },
   });
-  // New state for relative time
   const [relativeTime, setRelativeTime] = useState(getRelativeTime(uploadDate));
+  const [ownerAccountType, setOwnerAccountType] = useState(null); // New state for owner's account type
+  const [isLoadingAccountType, setIsLoadingAccountType] = useState(true); // Track loading state
 
   // Update relative time every second
   useEffect(() => {
     const interval = setInterval(() => {
       setRelativeTime(getRelativeTime(uploadDate));
-    }, 1000); // Update every second for smooth "just now" transitions
+    }, 1000);
 
-    return () => clearInterval(interval); // Cleanup on unmount
+    return () => clearInterval(interval);
   }, [uploadDate]);
+
+  // Fetch owner's account type
+  useEffect(() => {
+    const fetchOwnerAccountType = async () => {
+      if (!ownerId) {
+        setIsLoadingAccountType(false);
+        return;
+      }
+
+      try {
+        const userRef = doc(firestore, 'users', ownerId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setOwnerAccountType(userSnap.data().accountType || 'user'); // Default to 'user' if not set
+        } else {
+          setOwnerAccountType('user'); // Default if user document doesn't exist
+        }
+      } catch (error) {
+        console.error('Error fetching owner account type:', error);
+        setOwnerAccountType('user'); // Fallback to 'user' on error
+      } finally {
+        setIsLoadingAccountType(false);
+      }
+    };
+
+    fetchOwnerAccountType();
+  }, [ownerId]);
 
   // Listen for real-time updates to post data
   useEffect(() => {
@@ -572,7 +599,7 @@ function Post({
           </TouchableOpacity>
         )}
 
-        {allowDirectHiring && userId !== ownerId && (
+        {allowDirectHiring && userId !== ownerId && ownerAccountType !== 'Shop' && !isLoadingAccountType && (
           <TouchableOpacity style={styles.actionButton} onPress={handleHireNow} accessibilityLabel="Hire this user" accessibilityRole="button">
             <MaterialIcons name="work" size={22} style={styles.unlikedIcon} />
             <Text style={styles.actionText}>Hire</Text>

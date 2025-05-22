@@ -90,7 +90,7 @@ const ChatScreen = ({ route, navigation }) => {
     };
   }, [navigation, chatId]);
 
-  // Set up chat connection and create chat if needed
+  
   useEffect(() => {
     const setupChat = async () => {
       if (isAuthLoading) {
@@ -670,7 +670,7 @@ const ChatScreen = ({ route, navigation }) => {
     );
   };
 
-  // Check if two dates are the same day
+ 
   const isSameDay = (date1, date2) => {
     if (!date1 || !date2) return false;
 
@@ -786,12 +786,7 @@ const ChatScreen = ({ route, navigation }) => {
        
       </View>
 
-      {isOffline && (
-        <View style={styles.offlineBar}>
-          <Icon name="wifi-off" size={16} color="#fff" />
-          <Text style={styles.offlineText}>No internet connection</Text>
-        </View>
-      )}
+    
     </Animated.View>
   );
 

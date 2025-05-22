@@ -586,7 +586,7 @@ function UploaderProfile() {
                         <View style={styles.infoRow}>
                             <MaterialCommunityIcons name="clock-outline" size={16} color="#666" />
                             <Text style={styles.infoText}>
-                                {userProfile.yearsOfExperience || 0} years of experience
+                                {userProfile.experience || 0} years of experience
                             </Text>
                         </View>
 

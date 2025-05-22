@@ -102,7 +102,7 @@ const BuyItem = ({ route, navigation }) => {
     }
   };
 
-  // Save the order to Firestore and return the order ID
+  // Save the order to Firestore
   const saveOrderToFirestore = async () => {
     try {
       const orderData = {
@@ -264,10 +264,10 @@ const BuyItem = ({ route, navigation }) => {
         Stock: newStock,
       });
 
-      // Save the order and get order ID
+      // Save the order 
       const orderId = await saveOrderToFirestore();
       if (orderId) {
-        // Send notification to owner
+        
         await sendNotificationToOwner(orderId);
       }
 

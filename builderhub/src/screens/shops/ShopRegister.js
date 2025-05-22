@@ -250,8 +250,8 @@ const ShopRegister = ({ navigation }) => {
         email: shopEmail.trim(),
         accountType: 'Shop',
         description: shopDescription.trim() || '',
-        location: location.trim(), // Stores latitude,longitude
-        locationAddress: locationAddress.trim(), // Stores human-readable address
+        location: location.trim(), 
+        locationAddress: locationAddress.trim(), 
         profileImage: imageUrl || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -282,8 +282,8 @@ const ShopRegister = ({ navigation }) => {
   const handleMapLocationSelect = useCallback((data, details) => {
     const { lat, lng } = details.geometry.location;
     setSelectedLocation({ latitude: lat, longitude: lng });
-    setLocationAddress(details.formatted_address || data.description); // Set human-readable address
-    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); // Set coordinates for DB
+    setLocationAddress(details.formatted_address || data.description); 
+    setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); 
     autocompleteRef.current?.blur();
   }, []);
 
@@ -316,7 +316,7 @@ const ShopRegister = ({ navigation }) => {
     if (selectedLocation) {
       locationString = `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`;
       if (!addressString) {
-        // Fetch address if not already set
+        // Fetch address 
         try {
           const response = await fetch(
             `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.latitude},${selectedLocation.longitude}&key=${GOOGLE_API_KEY}`
@@ -545,7 +545,7 @@ const ShopRegister = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="store" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
+            <Icon name="building" size={20} color={styles.inputContainer.borderColor} style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Shop Name"

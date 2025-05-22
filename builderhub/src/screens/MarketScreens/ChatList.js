@@ -34,7 +34,7 @@ const ChatList = () => {
   const [userProfiles, setUserProfiles] = useState({});
 
   useEffect(() => {
-    // Make sure user exists and has a uid before querying
+    
     if (!user || !user.uid) {
       console.log('User or user.uid is undefined, skipping chat fetch');
       return;
@@ -49,7 +49,7 @@ const ChatList = () => {
         chatList.push({ id: doc.id, ...doc.data() });
       });
 
-      // Sort chats: unread first, then by timestamp
+      
       chatList.sort((a, b) => {
         // Prioritize unread chats
         if (a.unreadBy?.includes(user.uid) && !b.unreadBy?.includes(user.uid)) return -1;
@@ -58,13 +58,13 @@ const ChatList = () => {
         // Sort by time
         const timeA = a.lastMessageTime ? a.lastMessageTime.toDate().getTime() : 0;
         const timeB = b.lastMessageTime ? b.lastMessageTime.toDate().getTime() : 0;
-        return timeB - timeA; // Descending order (newest first)
+        return timeB - timeA;
       });
 
       setChats(chatList);
       setLoading(false);
 
-      // Fetch user profiles for all participants
+      // Fetch user profiles for all 
       chatList.forEach((chat) => {
         const otherUserId = chat.participants.find((id) => id !== user.uid);
         if (otherUserId && !userProfiles[otherUserId]) {
@@ -204,7 +204,7 @@ const ChatList = () => {
   // Sanitize lastMessage to remove item names within quotes
   const sanitizeLastMessage = (message) => {
     if (!message) return 'No messages yet';
-    // Remove content within quotes, e.g., "Scaffolding" in "John purchased "Scaffolding" (Quantity: 2, Order ID: abc123)"
+    
     return message.replace(/"[^"]*"/g, 'an item').replace(/\s+/g, ' ').trim();
   };
 
@@ -269,7 +269,7 @@ const ChatList = () => {
     </View>
   );
 
-  // Show loading state if we're still initializing or if user is null
+  // loading state
   if (loading || user === null) {
     return (
       <View style={styles.loadingContainer}>
@@ -279,7 +279,7 @@ const ChatList = () => {
     );
   }
 
-  // Show login prompt if user is undefined (not loading, but not logged in)
+  // login prompt if user is undefin
   if (user === undefined) {
     return (
       <View style={styles.emptyContainer}>
@@ -304,7 +304,7 @@ const ChatList = () => {
         refreshing={loading}
         onRefresh={() => {
           setLoading(true);
-          // The useEffect will automatically refresh the data
+          // refersh data bt usestate
           setTimeout(() => setLoading(false), 1000);
         }}
       />

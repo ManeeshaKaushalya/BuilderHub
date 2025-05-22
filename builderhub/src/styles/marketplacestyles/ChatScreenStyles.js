@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   priceBadge: {
-    backgroundColor: '#e6f7ff',
+    backgroundColor: 'green',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,

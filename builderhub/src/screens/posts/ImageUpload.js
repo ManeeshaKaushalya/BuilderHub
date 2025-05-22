@@ -17,7 +17,7 @@ import { Video, VideoFullscreenUpdate } from 'expo-av';
 import { useUser } from '../../context/UserContext';
 import * as ImageManipulator from 'expo-image-manipulator';
 import PropTypes from 'prop-types';
-import { styles, COLORS } from '../../styles/ImageUploadStyles'; 
+import { styles, COLORS } from '../../styles/ImageUploadStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -280,31 +280,31 @@ const ImageUpload = ({ navigation }) => {
     setLoading(true);
     try {
       const actions = [];
-      
+
       if (brightness !== 0) {
         actions.push({ brightness: brightness / 100 + 1 });
       }
-      
+
       if (rotation !== 0) {
         actions.push({ rotate: rotation });
       }
-      
+
       if (actions.length > 0) {
         const result = await ImageManipulator.manipulateAsync(
           currentEditingImage,
           actions,
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
         );
-        
-        setMedia(prevMedia => 
-          prevMedia.map((item, index) => 
-            index === currentEditingIndex 
-              ? { ...item, uri: result.uri } 
+
+        setMedia(prevMedia =>
+          prevMedia.map((item, index) =>
+            index === currentEditingIndex
+              ? { ...item, uri: result.uri }
               : item
           )
         );
       }
-      
+
       setIsEditModalVisible(false);
     } catch (error) {
       console.error('Image edit error:', error);
@@ -367,13 +367,13 @@ const ImageUpload = ({ navigation }) => {
         const blob = await response.blob();
         const fileExtension = item.type === 'video' ? '.mp4' : '.jpg';
         const mediaRef = ref(storage, `posts/${user.uid}/${Date.now()}_${index}${fileExtension}`);
-        
+
         await uploadBytes(mediaRef, blob);
         const downloadUrl = await getDownloadURL(mediaRef);
-        
+
         if (item.type === 'video') videoUrl = downloadUrl;
         else mediaUrls.push(downloadUrl);
-        
+
         updateProgress();
       }));
 
@@ -383,18 +383,18 @@ const ImageUpload = ({ navigation }) => {
         const beforeRef = ref(storage, `posts/${user.uid}/before_${Date.now()}.jpg`);
         await uploadBytes(beforeRef, beforeBlob);
         const beforeUrl = await getDownloadURL(beforeRef);
-        
+
         const afterResponse = await fetch(afterImage);
         const afterBlob = await afterResponse.blob();
         const afterRef = ref(storage, `posts/${user.uid}/after_${Date.now()}.jpg`);
         await uploadBytes(afterRef, afterBlob);
         const afterUrl = await getDownloadURL(afterRef);
-        
+
         beforeAfterUrls = {
           before: beforeUrl,
           after: afterUrl,
         };
-        
+
         updateProgress();
         updateProgress();
       }
@@ -403,16 +403,16 @@ const ImageUpload = ({ navigation }) => {
         const response = await fetch(doc.uri);
         const blob = await response.blob();
         const docRef = ref(storage, `documents/${user.uid}/${doc.name}`);
-        
+
         await uploadBytes(docRef, blob);
         const docUrl = await getDownloadURL(docRef);
-        
+
         documentUrls.push({
           name: doc.name,
           url: docUrl,
           type: doc.mimeType,
         });
-        
+
         updateProgress();
       }));
 
@@ -441,7 +441,6 @@ const ImageUpload = ({ navigation }) => {
         likedBy: [],
       });
 
-      // Show success modal
       setSuccessModalVisible(true);
     } catch (error) {
       console.error('Upload Error:', error);
@@ -527,7 +526,7 @@ const ImageUpload = ({ navigation }) => {
       {/* Header */}
       <View style={styles.headerSection}>
         <Text style={styles.headerTitle} accessibilityLabel="Create Project Post">
-          Create Project Post
+          Create Post
         </Text>
       </View>
 
@@ -535,7 +534,7 @@ const ImageUpload = ({ navigation }) => {
         {/* Caption Input */}
         <TextInput
           style={styles.input}
-          placeholder="Describe your project or update..."
+          placeholder="Describe the post..."
           placeholderTextColor={COLORS.PLACEHOLDER}
           multiline
           value={caption}
@@ -655,7 +654,7 @@ const ImageUpload = ({ navigation }) => {
 
         {/* Project Details */}
         <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Project Details</Text>
+          <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.detailRow}>
             <MaterialIcons name="schedule" size={20} color={COLORS.SECONDARY_TEXT} />
             <TextInput
@@ -672,7 +671,7 @@ const ImageUpload = ({ navigation }) => {
             <MaterialIcons name="attach-money" size={20} color={COLORS.SECONDARY_TEXT} />
             <TextInput
               style={styles.detailInput}
-              placeholder="Estimated cost (e.g., LKR2000-LKR3000)"
+              placeholder="cost (e.g., LKR2000-LKR3000)"
               placeholderTextColor={COLORS.PLACEHOLDER}
               value={projectCost}
               onChangeText={setProjectCost}
@@ -774,8 +773,11 @@ const ImageUpload = ({ navigation }) => {
             <>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={resetForm}
-                accessibilityLabel="Cancel post"
+                onPress={() => {
+                  resetForm();
+                  navigation.goBack();
+                }}
+                accessibilityLabel="Cancel post and go back"
                 accessibilityRole="button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>

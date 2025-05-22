@@ -265,18 +265,19 @@ function UsersPostsScreen() {
       />
 
       {/* Floating Action Button */}
-      {user && (
-        <View style={styles.fabContainer}>
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={user.accountType === 'Shop' ? handleAddPost : handleCreatePost}
-            activeOpacity={0.7}
-            accessibilityLabel={user.accountType === 'Shop' ? 'Add post' : 'Add new project'}
-          >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      )}
+    {user && (
+  <View style={styles.fabContainer}>
+    <TouchableOpacity
+      style={styles.fab}
+      onPress={handleCreatePost} 
+      activeOpacity={0.7}
+      accessibilityLabel="Add new project"
+    >
+      <Ionicons name="add" size={28} color="#FFFFFF" />
+    </TouchableOpacity>
+  </View>
+)}
+
     </View>
   );
 }
