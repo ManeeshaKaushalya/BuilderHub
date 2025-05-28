@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: '#fff',
+    color: 'black',
     fontSize: 28,
     fontWeight: 'bold',
     marginTop: 5,

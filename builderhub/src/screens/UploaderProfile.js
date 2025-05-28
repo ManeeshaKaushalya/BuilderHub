@@ -492,11 +492,11 @@ function UploaderProfile() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonIcon}>
-                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                    <Ionicons name="arrow-back" size={24} color="black" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{userProfile.name}</Text>
                 <TouchableOpacity style={styles.headerIconButton} onPress={toggleMenu}>
-                    <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+                    <Ionicons name="ellipsis-horizontal" size={24} color="black" />
                 </TouchableOpacity>
             </View>
 

@@ -157,7 +157,7 @@ const CommentScreen = () => {
             try {
               const commentRef = doc(firestore, 'posts', postId, 'comments', comment.id);
               await deleteDoc(commentRef);
-              // onSnapshot will automatically update the comments state
+              // automatically update the comments state
             } catch (error) {
               console.error('Error deleting comment:', error);
               Toast.show({ type: 'error', text1: 'Failed to delete comment' });
@@ -246,12 +246,7 @@ const CommentScreen = () => {
                     Like {likeCount > 0 && `(${likeCount})`}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => setReplyTo({ userId: item.userId, name: user.name })}
-                >
-                  <Text style={styles.actionText}>Reply</Text>
-                </TouchableOpacity>
+               
                 <Text style={styles.timestamp}>{formatTimestamp(item.timestamp)}</Text>
               </View>
             </View>

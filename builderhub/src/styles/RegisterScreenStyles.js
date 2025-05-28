@@ -40,12 +40,12 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   headerTitle: {
-    color: '#fff',
+    color: 'black',
     fontSize: 20,
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: '#fff',
+    color: 'black',
     fontSize: 28,
     fontWeight: 'bold',
     marginTop: 5,

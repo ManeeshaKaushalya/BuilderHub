@@ -22,10 +22,10 @@ import { styles, COLORS, SPACING, width, cardWidth } from '../../styles/marketpl
 const categories = [
   { id: 'all', label: 'All Categories' },
   { id: 'useritem', label: 'User Items' },
-  { id: 'paints', label: 'Paint Machines' },
-  { id: 'machines', label: 'Machines' },
-  { id: 'tools', label: 'Tools' },
-  { id: 'furniture', label: 'Furniture' },
+  { id: 'Paints', label: 'Paint Machines' },
+  { id: 'Machines', label: 'Machines' },
+  { id: 'Tools', label: 'Tools' },
+  { id: 'Furniture', label: 'Furniture' },
 ];
 
 const colors = [
@@ -256,15 +256,11 @@ const ItemBrowser = ({ navigation }) => {
                 clearButtonMode="while-editing"
                 autoCapitalize="none"
                 autoCorrect={false}
-                accessibilityLabel="Search products input"
-                accessibilityHint="Enter product name to search"
               />
               {inputText.length > 0 && (
                 <TouchableOpacity
                   style={[styles.clearButton, isDarkMode && styles.darkClearButton]}
                   onPress={handleClearSearch}
-                  accessibilityLabel="Clear search input"
-                  accessibilityHint="Clears the search text"
                 >
                   <FontAwesome name="times-circle" size={18} color={isDarkMode ? COLORS.LIGHT_TEXT : COLORS.GRAY} />
                 </TouchableOpacity>

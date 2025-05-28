@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   headerTitle: {
-    color: '#fff',
+    color: 'black',
     fontSize: 20,
     fontWeight: '600',
   },

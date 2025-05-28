@@ -12,10 +12,8 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { firestore, storage } from '../../../firebase/firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 import { Video, VideoFullscreenUpdate } from 'expo-av';
 import { useUser } from '../../context/UserContext';
-import * as ImageManipulator from 'expo-image-manipulator';
 import PropTypes from 'prop-types';
 import { styles, COLORS } from '../../styles/ImageUploadStyles';
 
@@ -48,21 +46,12 @@ const ImageUpload = ({ navigation }) => {
   const [beforeAfterMode, setBeforeAfterMode] = useState(false);
   const [beforeImage, setBeforeImage] = useState(null);
   const [afterImage, setAfterImage] = useState(null);
-  const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suggestedTags, setSuggestedTags] = useState([]);
   const [projectTimeline, setProjectTimeline] = useState('');
   const [projectCost, setProjectCost] = useState('');
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [currentEditingImage, setCurrentEditingImage] = useState(null);
-  const [currentEditingIndex, setCurrentEditingIndex] = useState(null);
-  const [brightness, setBrightness] = useState(0);
-  const [rotation, setRotation] = useState(0);
-  const [watermarkText, setWatermarkText] = useState('');
-  const [documentsModalVisible, setDocumentsModalVisible] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [newCategory, setNewCategory] = useState('');
-  const [loading, setLoading] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
 
   const commonCategories = [
@@ -113,12 +102,10 @@ const ImageUpload = ({ navigation }) => {
     let timeoutId;
 
     if (media.length > 0 && isMounted) {
-      setLoading(true);
       timeoutId = setTimeout(() => {
         if (isMounted) {
           const randomTags = getRandomSuggestedTags(3);
           setSuggestedTags(randomTags);
-          setLoading(false);
         }
       }, 1500);
     }
@@ -198,29 +185,6 @@ const ImageUpload = ({ navigation }) => {
     }
   };
 
-  const handleDocumentPick = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*'],
-        copyToCacheDirectory: true,
-        multiple: true,
-      });
-
-      if (result.canceled === false && result.assets) {
-        const newDocs = result.assets.map(asset => ({
-          uri: asset.uri,
-          name: asset.name || `document_${Date.now()}`,
-          mimeType: asset.mimeType || 'application/pdf',
-        }));
-        setDocumentsModalVisible(true);
-        setDocuments(prevDocs => [...prevDocs, ...newDocs]);
-      }
-    } catch (error) {
-      console.error('Document pick error:', error);
-      Alert.alert('Error', 'Failed to select document');
-    }
-  };
-
   const handleBeforeImagePick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -259,59 +223,6 @@ const ImageUpload = ({ navigation }) => {
 
   const removeMediaItem = (indexToRemove) => {
     setMedia(prevMedia => prevMedia.filter((_, index) => index !== indexToRemove));
-  };
-
-  const removeDocument = (indexToRemove) => {
-    setDocuments(prevDocs => prevDocs.filter((_, index) => index !== indexToRemove));
-  };
-
-  const openImageEditor = (uri, index) => {
-    setCurrentEditingImage(uri);
-    setCurrentEditingIndex(index);
-    setBrightness(0);
-    setRotation(0);
-    setWatermarkText('');
-    setIsEditModalVisible(true);
-  };
-
-  const applyImageEdits = async () => {
-    if (!currentEditingImage) return;
-
-    setLoading(true);
-    try {
-      const actions = [];
-
-      if (brightness !== 0) {
-        actions.push({ brightness: brightness / 100 + 1 });
-      }
-
-      if (rotation !== 0) {
-        actions.push({ rotate: rotation });
-      }
-
-      if (actions.length > 0) {
-        const result = await ImageManipulator.manipulateAsync(
-          currentEditingImage,
-          actions,
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
-        );
-
-        setMedia(prevMedia =>
-          prevMedia.map((item, index) =>
-            index === currentEditingIndex
-              ? { ...item, uri: result.uri }
-              : item
-          )
-        );
-      }
-
-      setIsEditModalVisible(false);
-    } catch (error) {
-      console.error('Image edit error:', error);
-      Alert.alert('Error', 'Failed to edit image');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const addCategory = (category) => {
@@ -353,8 +264,7 @@ const ImageUpload = ({ navigation }) => {
       const mediaUrls = [];
       let videoUrl = null;
       let beforeAfterUrls = null;
-      const documentUrls = [];
-      const totalUploads = media.length + documents.length + (beforeAfterMode ? 2 : 0);
+      const totalUploads = media.length + (beforeAfterMode ? 2 : 0);
       let uploadCount = 0;
 
       const updateProgress = () => {
@@ -399,23 +309,6 @@ const ImageUpload = ({ navigation }) => {
         updateProgress();
       }
 
-      await Promise.all(documents.map(async (doc) => {
-        const response = await fetch(doc.uri);
-        const blob = await response.blob();
-        const docRef = ref(storage, `documents/${user.uid}/${doc.name}`);
-
-        await uploadBytes(docRef, blob);
-        const docUrl = await getDownloadURL(docRef);
-
-        documentUrls.push({
-          name: doc.name,
-          url: docUrl,
-          type: doc.mimeType,
-        });
-
-        updateProgress();
-      }));
-
       let isVerified = user.isVerified || false;
       if (typeof user.isVerified === 'undefined') {
         const userRef = doc(firestore, 'users', user.uid);
@@ -429,7 +322,6 @@ const ImageUpload = ({ navigation }) => {
         imageList: mediaUrls,
         videoUrl,
         beforeAfterImages: beforeAfterUrls,
-        documentUrls,
         username: user.name,
         uid: user.uid,
         userImage: user.profileImage || null,
@@ -455,7 +347,6 @@ const ImageUpload = ({ navigation }) => {
     setMedia([]);
     setBeforeImage(null);
     setAfterImage(null);
-    setDocuments([]);
     setCategories([]);
     setSuggestedTags([]);
     setProjectTimeline('');
@@ -490,34 +381,7 @@ const ImageUpload = ({ navigation }) => {
         >
           <MaterialIcons name="delete" size={20} color="#fff" />
         </TouchableOpacity>
-        {item.type !== 'video' && (
-          <TouchableOpacity
-            style={styles.mediaButton}
-            onPress={() => openImageEditor(item.uri, index)}
-            accessibilityLabel={`Edit media item ${index + 1}`}
-            accessibilityRole="button"
-          >
-            <MaterialIcons name="edit" size={20} color="#fff" />
-          </TouchableOpacity>
-        )}
       </View>
-    </View>
-  );
-
-  const renderDocument = ({ item, index }) => (
-    <View style={styles.documentItemContainer}>
-      <MaterialIcons name="description" size={24} color={COLORS.SECONDARY_TEXT} />
-      <Text style={styles.documentName} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <TouchableOpacity
-        style={styles.documentButton}
-        onPress={() => removeDocument(index)}
-        accessibilityLabel={`Remove document ${item.name}`}
-        accessibilityRole="button"
-      >
-        <MaterialIcons name="delete" size={20} color={COLORS.SECONDARY_TEXT} />
-      </TouchableOpacity>
     </View>
   );
 
@@ -720,7 +584,7 @@ const ImageUpload = ({ navigation }) => {
             <View style={styles.suggestedTagsContainer}>
               <Text style={styles.suggestedTagsTitle}>
                 <MaterialCommunityIcons name="robot-outline" size={16} color={COLORS.SECONDARY_TEXT} />
-                {' '}AI Suggested Tags:
+                {' '}Suggested Tags:
               </Text>
               <View style={styles.suggestedTagsRow}>
                 {suggestedTags.map((tag, index) => (
@@ -737,28 +601,6 @@ const ImageUpload = ({ navigation }) => {
                 ))}
               </View>
             </View>
-          )}
-        </View>
-
-        {/* Additional Documents */}
-        <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Additional Documents</Text>
-          <TouchableOpacity
-            style={styles.fullWidthButton}
-            onPress={handleDocumentPick}
-            accessibilityLabel="Upload documents"
-            accessibilityRole="button"
-          >
-            <MaterialIcons name="upload-file" size={20} color={COLORS.SECONDARY_TEXT} />
-            <Text style={styles.fullWidthButtonText}>Upload Documents (blueprints, designs, etc.)</Text>
-          </TouchableOpacity>
-          {documents.length > 0 && (
-            <FlatList
-              data={documents}
-              renderItem={renderDocument}
-              keyExtractor={(_, index) => `doc-${index}`}
-              style={styles.documentsList}
-            />
           )}
         </View>
 
@@ -813,133 +655,6 @@ const ImageUpload = ({ navigation }) => {
               <Text style={styles.modalMessage}>
                 Your project has been posted successfully!
               </Text>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Image Editor Modal */}
-        <Modal
-          visible={isEditModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setIsEditModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Edit Image</Text>
-              {currentEditingImage && (
-                <Image source={{ uri: currentEditingImage }} style={styles.editorPreview} />
-              )}
-              <View style={styles.editorControl}>
-                <Text style={styles.editorLabel}>Brightness</Text>
-                <View style={styles.sliderContainer}>
-                  <MaterialIcons name="brightness-low" size={20} color={COLORS.SECONDARY_TEXT} />
-                  <TextInput
-                    style={styles.sliderInput}
-                    placeholder="0"
-                    placeholderTextColor={COLORS.PLACEHOLDER}
-                    value={brightness.toString()}
-                    onChangeText={(value) => setBrightness(parseInt(value) || 0)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="Brightness adjustment input"
-                    accessibilityRole="text"
-                  />
-                  <MaterialIcons name="brightness-high" size={20} color={COLORS.SECONDARY_TEXT} />
-                </View>
-              </View>
-              <View style={styles.editorControl}>
-                <Text style={styles.editorLabel}>Rotation</Text>
-                <View style={styles.sliderContainer}>
-                  <MaterialIcons name="rotate-left" size={20} color={COLORS.SECONDARY_TEXT} />
-                  <TextInput
-                    style={styles.sliderInput}
-                    placeholder="0"
-                    placeholderTextColor={COLORS.PLACEHOLDER}
-                    value={rotation.toString()}
-                    onChangeText={(value) => setRotation(parseInt(value) || 0)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="Rotation adjustment input"
-                    accessibilityRole="text"
-                  />
-                  <MaterialIcons name="rotate-right" size={20} color={COLORS.SECONDARY_TEXT} />
-                </View>
-              </View>
-              <View style={styles.editorControl}>
-                <Text style={styles.editorLabel}>Watermark</Text>
-                <TextInput
-                  style={styles.watermarkInput}
-                  placeholder="Add watermark text"
-                  placeholderTextColor={COLORS.PLACEHOLDER}
-                  value={watermarkText}
-                  onChangeText={setWatermarkText}
-                  accessibilityLabel="Watermark text input"
-                  accessibilityRole="text"
-                />
-              </View>
-              <View style={styles.editorButtons}>
-                <TouchableOpacity
-                  style={styles.editorCancelButton}
-                  onPress={() => setIsEditModalVisible(false)}
-                  disabled={loading}
-                  accessibilityLabel="Cancel image edits"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.editorCancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.editorApplyButton}
-                  onPress={applyImageEdits}
-                  disabled={loading}
-                  accessibilityLabel="Apply image edits"
-                  accessibilityRole="button"
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.editorApplyButtonText}>Apply</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Documents Modal */}
-        <Modal
-          visible={documentsModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setDocumentsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Documents</Text>
-              {documents.length > 0 ? (
-                <FlatList
-                  data={documents}
-                  renderItem={renderDocument}
-                  keyExtractor={(_, index) => `doc-modal-${index}`}
-                  style={styles.documentsList}
-                />
-              ) : (
-                <Text style={styles.noDocuments}>No documents added yet</Text>
-              )}
-              <TouchableOpacity
-                style={styles.addDocumentButton}
-                onPress={handleDocumentPick}
-                accessibilityLabel="Add another document"
-                accessibilityRole="button"
-              >
-                <Text style={styles.addDocumentButtonText}>Add Document</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeModalButton}
-                onPress={() => setDocumentsModalVisible(false)}
-                accessibilityLabel="Close documents modal"
-                accessibilityRole="button"
-              >
-                <Text style={styles.closeModalButtonText}>Close</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </Modal>
